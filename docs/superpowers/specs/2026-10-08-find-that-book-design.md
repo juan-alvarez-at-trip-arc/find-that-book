@@ -67,7 +67,7 @@ Response 200:
    - AI parser: one JSON-mode call with a provider-neutral JSON Schema. The query text is delimited as data. A reply with neither title nor author, or malformed JSON, counts as AI failure.
    - Heuristic parser: removes noise words (`illustrated`, `deluxe`, `edition`, `hardcover`, `paperback`, `novel`, `book`, `by`, `unabridged`, `audiobook`, `signed`, `reprint`, `anniversary`, `collectors`) and 1500-2099 years into keywords. It then emits up to six hypotheses, all flagged `Guessed`: whole text as title, whole text as author, first word or last word as author, and (three or more words) first two or last two words as author. Text with no words left yields no hypotheses.
 2. **OpenLibraryCatalog** searches every hypothesis in parallel.
-   - Request: `/search.json` with `title` and/or `author`, plus `sort=editions` when there is no title, `limit=5`, and `fields` including `editions` (the matching edition titles). A fielded search with no hits is retried once as free text (`q`).
+   - Request: `/search.json` with `title` and/or `author`, plus `sort=editions` when there is no title, `limit=5`, and `fields` including `editions` (the matching edition titles). When a fielded search finds fewer than three works, a free-text (`q`) search also runs and its new works are appended (the fielded search can miss a work whose title is in another language, for example "Män som hatar kvinnor" for "the girl with the dragon tattoo"). If only the free-text search fails, the fielded results are kept.
    - Detail lookups are capped (6 works per search, taken round-robin across hypotheses). Each work gets `/works/{id}.json` for its primary authors, then `/authors/{id}.json` for up to 3 authors: the display `name`, plus `personal_name` and `alternate_names` as aliases used only for matching.
    - Authors named in search results but not on the work record are contributors.
    - A failed work or author lookup keeps the candidate as `Enriched = false`, ranks it by contributor-level signal, and the explanation says author details are unavailable.
@@ -150,7 +150,7 @@ Single page with: search box, example chips, result cards, empty state, error ba
 
 ## Testing
 
-- .NET (196 tests): `Matcher` (tiers, ranking, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, and `WebApplicationFactory` integration tests with a fake catalog.
+- .NET (202 tests): `Matcher` (tiers, ranking, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, and `WebApplicationFactory` integration tests with a fake catalog.
 - Frontend (31 tests, Vitest + Testing Library): results, notices, empty and error states, stale-response handling, progress panel, theme toggle, example promotion.
 - No test calls a live API.
 

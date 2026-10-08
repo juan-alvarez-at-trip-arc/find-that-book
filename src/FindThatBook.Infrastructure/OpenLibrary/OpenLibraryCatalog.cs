@@ -28,6 +28,7 @@ public sealed class OpenLibraryCatalog(
 {
     private const string SearchFields = "key,title,author_name,author_key,first_publish_year,edition_count,cover_i,editions";
     private const int DocsPerSearch = 5;
+    private const int MinFieldedHits = 3;
     private const int EnrichmentConcurrency = 4;
     private readonly OpenLibraryGate _limiter = limiter ?? new OpenLibraryGate(options.Value.MaxConcurrentRequests);
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
@@ -99,10 +100,10 @@ public sealed class OpenLibraryCatalog(
         }
     }
 
-    /// <summary>Searches Open Library by title and author. When both are given and the field search finds nothing, it retries once with a free-text query.</summary>
+    /// <summary>Searches Open Library by title and author. When the field search finds fewer than three works, it also runs a free-text query and appends any works the field search missed, because the field search can miss a work whose title is in another language.</summary>
     /// <param name="hypothesis">The interpretation to search for.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Up to a few works from the search page, or an empty list when the hypothesis has no title and no author.</returns>
+    /// <returns>The field search results followed by new free-text results, or an empty list when the hypothesis has no title and no author. The field results are kept when only the free-text query fails.</returns>
     private async Task<IReadOnlyList<SearchDoc>> SearchAsync(ParsedQuery hypothesis, CancellationToken ct)
     {
         var hasTitle = !string.IsNullOrWhiteSpace(hypothesis.Title);
@@ -115,12 +116,19 @@ public sealed class OpenLibraryCatalog(
         if (!hasTitle) parts.Add("sort=editions");
 
         var docs = ParseDocs(await GetJsonAsync("search.json?" + string.Join('&', parts), ct));
-        if (docs.Count == 0 && hasTitle && hasAuthor)
+        if (docs.Count >= MinFieldedHits) return docs;
+
+        var free = Uri.EscapeDataString($"{hypothesis.Title} {hypothesis.Author}".Trim());
+        try
         {
-            var free = Uri.EscapeDataString($"{hypothesis.Title} {hypothesis.Author}");
-            docs = ParseDocs(await GetJsonAsync($"search.json?fields={SearchFields}&limit={DocsPerSearch}&q={free}", ct));
+            var extra = ParseDocs(await GetJsonAsync($"search.json?fields={SearchFields}&limit={DocsPerSearch}&q={free}", ct));
+            var seen = docs.Select(d => d.WorkId).ToHashSet();
+            return docs.Concat(extra.Where(d => seen.Add(d.WorkId))).ToList();
         }
-        return docs;
+        catch (CatalogUnavailableException) when (docs.Count > 0)
+        {
+            return docs;
+        }
     }
 
     /// <summary>Reads works from a search response, skipping entries without a key or title and entries with wrongly typed fields.</summary>

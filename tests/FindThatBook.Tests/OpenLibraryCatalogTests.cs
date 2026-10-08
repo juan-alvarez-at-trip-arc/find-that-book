@@ -257,6 +257,83 @@ public class OpenLibraryCatalogTests
         Assert.Equal(["Kafka on the Shore"], book.AlternativeTitles);
     }
 
+    private static string DocsJson(params (string Id, string Title)[] docs)
+        => "{\"docs\":[" + string.Join(",", docs.Select(d => $"{{\"key\":\"/works/{d.Id}\",\"title\":\"{d.Title}\"}}")) + "]}";
+
+    private static bool IsFreeText(HttpRequestMessage req) => req.RequestUri!.Query.Contains("&q=");
+
+    [Fact]
+    public async Task A_fielded_search_with_few_hits_is_supplemented_by_the_free_text_search()
+    {
+        var handler = new StubHandler(req => Route(req, r => IsFreeText(r)
+            ? StubHandler.Json(DocsJson(("OL2W", "Män som hatar kvinnor"), ("OL3W", "The girl with the dragon tattoo")))
+            : StubHandler.Json(DocsJson(("OL1W", "Man SOM Hatar Kvinnor (Korean Edition)")))));
+
+        var found = await Catalog(handler).FindAsync([Q.Make("the girl with the dragon tattoo", "stieg larsson")], default);
+
+        Assert.Equal(["OL1W", "OL2W", "OL3W"], found.Select(b => b.WorkId));
+        Assert.Contains(handler.Requests, r => r.StartsWith("/search.json") && r.Contains("&q=the%20girl%20with%20the%20dragon%20tattoo%20stieg%20larsson"));
+    }
+
+    [Fact]
+    public async Task A_fielded_search_with_enough_hits_does_not_run_the_free_text_search()
+    {
+        var handler = new StubHandler(req => Route(req, _ => StubHandler.Json(DocsJson(("OL1W", "A"), ("OL2W", "B"), ("OL3W", "C")))));
+
+        var found = await Catalog(handler).FindAsync([Q.Make("book", null)], default);
+
+        Assert.Equal(3, found.Count);
+        Assert.DoesNotContain(handler.Requests, r => r.Contains("&q="));
+    }
+
+    [Fact]
+    public async Task A_title_only_search_with_no_hits_also_falls_back_to_free_text()
+    {
+        var handler = new StubHandler(req => Route(req, r => IsFreeText(r)
+            ? StubHandler.Json(DocsJson(("OL9W", "海辺のカフカ")))
+            : StubHandler.Json("""{"docs":[]}""")));
+
+        var found = await Catalog(handler).FindAsync([Q.Make("kafka on the shore", null)], default);
+
+        Assert.Equal("OL9W", Assert.Single(found).WorkId);
+        Assert.Contains(handler.Requests, r => r.Contains("&q=kafka%20on%20the%20shore"));
+    }
+
+    [Fact]
+    public async Task An_author_only_search_with_few_hits_is_supplemented_by_free_text()
+    {
+        var handler = new StubHandler(req => Route(req, r => IsFreeText(r)
+            ? StubHandler.Json(DocsJson(("OL2W", "Another Work")))
+            : StubHandler.Json(DocsJson(("OL1W", "First Work")))));
+
+        var found = await Catalog(handler).FindAsync([Q.Make(null, "tolkien")], default);
+
+        Assert.Equal(["OL1W", "OL2W"], found.Select(b => b.WorkId));
+        Assert.Contains(handler.Requests, r => r.Contains("&q=tolkien"));
+    }
+
+    [Fact]
+    public async Task Works_found_by_both_searches_are_returned_once()
+    {
+        var handler = new StubHandler(req => Route(req, _ => StubHandler.Json(DocsJson(("OL1W", "Same Work")))));
+
+        var found = await Catalog(handler).FindAsync([Q.Make("same work", "someone")], default);
+
+        Assert.Equal("OL1W", Assert.Single(found).WorkId);
+    }
+
+    [Fact]
+    public async Task If_the_free_text_supplement_fails_the_fielded_results_are_kept()
+    {
+        var handler = new StubHandler(req => req.RequestUri!.AbsolutePath == "/search.json" && IsFreeText(req)
+            ? new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            : Route(req, _ => StubHandler.Json(DocsJson(("OL1W", "Kept")))));
+
+        var found = await Catalog(handler).FindAsync([Q.Make("kept", "someone")], default);
+
+        Assert.Equal("OL1W", Assert.Single(found).WorkId);
+    }
+
     [Fact]
     public async Task Same_work_from_two_hypotheses_is_returned_once()
     {
