@@ -89,3 +89,29 @@ h1 { margin: 0; font-size: clamp(1.9rem, 4vw, 2.7rem); letter-spacing: -.03em; }
 .theme-toggle button:hover { background: #8883; }
 .theme-toggle button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); }
 .theme-toggle button:focus-visible { outline: 2px solid #7aa7ff; outline-offset: 1px; }
+
+/* Mobile */
+@media (max-width: 760px), (hover: none) {
+  .why { position: static; display: none; margin: 6px 2px 0; padding: 8px 10px; font-size: 0.82rem; box-shadow: none; opacity: 1; visibility: visible; transform: none; }
+  .book:hover .why, .book:focus-within .why { display: none; }
+  .book[data-open="true"] .why { display: block; }
+  .book:hover .cover-wrap, .book:focus-within .cover-wrap { transform: none; }
+  .why-toggle { min-height: 36px; padding: 6px 2px; }
+}
+@media (max-width: 760px) {
+  .page { padding: 16px max(14px, env(safe-area-inset-right)) 56px max(14px, env(safe-area-inset-left)); }
+  .hero { padding: 22px 0 6px; }
+  .lead { margin-bottom: 16px; }
+  .search { padding: 4px; }
+  .search input { padding: 10px 14px; }
+  .search button { padding: 0 18px; min-height: 44px; }
+  .examples { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; margin: 12px -14px 16px; padding: 2px 14px 6px; scrollbar-width: none; }
+  .examples::-webkit-scrollbar { display: none; }
+  .chip { flex-shrink: 0; min-height: 36px; padding: 6px 14px; white-space: nowrap; }
+  .theme-toggle button { min-height: 32px; }
+  .book { padding: 0 8px 44px; }
+  .title { font-size: 0.92rem; }
+  .banner { font-size: 0.9rem; }
+}
+@media (max-width: 340px) { .results { grid-template-columns: minmax(0, 1fr); } .results .book::after { border-radius: 3px; } }
+@media (max-width: 420px) { .top { flex-wrap: wrap; } .theme-toggle button { padding: 4px 9px; } }
