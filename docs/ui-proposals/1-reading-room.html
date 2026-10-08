@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Proposal 1: Reading Room</title>
+<style>
+  :root {
+    --bg: #f3ecdc; --paper: #fffaf0; --ink: #2b2118; --muted: #6f5f4b; --rule: #e1d6bc;
+    --brass: #a9792a; --oxblood: #7a2e2e; --shadow: 0 1px 0 #fff8 inset, 0 2px 0 #d9ccaa, 0 10px 24px #5a431a22;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --mono: ui-monospace, "SF Mono", Consolas, monospace;
+  }
+  [data-theme="dark"] {
+    --bg: #17120e; --paper: #241d17; --ink: #efe3cb; --muted: #b3a284; --rule: #3a2f24;
+    --brass: #dcaa4e; --oxblood: #d98a7a; --shadow: 0 1px 0 #ffffff0d inset, 0 2px 0 #0008, 0 12px 28px #0007;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--serif); line-height: 1.5;
+    background-image: radial-gradient(circle at 50% -20%, #fff6 0, transparent 60%); }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 28px 20px 80px; }
+  header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .brand small { display: block; font: 600 11px var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--brass); }
+  h1 { margin: 2px 0 0; font-size: 2.3rem; letter-spacing: .01em; }
+  .tag { color: var(--muted); font-style: italic; margin: 6px 0 22px; }
+  .toggle { border: 1px solid var(--rule); background: var(--paper); color: var(--ink); border-radius: 999px; padding: 6px 14px; font: 13px var(--mono); cursor: pointer; }
+
+  .drawer { background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: var(--shadow); padding: 18px 20px 16px; position: relative; }
+  .drawer::before { content: "CATALOGUE"; position: absolute; top: -10px; left: 18px; background: var(--brass); color: #fff; font: 700 10px var(--mono); letter-spacing: .2em; padding: 3px 10px; border-radius: 3px; }
+  .search { display: flex; gap: 10px; }
+  .search input { flex: 1; font: 1.15rem var(--serif); padding: 10px 4px; border: 0; border-bottom: 2px solid var(--ink); background: transparent; color: var(--ink); outline: none; }
+  .search input:focus { border-color: var(--brass); }
+  .search button { font: 600 .95rem var(--serif); letter-spacing: .05em; background: var(--oxblood); color: #fff; border: 0; border-radius: 4px; padding: 0 22px; cursor: pointer; }
+  .chips { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip { font: 12px var(--mono); border: 1px dashed var(--brass); color: var(--muted); padding: 3px 10px; border-radius: 3px; background: transparent; cursor: pointer; }
+  .chip:hover { background: var(--brass); color: #fff; }
+
+  .stamp { margin: 20px 0 6px; display: inline-block; transform: rotate(-1.2deg); border: 2px solid var(--oxblood); color: var(--oxblood); padding: 6px 12px; font: 700 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; border-radius: 4px; }
+  .count { font: 12px var(--mono); color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin: 22px 0 10px; }
+
+  .card { display: grid; grid-template-columns: 92px 1fr; gap: 18px; padding: 16px 18px 14px; margin-bottom: 16px; position: relative;
+    background: var(--paper); border: 1px solid var(--rule); border-radius: 6px; box-shadow: var(--shadow);
+    background-image: repeating-linear-gradient(transparent 0 27px, var(--rule) 27px 28px); background-position: 0 6px; }
+  .card::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--brass); border-radius: 6px 0 0 6px; }
+  .card.exact::before { background: var(--oxblood); }
+  .cover { width: 92px; height: 138px; border-radius: 2px 4px 4px 2px; box-shadow: 2px 3px 8px #0004; object-fit: cover; background: #cdbd96; display: grid; place-items: center; font: 11px var(--mono); color: #6d5a2e; }
+  .call { font: 11px var(--mono); letter-spacing: .12em; color: var(--brass); text-transform: uppercase; }
+  .title { font-size: 1.35rem; font-weight: 700; margin: 2px 0 0; line-height: 1.25; background: var(--paper); display: inline; padding-right: 8px; }
+  .author { font-variant: small-caps; letter-spacing: .06em; color: var(--muted); font-size: 1rem; margin-top: 4px; }
+  .meta { font: 11.5px var(--mono); color: var(--muted); margin-top: 4px; }
+  .note { margin: 8px 0 6px; font-style: italic; }
+  .note b { font-style: normal; color: var(--oxblood); font-variant: small-caps; letter-spacing: .05em; }
+  .actions a { font: 12px var(--mono); color: var(--oxblood); text-underline-offset: 3px; }
+  footer { margin-top: 30px; color: var(--muted); font: 12px var(--mono); text-align: center; }
+  @media (max-width: 560px) { .card { grid-template-columns: 70px 1fr; } .cover { width: 70px; height: 105px; } h1 { font-size: 1.8rem; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><small>Public catalogue</small><h1>Find That Book</h1></div>
+    <button class="toggle" onclick="var h=document.documentElement;h.dataset.theme=h.dataset.theme==='dark'?'light':'dark'">light / dark</button>
+  </header>
+  <p class="tag">Describe the book the way you remember it. The librarian will do the rest.</p>
+
+  <section class="drawer" aria-label="Search">
+    <form class="search" onsubmit="return false">
+      <input aria-label="Search for a book" value="tolkien hobbit illustrated deluxe 1937">
+      <button>Search</button>
+    </form>
+    <div class="chips"><button class="chip">moby dick</button><button class="chip">dickens</button><button class="chip">austen bennet</button><button class="chip">sapiens harari</button></div>
+  </section>
+
+  <div class="stamp">AI offline: basic parsing used</div>
+  <div class="count">4 entries found</div>
+
+  <article class="card exact">
+    <img class="cover" alt="Cover of The Hobbit" src="https://covers.openlibrary.org/b/id/14627509-M.jpg">
+    <div>
+      <div class="call">No. 1 &middot; OL27482W</div>
+      <h2 class="title">The Hobbit</h2>
+      <div class="author">J.R.R. Tolkien</div>
+      <div class="meta">First published 1937 &middot; 120 editions</div>
+      <p class="note"><b>Librarian's note:</b> Exact title match; J.R.R. Tolkien is primary author; first published 1937, matching the query.</p>
+      <div class="actions"><a href="#">View on Open Library &rarr;</a></div>
+    </div>
+  </article>
+
+  <article class="card exact">
+    <img class="cover" alt="Cover of The Hobbit, 1990 edition" src="https://covers.openlibrary.org/b/id/8406766-M.jpg">
+    <div>
+      <div class="call">No. 2 &middot; OL219602W</div>
+      <h2 class="title">The Hobbit</h2>
+      <div class="author">Charles Dixon, Sean Deming, J.R.R. Tolkien</div>
+      <div class="meta">First published 1990 &middot; illustrated adaptation</div>
+      <p class="note"><b>Librarian's note:</b> Exact title match; J.R.R. Tolkien is primary author.</p>
+      <div class="actions"><a href="#">View on Open Library &rarr;</a></div>
+    </div>
+  </article>
+
+  <article class="card">
+    <img class="cover" alt="Cover of The Hobbit and The Lord of the Rings" src="https://covers.openlibrary.org/b/id/255844-M.jpg">
+    <div>
+      <div class="call">No. 3 &middot; OL14926019W</div>
+      <h2 class="title">The Hobbit &amp; The Lord of the Rings [collection/set]</h2>
+      <div class="author">J.R.R. Tolkien</div>
+      <div class="meta">First published 1979</div>
+      <p class="note"><b>Librarian's note:</b> Close title match; J.R.R. Tolkien is primary author.</p>
+      <div class="actions"><a href="#">View on Open Library &rarr;</a></div>
+    </div>
+  </article>
+
+  <article class="card">
+    <div class="cover" role="img" aria-label="No cover available">No cover</div>
+    <div>
+      <div class="call">No. 4 &middot; OL14933471W</div>
+      <h2 class="title">Poems from The Hobbit</h2>
+      <div class="author">J.R.R. Tolkien</div>
+      <div class="meta">First published 1999</div>
+      <p class="note"><b>Librarian's note:</b> Close title match; J.R.R. Tolkien is primary author.</p>
+      <div class="actions"><a href="#">View on Open Library &rarr;</a></div>
+    </div>
+  </article>
+
+  <footer>Proposal 1 &middot; Reading Room &middot; static mockup with sample data</footer>
+</div>
+</body>
+</html>
