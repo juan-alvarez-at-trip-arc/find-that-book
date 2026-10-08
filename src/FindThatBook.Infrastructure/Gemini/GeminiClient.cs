@@ -30,7 +30,8 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
             },
         };
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"v1beta/models/{settings.Model}:generateContent")
+        var model = string.IsNullOrWhiteSpace(settings.Model) ? GeminiOptions.DefaultModel : settings.Model.Trim();
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"v1beta/models/{model}:generateContent")
         {
             Content = JsonContent.Create(body),
         };

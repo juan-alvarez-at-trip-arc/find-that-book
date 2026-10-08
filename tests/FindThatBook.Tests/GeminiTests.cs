@@ -15,9 +15,9 @@ public class GeminiTests
     private static string Envelope(string text)
         => JsonSerializer.Serialize(new { candidates = new[] { new { content = new { parts = new[] { new { text } } } } } });
 
-    private static GeminiClient Client(StubHandler handler, string? key = "test-key")
+    private static GeminiClient Client(StubHandler handler, string? key = "test-key", string? model = null)
         => new(new HttpClient(handler) { BaseAddress = new Uri("https://generativelanguage.googleapis.com/") },
-               Options.Create(new GeminiOptions { ApiKey = key }));
+               Options.Create(model is null ? new GeminiOptions { ApiKey = key } : new GeminiOptions { ApiKey = key, Model = model }));
 
     private static readonly JsonNode Schema = JsonNode.Parse("""{"type":"OBJECT"}""")!;
 
@@ -35,7 +35,19 @@ public class GeminiTests
 
         Assert.Equal("""{"ok":true}""", text);
         Assert.Equal("test-key", keyHeader);
-        Assert.Contains("models/gemini-2.5-flash:generateContent", handler.Requests.Single());
+        Assert.Contains("models/gemini-3.8-flash:generateContent", handler.Requests.Single());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public async Task Client_uses_the_default_model_when_the_configured_one_is_blank(string model)
+    {
+        var handler = new StubHandler(_ => StubHandler.Json(Envelope("""{"ok":true}""")));
+
+        await Client(handler, model: model).GenerateJsonAsync("hi", Schema, default);
+
+        Assert.Contains("models/gemini-3.8-flash:generateContent", handler.Requests.Single());
     }
 
     [Fact]
