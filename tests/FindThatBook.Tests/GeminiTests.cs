@@ -156,6 +156,44 @@ public class GeminiTests
     }
 
     [Fact]
+    public async Task Writer_prompt_omits_the_year_when_it_did_not_match_the_query()
+    {
+        string? prompt = null;
+        var ai = new FakeAiClient(p =>
+        {
+            prompt = p;
+            return """[{"index":0,"explanation":"a"}]""";
+        });
+        var reissue = Books.Make("The Hobbit", ["J.R.R. Tolkien"], year: 1990);
+        var matches = Matcher.Rank([Q.Make("the hobbit", "tolkien", "1937")], [reissue]);
+
+        await new AiExplanationWriter(ai).WriteAsync(matches, default);
+
+        Assert.DoesNotContain("\"yearMatchesQuery\"", prompt);
+        Assert.DoesNotContain("\"firstPublishYear\"", prompt);
+        Assert.DoesNotContain("1990", prompt);
+    }
+
+    [Fact]
+    public async Task Writer_prompt_flags_a_matching_year_and_tells_the_model_when_to_mention_years()
+    {
+        string? prompt = null;
+        var ai = new FakeAiClient(p =>
+        {
+            prompt = p;
+            return """[{"index":0,"explanation":"a"}]""";
+        });
+        var hobbit = Books.Make("The Hobbit", ["J.R.R. Tolkien"], year: 1937);
+        var matches = Matcher.Rank([Q.Make("the hobbit", "tolkien", "1937")], [hobbit]);
+
+        await new AiExplanationWriter(ai).WriteAsync(matches, default);
+
+        Assert.Contains("\"yearMatchesQuery\":true", prompt);
+        Assert.Contains("\"firstPublishYear\":1937", prompt);
+        Assert.Contains("only when yearMatchesQuery is true", prompt);
+    }
+
+    [Fact]
     public async Task Writer_prompt_contains_the_facts_it_may_cite()
     {
         string? prompt = null;
