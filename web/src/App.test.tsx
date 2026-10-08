@@ -83,6 +83,25 @@ test("clicking an example runs that search", async () => {
   expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({ query: "mark huckleberry" });
 });
 
+test("clears the previous results while a new search is running", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockImplementationOnce(() => reply({ aiUsed: false, message: null, results: [hobbit] }))
+    .mockImplementationOnce(() => new Promise<Response>(() => {})); // second search never finishes
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+
+  await search("tolkien hobbit");
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+  expect(screen.getByText(/basic parsing/i)).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /search/i }));
+
+  expect(await screen.findByRole("button", { name: /searching/i })).toBeDisabled();
+  expect(screen.queryByText("The Hobbit")).not.toBeInTheDocument();
+  expect(screen.queryByText(/basic parsing/i)).not.toBeInTheDocument();
+});
+
 test("does not search for blank input", async () => {
   const fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
