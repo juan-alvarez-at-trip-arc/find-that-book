@@ -68,6 +68,14 @@ public class GeminiTests
     }
 
     [Fact]
+    public async Task Client_throws_ai_unavailable_when_the_text_part_is_not_a_string()
+    {
+        var handler = new StubHandler(_ => StubHandler.Json("""{"candidates":[{"content":{"parts":[{"text":123}]}}]}"""));
+
+        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync("hi", Schema, default));
+    }
+
+    [Fact]
     public async Task Parser_maps_json_to_a_single_hypothesis()
     {
         var gemini = new FakeGeminiClient(_ => """{"title":"The Hobbit","author":"J.R.R. Tolkien","keywords":["1937","illustrated"]}""");

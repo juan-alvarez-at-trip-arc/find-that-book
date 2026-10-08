@@ -147,6 +147,48 @@ public class OpenLibraryCatalogTests
     }
 
     [Fact]
+    public async Task Doc_with_a_wrongly_typed_field_is_skipped_not_fatal()
+    {
+        var handler = new StubHandler(req => Route(req, _ => StubHandler.Json(
+            """{"docs":[{"key":"/works/OL8W","title":"Bad","first_publish_year":"soon"},{"key":"/works/OL1W","title":"The Hobbit","author_name":["J.R.R. Tolkien"]}]}""")));
+
+        var found = await Catalog(handler).FindAsync([Q.Make("the hobbit", null)], default);
+
+        Assert.Equal("OL1W", Assert.Single(found).WorkId);
+    }
+
+    [Fact]
+    public async Task Enrichment_cap_takes_docs_round_robin_across_hypotheses()
+    {
+        string Docs(string prefix) => "{\"docs\":[" + string.Join(",",
+            Enumerable.Range(1, 5).Select(i => $"{{\"key\":\"/works/{prefix}{i}W\",\"title\":\"{prefix} {i}\"}}")) + "]}";
+        var handler = new StubHandler(req => Route(req, r =>
+            StubHandler.Json(Docs(r.RequestUri!.Query.Contains("title=aaa") ? "A" : r.RequestUri.Query.Contains("title=bbb") ? "B" : "C"))));
+
+        var found = await Catalog(handler).FindAsync([Q.Make("aaa", null), Q.Make("bbb", null), Q.Make("ccc", null)], default);
+
+        Assert.Equal(12, found.Count);
+        Assert.Contains(found, b => b.WorkId == "C1W");
+        Assert.Contains(found, b => b.WorkId == "C4W");
+        Assert.DoesNotContain(found, b => b.WorkId == "A5W");
+    }
+
+    [Fact]
+    public async Task Works_with_a_size_limited_cache()
+    {
+        var cache = new MemoryCache(new MemoryCacheOptions { SizeLimit = 3 });
+        var catalog = new OpenLibraryCatalog(
+            new HttpClient(new StubHandler(req => Route(req))) { BaseAddress = new Uri("https://openlibrary.org/") },
+            cache, NullLogger<OpenLibraryCatalog>.Instance,
+            Options.Create(new OpenLibraryOptions { RetryDelayMs = 0 }));
+
+        var found = await catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default);
+
+        Assert.Single(found);
+        Assert.True(cache.Count <= 3);
+    }
+
+    [Fact]
     public async Task Same_work_from_two_hypotheses_is_returned_once()
     {
         var handler = new StubHandler(req => Route(req));

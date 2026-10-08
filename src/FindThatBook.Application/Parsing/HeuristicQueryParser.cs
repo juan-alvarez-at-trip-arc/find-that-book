@@ -39,6 +39,7 @@ public sealed partial class HeuristicQueryParser : IQueryParser
         if (words.Count >= 3)
         {
             hypotheses.Add(new(string.Join(' ', words.Skip(2)), string.Join(' ', words.Take(2)), keywords));
+            hypotheses.Add(new(string.Join(' ', words.Take(words.Count - 2)), string.Join(' ', words.Skip(words.Count - 2)), keywords));
         }
 
         return Task.FromResult(new ParseOutcome(hypotheses, false));

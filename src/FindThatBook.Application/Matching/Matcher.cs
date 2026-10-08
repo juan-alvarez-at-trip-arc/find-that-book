@@ -41,7 +41,7 @@ public static partial class Matcher
 
     private static IEnumerable<CatalogCandidate> Dedupe(IEnumerable<CatalogCandidate> candidates)
         => candidates
-            .GroupBy(c => (Normalizer.TitleKey(c.Title), Normalizer.NormalizeName(c.PrimaryAuthors.FirstOrDefault())))
+            .GroupBy(c => (Normalizer.FullTitleKey(c.Title), Normalizer.NormalizeName(c.PrimaryAuthors.FirstOrDefault())))
             .Select(g => g.OrderByDescending(c => c.EditionCount).First());
 
     private static bool IsBetter(MatchedBook a, MatchedBook b)

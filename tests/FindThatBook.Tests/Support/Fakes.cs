@@ -13,7 +13,7 @@ public sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> re
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
     {
-        Requests.Add(request.RequestUri!.PathAndQuery);
+        lock (Requests) Requests.Add(request.RequestUri!.PathAndQuery);
         return Task.FromResult(respond(request));
     }
 

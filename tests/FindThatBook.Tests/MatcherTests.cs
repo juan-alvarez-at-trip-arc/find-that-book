@@ -132,6 +132,27 @@ public class MatcherTests
     }
 
     [Fact]
+    public void Different_books_in_the_same_series_are_not_deduplicated()
+    {
+        var thief = Books.Make("Percy Jackson: The Lightning Thief", ["Rick Riordan"], editions: 50, id: "OL1W");
+        var monsters = Books.Make("Percy Jackson: The Sea of Monsters", ["Rick Riordan"], editions: 40, id: "OL2W");
+
+        var ranked = Rank(Q.Make(null, "riordan"), thief, monsters);
+
+        Assert.Equal(["OL1W", "OL2W"], ranked.Select(r => r.Book.WorkId));
+    }
+
+    [Fact]
+    public void Title_typed_without_an_apostrophe_still_matches()
+    {
+        var book = Books.Make("Ender's Game", ["Orson Scott Card"]);
+
+        var match = Assert.Single(Rank(Q.Make("enders game", "card"), book));
+
+        Assert.Equal(MatchTier.ExactTitlePrimaryAuthor, match.Tier);
+    }
+
+    [Fact]
     public void Returns_at_most_the_requested_number_of_results()
     {
         var books = Enumerable.Range(1, 9)

@@ -8,7 +8,9 @@ public class NormalizerTests
     [InlineData("  The  Hobbit!! ", "the hobbit")]
     [InlineData("Gabriel García Márquez", "gabriel garcia marquez")]
     [InlineData("cien años de soledad", "cien anos de soledad")]
-    [InlineData("D'Artagnan", "d artagnan")]
+    [InlineData("D'Artagnan", "dartagnan")]
+    [InlineData("Ender's Game", "enders game")]
+    [InlineData("O’Brien", "obrien")]
     [InlineData("???", "")]
     [InlineData(null, "")]
     public void Normalize_lowercases_and_strips_diacritics_and_punctuation(string? input, string expected)
