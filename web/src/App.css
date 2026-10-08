@@ -1,6 +1,9 @@
 :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 body { margin: 0; }
 .page { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+.top { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 h1 { margin: 0 0 4px; }
 .lead { margin: 0 0 20px; opacity: 0.7; }
 .search { display: flex; gap: 8px; }
@@ -44,3 +47,10 @@ h1 { margin: 0 0 4px; }
   .progress-bar span { animation: none; width: 100%; opacity: 0.5; transform: none; }
   .dots i, .pips li[data-step-state="active"], .progress-text { animation: none; }
 }
+
+/* Theme toggle */
+.theme-toggle { display: inline-flex; border: 1px solid #8886; border-radius: 999px; padding: 2px; flex-shrink: 0; }
+.theme-toggle button { border: 0; background: transparent; color: inherit; font: inherit; font-size: 0.8rem; padding: 4px 12px; border-radius: 999px; cursor: pointer; }
+.theme-toggle button:hover { background: #8883; }
+.theme-toggle button[aria-pressed="true"] { background: #2f6fed; color: #fff; }
+.theme-toggle button:focus-visible { outline: 2px solid #7aa7ff; outline-offset: 1px; }

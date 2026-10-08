@@ -2,6 +2,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { searchBooks } from "./api";
 import { ResultCard } from "./ResultCard";
 import { SearchProgress } from "./SearchProgress";
+import { ThemeToggle } from "./ThemeToggle";
 import type { SearchResponse } from "./types";
 import "./App.css";
 
@@ -45,8 +46,13 @@ export default function App() {
 
   return (
     <main className="page">
-      <h1>Find That Book</h1>
-      <p className="lead">Type whatever you remember: a title, an author, or a messy mix.</p>
+      <header className="top">
+        <div>
+          <h1>Find That Book</h1>
+          <p className="lead">Type whatever you remember: a title, an author, or a messy mix.</p>
+        </div>
+        <ThemeToggle />
+      </header>
 
       <form onSubmit={onSubmit} className="search">
         <input
