@@ -47,6 +47,7 @@ public class OpenAiCompatibleClientTests
         Assert.Equal("openai/gpt-oss-20b", json["model"]!.GetValue<string>());
         Assert.Equal("json_object", json["response_format"]!["type"]!.GetValue<string>());
         Assert.Equal(0, json["temperature"]!.GetValue<int>());
+        Assert.False(json["stream"]!.GetValue<bool>(), "gateways that default to streaming must be told not to");
         var messages = json["messages"]!.AsArray();
         Assert.Contains("find a book", messages.Select(m => m!["content"]!.GetValue<string>()));
         Assert.Contains(messages, m => m!["role"]!.GetValue<string>() == "system"

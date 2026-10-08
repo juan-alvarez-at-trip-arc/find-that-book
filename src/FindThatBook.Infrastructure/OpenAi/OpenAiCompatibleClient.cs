@@ -39,6 +39,7 @@ public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompa
                 new JsonObject { ["role"] = "user", ["content"] = prompt }),
             ["response_format"] = new JsonObject { ["type"] = "json_object" },
             ["temperature"] = 0,
+            ["stream"] = false, // some gateways stream by default, which this client cannot parse
         };
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = JsonContent.Create(body) };
