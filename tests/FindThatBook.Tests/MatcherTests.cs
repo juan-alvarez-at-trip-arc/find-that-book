@@ -152,6 +152,122 @@ public class MatcherTests
         Assert.Equal(MatchTier.ExactTitlePrimaryAuthor, match.Tier);
     }
 
+    // F1: guessed author splits must not beat an exact title.
+
+    private static readonly CatalogCandidate LittlePrince = Books.Make("The Little Prince", ["Thomas Batchelle"], editions: 3, id: "OL1W");
+    private static readonly CatalogCandidate ThreePigs = Books.Make("The Three Little Pigs", ["Sarah Prince"], editions: 9, id: "OL2W");
+
+    [Fact]
+    public void An_exact_title_outranks_a_near_title_whose_author_was_only_guessed()
+    {
+        var guesses = new[] { Q.Guess("the little prince", null), Q.Guess("the little", "prince"), Q.Guess(null, "the little prince") };
+
+        var ranked = Matcher.Rank(guesses, [ThreePigs, LittlePrince]);
+
+        Assert.Equal(["The Little Prince", "The Three Little Pigs"], ranked.Select(r => r.Book.Title));
+        Assert.True(ranked[1].FromGuess);
+    }
+
+    [Fact]
+    public void A_near_title_with_an_author_the_ai_extracted_still_outranks_an_exact_title_alone()
+    {
+        var exactOnly = Books.Make("Huckleberry", ["Someone Else"], editions: 500, id: "OL9W");
+        var twain = Books.Make("Adventures of Huckleberry Finn", ["Mark Twain"], editions: 5, id: "OL8W");
+
+        var ranked = Matcher.Rank([Q.Make("huckleberry", "mark twain")], [exactOnly, twain]);
+
+        Assert.Equal(["OL8W", "OL9W"], ranked.Select(r => r.Book.WorkId));
+        Assert.False(ranked[0].FromGuess);
+    }
+
+    [Fact]
+    public void A_guessed_near_title_with_author_is_still_returned_when_nothing_better_exists()
+    {
+        var twain = Books.Make("Adventures of Huckleberry Finn", ["Mark Twain"]);
+
+        var match = Assert.Single(Matcher.Rank([Q.Guess("huckleberry", "mark")], [twain]));
+
+        Assert.Equal(MatchTier.NearTitleAuthor, match.Tier);
+    }
+
+    [Fact]
+    public void Guessed_exact_title_with_a_matching_author_is_still_the_strongest_match()
+    {
+        var hobbit = Books.Make("The Hobbit", ["J.R.R. Tolkien"], editions: 1);
+        var other = Books.Make("The Hobbit", ["Someone Else"], editions: 900, id: "OL7W");
+
+        var ranked = Matcher.Rank([Q.Guess("hobbit", "tolkien"), Q.Guess("tolkien hobbit", null)], [other, hobbit]);
+
+        Assert.Equal(MatchTier.ExactTitlePrimaryAuthor, ranked[0].Tier);
+        Assert.Equal("J.R.R. Tolkien", ranked[0].MatchedAuthor);
+    }
+
+    // F2: works whose canonical title and author name are not English.
+
+    private static readonly CatalogCandidate Kafka = Books.Make(
+        "海辺のカフカ", ["村上春樹"], editions: 61, id: "OL2625431W",
+        altTitles: ["Kafka on the Shore"],
+        aliases: ["Murakami, Haruki", "Haruki Murakami", "村上, 春樹"]);
+
+    [Fact]
+    public void An_edition_title_matches_when_the_work_title_is_in_another_language()
+    {
+        var match = Assert.Single(Matcher.Rank([Q.Make("kafka on the shore", null)], [Kafka]));
+
+        Assert.True(match.ExactTitle);
+        Assert.Equal("Kafka on the Shore", match.MatchedTitle);
+    }
+
+    [Fact]
+    public void Author_aliases_match_when_the_display_name_is_not_in_latin_script()
+    {
+        var match = Assert.Single(Matcher.Rank([Q.Make("kafka on the shore", "murakami")], [Kafka]));
+
+        Assert.Equal(MatchTier.ExactTitlePrimaryAuthor, match.Tier);
+        Assert.Equal(AuthorMatchKind.Primary, match.AuthorMatch);
+        Assert.Equal("村上春樹", match.MatchedAuthor);
+    }
+
+    [Fact]
+    public void The_novel_beats_the_study_guide_for_the_murakami_query()
+    {
+        var guide = Books.Make("A Study Guide for Haruki Murakami's \"Kafka on the Shore\"", ["Gale Cengage Learning"], editions: 1, id: "OL3W");
+        var hypotheses = new[] { Q.Guess("kafka on the shore", "murakami"), Q.Guess("kafka on the shore murakami", null) };
+
+        var ranked = Matcher.Rank(hypotheses, [guide, Kafka]);
+
+        Assert.Equal("OL2625431W", ranked[0].Book.WorkId);
+    }
+
+    [Fact]
+    public void A_subtitled_edition_title_matches_exactly_once_the_subtitle_is_ignored()
+    {
+        var work = Books.Make("戦争と平和", ["トルストイ"], altTitles: ["War and Peace: The Maude Translation"], aliases: ["Leo Tolstoy"]);
+
+        var match = Assert.Single(Matcher.Rank([Q.Make("war and peace", "tolstoy")], [work]));
+
+        Assert.Equal(MatchTier.ExactTitlePrimaryAuthor, match.Tier);
+        Assert.Equal("War and Peace: The Maude Translation", match.MatchedTitle);
+    }
+
+    [Fact]
+    public void The_work_title_is_preferred_over_an_edition_title_when_both_match()
+    {
+        var book = Books.Make("The Hobbit", ["J.R.R. Tolkien"], altTitles: ["The Hobbit"]);
+
+        var match = Assert.Single(Matcher.Rank([Q.Make("the hobbit", "tolkien")], [book]));
+
+        Assert.Null(match.MatchedTitle);
+    }
+
+    [Fact]
+    public void A_work_with_no_matching_title_or_edition_title_is_still_excluded()
+    {
+        var other = Books.Make("1Q84", ["Haruki Murakami"], altTitles: ["Ichi-kyū-hachi-yon"]);
+
+        Assert.Empty(Matcher.Rank([Q.Make("kafka on the shore", "murakami")], [other]));
+    }
+
     [Fact]
     public void Returns_at_most_the_requested_number_of_results()
     {

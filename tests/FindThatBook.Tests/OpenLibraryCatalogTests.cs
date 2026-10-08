@@ -190,6 +190,74 @@ public class OpenLibraryCatalogTests
     }
 
     [Fact]
+    public async Task Search_asks_Open_Library_for_the_matching_edition_titles()
+    {
+        var handler = new StubHandler(req => Route(req));
+
+        await Catalog(handler).FindAsync([Q.Make("the hobbit", "tolkien")], default);
+
+        Assert.Contains(handler.Requests, r => r.StartsWith("/search.json") && r.Contains("editions"));
+    }
+
+    [Fact]
+    public async Task Matching_edition_titles_are_kept_as_alternative_titles()
+    {
+        const string search = """
+            {"docs":[{"key":"/works/OL1W","title":"The Hobbit","author_name":["J.R.R. Tolkien"],"edition_count":3,
+            "editions":{"docs":[{"key":"/books/OL1M","title":"El hobbit"},{"key":"/books/OL2M","title":"The Hobbit"},{"title":42},{"key":"/books/OL3M"}]}}]}
+            """;
+        var handler = new StubHandler(req => Route(req, _ => StubHandler.Json(search)));
+
+        var book = Assert.Single(await Catalog(handler).FindAsync([Q.Make("el hobbit", null)], default));
+
+        Assert.Equal(["El hobbit"], book.AlternativeTitles);
+    }
+
+    [Fact]
+    public async Task Author_aliases_are_collected_but_the_display_name_stays_the_authors_name()
+    {
+        var handler = new StubHandler(req => req.RequestUri!.AbsolutePath == "/authors/OL1A.json"
+            ? StubHandler.Json("""{"name":"村上春樹","personal_name":"Murakami, Haruki","alternate_names":["Haruki Murakami","HARUKI MURAKAMI",7,"村上春樹"]}""")
+            : Route(req));
+
+        var book = Assert.Single(await Catalog(handler).FindAsync([Q.Make("the hobbit", "murakami")], default));
+
+        Assert.Equal(["村上春樹"], book.PrimaryAuthors);
+        Assert.Contains("Murakami, Haruki", book.PrimaryAuthorAliases);
+        Assert.Contains("Haruki Murakami", book.PrimaryAuthorAliases);
+        Assert.DoesNotContain("村上春樹", book.PrimaryAuthorAliases);
+        Assert.Equal(book.PrimaryAuthorAliases.Count, book.PrimaryAuthorAliases.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [Theory]
+    [InlineData("""{"docs":[{"key":"/works/OL1W","title":"A","editions":null}]}""")]
+    [InlineData("""{"docs":[{"key":"/works/OL1W","title":"A","editions":{"docs":"nope"}}]}""")]
+    [InlineData("""{"docs":[{"key":"/works/OL1W","title":"A","editions":{}}]}""")]
+    [InlineData("""{"docs":[{"key":"/works/OL1W","title":"A"}]}""")]
+    public async Task Missing_or_odd_edition_data_is_ignored(string search)
+    {
+        var handler = new StubHandler(req => Route(req, _ => StubHandler.Json(search)));
+
+        var book = Assert.Single(await Catalog(handler).FindAsync([Q.Make("a", null)], default));
+
+        Assert.Empty(book.AlternativeTitles);
+    }
+
+    [Fact]
+    public async Task Unenriched_candidates_still_carry_their_edition_titles()
+    {
+        const string search = """{"docs":[{"key":"/works/OL1W","title":"海辺のカフカ","editions":{"docs":[{"title":"Kafka on the Shore"}]}}]}""";
+        var handler = new StubHandler(req => req.RequestUri!.AbsolutePath == "/search.json"
+            ? StubHandler.Json(search)
+            : new HttpResponseMessage(HttpStatusCode.InternalServerError));
+
+        var book = Assert.Single(await Catalog(handler).FindAsync([Q.Make("kafka on the shore", null)], default));
+
+        Assert.False(book.Enriched);
+        Assert.Equal(["Kafka on the Shore"], book.AlternativeTitles);
+    }
+
+    [Fact]
     public async Task Same_work_from_two_hypotheses_is_returned_once()
     {
         var handler = new StubHandler(req => Route(req));

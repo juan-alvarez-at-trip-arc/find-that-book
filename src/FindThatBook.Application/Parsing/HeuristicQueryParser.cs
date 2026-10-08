@@ -28,18 +28,18 @@ public sealed partial class HeuristicQueryParser : IQueryParser
         var whole = string.Join(' ', words);
         var hypotheses = new List<ParsedQuery>
         {
-            new(whole, null, keywords),
-            new(null, whole, keywords),
+            new(whole, null, keywords, Guessed: true),
+            new(null, whole, keywords, Guessed: true),
         };
         if (words.Count >= 2)
         {
-            hypotheses.Add(new(string.Join(' ', words.Skip(1)), words[0], keywords));
-            hypotheses.Add(new(string.Join(' ', words.Take(words.Count - 1)), words[^1], keywords));
+            hypotheses.Add(new(string.Join(' ', words.Skip(1)), words[0], keywords, Guessed: true));
+            hypotheses.Add(new(string.Join(' ', words.Take(words.Count - 1)), words[^1], keywords, Guessed: true));
         }
         if (words.Count >= 3)
         {
-            hypotheses.Add(new(string.Join(' ', words.Skip(2)), string.Join(' ', words.Take(2)), keywords));
-            hypotheses.Add(new(string.Join(' ', words.Take(words.Count - 2)), string.Join(' ', words.Skip(words.Count - 2)), keywords));
+            hypotheses.Add(new(string.Join(' ', words.Skip(2)), string.Join(' ', words.Take(2)), keywords, Guessed: true));
+            hypotheses.Add(new(string.Join(' ', words.Take(words.Count - 2)), string.Join(' ', words.Skip(words.Count - 2)), keywords, Guessed: true));
         }
 
         return Task.FromResult(new ParseOutcome(hypotheses, false));

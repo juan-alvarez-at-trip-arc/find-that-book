@@ -37,8 +37,10 @@ public static class Books
         int? year = null,
         int editions = 1,
         bool enriched = true,
-        string? id = null)
-        => new(id ?? "OL" + Math.Abs(title.GetHashCode()) + "W", title, primary, contributors ?? [], year, editions, null, enriched);
+        string? id = null,
+        string[]? altTitles = null,
+        string[]? aliases = null)
+        => new(id ?? "OL" + Math.Abs(title.GetHashCode()) + "W", title, primary, contributors ?? [], year, editions, null, enriched, altTitles ?? [], aliases ?? []);
 }
 
 public sealed class FakeAiClient(Func<string, string> respond) : IAiClient
@@ -62,4 +64,7 @@ public sealed class FakeClock(DateTimeOffset start) : TimeProvider
 public static class Q
 {
     public static ParsedQuery Make(string? title, string? author, params string[] keywords) => new(title, author, keywords);
+
+    /// <summary>A hypothesis the heuristic parser produced by guessing, as opposed to one the AI extracted.</summary>
+    public static ParsedQuery Guess(string? title, string? author, params string[] keywords) => new(title, author, keywords, Guessed: true);
 }

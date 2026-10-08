@@ -23,6 +23,7 @@ public sealed class AiExplanationWriter(IAiClient ai) : IExplanationWriter
                 ["matchedAuthorRole"] = m.AuthorMatch.ToString(),
                 ["authorDetailsAvailable"] = m.Book.Enriched,
             };
+            if (m.MatchedTitle is not null) fact["matchedEditionTitle"] = m.MatchedTitle;
             // The year is shown only when it matches the reader's year; otherwise the model cannot misstate it.
             if (m.YearMatches)
             {
@@ -36,6 +37,7 @@ public sealed class AiExplanationWriter(IAiClient ai) : IExplanationWriter
             For each book below, write ONE sentence (at most 30 words) explaining why it matches the reader's search.
             Use ONLY the facts given. Do not add outside knowledge. Say whether the matched author is the primary author or only a contributor, and mention other contributors when present. Mention the publication year only when yearMatchesQuery is true, and never comment on a year that did not match.
             matchKind values: ExactTitlePrimaryAuthor, ExactTitleContributorAuthor, NearTitleAuthor, AuthorOnly (no title was given), TitleOnly (title matched, no matching author in the query).
+            matchedEditionTitle, when present, is the title of an edition that matched; the work itself is titled differently, so mention that edition title.
             Return a JSON array with one object per book: index and explanation.
             Books: {facts}
             """;

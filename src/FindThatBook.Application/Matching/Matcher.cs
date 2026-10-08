@@ -30,7 +30,7 @@ public static partial class Matcher
         }
 
         return matched
-            .OrderBy(m => (int)m.Tier)
+            .OrderBy(Strength)
             .ThenByDescending(m => m.ExactTitle)
             .ThenByDescending(m => m.YearMatches)
             .ThenByDescending(m => m.Book.EditionCount)
@@ -39,26 +39,33 @@ public static partial class Matcher
             .ToList();
     }
 
+    /// <summary>
+    /// Lower is stronger. A near title plus an author the AI extracted is strong, but the same match with an author the
+    /// heuristic parser merely guessed ranks below an exact title on its own: typing exactly a title is better evidence
+    /// than a guessed word that happens to be part of someone's name.
+    /// </summary>
+    private static int Strength(MatchedBook m) => m.Tier switch
+    {
+        MatchTier.ExactTitlePrimaryAuthor => 10,
+        MatchTier.ExactTitleContributorAuthor => 20,
+        MatchTier.NearTitleAuthor => m.FromGuess ? 60 : 30,
+        MatchTier.AuthorOnly => 40,
+        _ => m.ExactTitle ? 50 : 70,
+    };
+
     private static IEnumerable<CatalogCandidate> Dedupe(IEnumerable<CatalogCandidate> candidates)
         => candidates
             .GroupBy(c => (Normalizer.FullTitleKey(c.Title), Normalizer.NormalizeName(c.PrimaryAuthors.FirstOrDefault())))
             .Select(g => g.OrderByDescending(c => c.EditionCount).First());
 
     private static bool IsBetter(MatchedBook a, MatchedBook b)
-        => a.Tier < b.Tier || (a.Tier == b.Tier && a.ExactTitle && !b.ExactTitle);
+        => Strength(a) < Strength(b) || (Strength(a) == Strength(b) && a.ExactTitle && !b.ExactTitle);
 
     private static MatchedBook? Evaluate(ParsedQuery hypothesis, CatalogCandidate candidate, HashSet<int> years)
     {
         var queryTitle = Normalizer.TitleKey(hypothesis.Title);
         var hasTitle = queryTitle.Length > 0;
-        var titleExact = false;
-        var titleNear = false;
-        if (hasTitle)
-        {
-            var candidateTitle = Normalizer.TitleKey(candidate.Title);
-            titleExact = candidateTitle == queryTitle;
-            titleNear = !titleExact && IsNear(queryTitle, candidateTitle);
-        }
+        var (titleExact, titleNear, matchedTitle) = hasTitle ? MatchTitle(queryTitle, candidate) : (false, false, null);
 
         var (kind, matchedAuthor) = MatchAuthor(hypothesis.Author, candidate);
 
@@ -72,7 +79,32 @@ public static partial class Matcher
         if (tier is null) return null;
 
         var yearMatches = candidate.FirstPublishYear is { } y && years.Contains(y);
-        return new MatchedBook(candidate, tier.Value, titleExact, kind, matchedAuthor, yearMatches);
+        return new MatchedBook(candidate, tier.Value, titleExact, kind, matchedAuthor, yearMatches, hypothesis.Guessed, matchedTitle);
+    }
+
+    /// <summary>
+    /// Compares against the work title first, then the edition titles Open Library matched (a work can be titled in
+    /// another language while its English edition carries the title the reader typed).
+    /// </summary>
+    private static (bool Exact, bool Near, string? ViaTitle) MatchTitle(string queryTitle, CatalogCandidate candidate)
+    {
+        var workKey = Normalizer.TitleKey(candidate.Title);
+        if (workKey == queryTitle) return (true, false, null);
+
+        var near = IsNear(queryTitle, workKey);
+        foreach (var title in candidate.AlternativeTitles)
+        {
+            var key = Normalizer.TitleKey(title);
+            if (key == queryTitle) return (true, false, title);
+        }
+
+        if (near) return (false, true, null);
+
+        foreach (var title in candidate.AlternativeTitles)
+        {
+            if (IsNear(queryTitle, Normalizer.TitleKey(title))) return (false, true, title);
+        }
+        return (false, false, null);
     }
 
     private static bool IsNear(string query, string candidate)
@@ -93,6 +125,11 @@ public static partial class Matcher
 
         foreach (var name in candidate.PrimaryAuthors)
             if (NameMatches(tokens, name)) return (AuthorMatchKind.Primary, name);
+
+        // Aliases (other spellings and scripts) belong to the work's primary authors; report the first one by name.
+        foreach (var alias in candidate.PrimaryAuthorAliases)
+            if (NameMatches(tokens, alias)) return (AuthorMatchKind.Primary, candidate.PrimaryAuthors.FirstOrDefault() ?? alias);
+
         foreach (var name in candidate.Contributors)
             if (NameMatches(tokens, name)) return (AuthorMatchKind.Contributor, name);
         return (AuthorMatchKind.None, null);

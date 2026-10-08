@@ -18,7 +18,7 @@ public sealed class OpenLibraryCatalog(
     IOptions<OpenLibraryOptions> options,
     OpenLibraryGate? limiter = null) : IBookCatalog
 {
-    private const string SearchFields = "key,title,author_name,author_key,first_publish_year,edition_count,cover_i";
+    private const string SearchFields = "key,title,author_name,author_key,first_publish_year,edition_count,cover_i,editions";
     private const int DocsPerSearch = 5;
     private const int EnrichmentConcurrency = 4;
     private readonly OpenLibraryGate _limiter = limiter ?? new OpenLibraryGate(options.Value.MaxConcurrentRequests);
@@ -26,7 +26,7 @@ public sealed class OpenLibraryCatalog(
 
     private sealed record SearchDoc(
         string WorkId, string Title, IReadOnlyList<string> AuthorNames,
-        int? FirstPublishYear, int EditionCount, int? CoverId);
+        int? FirstPublishYear, int EditionCount, int? CoverId, IReadOnlyList<string> EditionTitles);
 
     public async Task<IReadOnlyList<CatalogCandidate>> FindAsync(IReadOnlyList<ParsedQuery> hypotheses, CancellationToken ct)
     {
@@ -114,7 +114,8 @@ public sealed class OpenLibraryCatalog(
                     names,
                     node["first_publish_year"]?.GetValue<int>(),
                     node["edition_count"]?.GetValue<int>() ?? 0,
-                    node["cover_i"]?.GetValue<int>()));
+                    node["cover_i"]?.GetValue<int>(),
+                    EditionTitles(node, title)));
             }
             catch (InvalidOperationException)
             {
@@ -122,6 +123,19 @@ public sealed class OpenLibraryCatalog(
             }
         }
         return result;
+    }
+
+    /// <summary>Titles of the editions Open Library matched for this work, other than the work's own title.</summary>
+    private static List<string> EditionTitles(JsonNode doc, string workTitle)
+    {
+        if (doc["editions"]?["docs"] is not JsonArray editions) return [];
+
+        return editions
+            .Select(e => e?["title"] is JsonValue v && v.TryGetValue<string>(out var t) ? t : null)
+            .OfType<string>()
+            .Where(t => !string.IsNullOrWhiteSpace(t) && !string.Equals(t, workTitle, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
     }
 
     private async Task<CatalogCandidate> EnrichAsync(SearchDoc doc, CancellationToken ct)
@@ -137,15 +151,16 @@ public sealed class OpenLibraryCatalog(
                 .Take(Math.Max(1, options.Value.MaxAuthorsPerWork))
                 .ToList();
 
-            var names = await Task.WhenAll(authorIds.Select(id => AuthorNameAsync(id, ct)));
-            var primary = names.OfType<string>().Distinct().ToList();
+            var authors = (await Task.WhenAll(authorIds.Select(id => AuthorAsync(id, ct)))).OfType<AuthorInfo>().ToList();
+            var primary = authors.Select(a => a.Name).Distinct().ToList();
             if (primary.Count == 0) return Unenriched(doc);
 
             var contributors = doc.AuthorNames
                 .Where(n => !primary.Any(p => Normalizer.NormalizeName(p) == Normalizer.NormalizeName(n)))
                 .ToList();
+            var aliases = authors.SelectMany(a => a.Aliases).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             return new CatalogCandidate(doc.WorkId, doc.Title, primary, contributors,
-                doc.FirstPublishYear, doc.EditionCount, doc.CoverId, true);
+                doc.FirstPublishYear, doc.EditionCount, doc.CoverId, true, doc.EditionTitles, aliases);
         }
         catch (CatalogUnavailableException ex)
         {
@@ -155,12 +170,34 @@ public sealed class OpenLibraryCatalog(
     }
 
     private static CatalogCandidate Unenriched(SearchDoc doc)
-        => new(doc.WorkId, doc.Title, [], doc.AuthorNames, doc.FirstPublishYear, doc.EditionCount, doc.CoverId, false);
+        => new(doc.WorkId, doc.Title, [], doc.AuthorNames, doc.FirstPublishYear, doc.EditionCount, doc.CoverId, false, doc.EditionTitles, []);
 
-    private async Task<string?> AuthorNameAsync(string authorId, CancellationToken ct)
+    private const int MaxAliasesPerAuthor = 40;
+
+    /// <param name="Name">The display name, as Open Library shows it (can be in another script).</param>
+    /// <param name="Aliases">Other spellings used only for matching: the personal name and alternate names.</param>
+    private sealed record AuthorInfo(string Name, IReadOnlyList<string> Aliases);
+
+    private async Task<AuthorInfo?> AuthorAsync(string authorId, CancellationToken ct)
     {
         var json = await GetJsonAsync($"authors/{authorId}.json", ct);
-        return json?["name"]?.GetValue<string>();
+        var name = json?["name"] is JsonValue n && n.TryGetValue<string>(out var s) && !string.IsNullOrWhiteSpace(s) ? s : null;
+        if (name is null) return null;
+
+        var aliases = new List<string>();
+        if (json!["personal_name"] is JsonValue personal && personal.TryGetValue<string>(out var p)) aliases.Add(p);
+        if (json["alternate_names"] is JsonArray alternates)
+        {
+            aliases.AddRange(alternates
+                .Select(a => a is JsonValue v && v.TryGetValue<string>(out var t) ? t : null)
+                .OfType<string>());
+        }
+
+        return new AuthorInfo(name, aliases
+            .Where(a => !string.IsNullOrWhiteSpace(a) && !string.Equals(a, name, StringComparison.OrdinalIgnoreCase))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(MaxAliasesPerAuthor)
+            .ToList());
     }
 
     private async Task<JsonNode?> GetJsonAsync(string relativeUrl, CancellationToken ct)
