@@ -119,7 +119,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 ## How it works
 
 1. **Parse.** The AI provider turns the text into `{ title?, author?, keywords[] }`, one hypothesis. Without AI, a heuristic parser strips noise words and years into keywords and emits up to six guessed hypotheses (whole text as title, as author, first or last word as author, first or last two words as author).
-2. **Search.** `OpenLibraryCatalog` searches every hypothesis in parallel, asking Open Library for matching edition titles too. Works are then looked up (at most 6 per search) to find their primary authors, with each author's alternate names kept for matching. Authors listed in search results but not on the work record are contributors.
+2. **Search.** `OpenLibraryCatalog` searches every hypothesis in parallel, asking Open Library for matching edition titles too. When a fielded title/author search finds fewer than three works, a free-text search is added, so works titled in another language are still found. Works are then looked up (at most 6 per search) to find their primary authors, with each author's alternate names kept for matching. Authors listed in search results but not on the work record are contributors.
 3. **Match and rank** (pure code, `Normalizer` and `Matcher`). Text is lowercased, with diacritics, apostrophes, punctuation, subtitles and leading articles removed and initials merged. A title matches exactly or nearly against the work title or an edition title. An author matches when every query word equals or starts a name word, through aliases and transliteration variants. Tiers:
    1. exact title + primary author
    2. exact title + contributor-only author
@@ -154,7 +154,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 ## Testing
 
-- 196 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 202 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.

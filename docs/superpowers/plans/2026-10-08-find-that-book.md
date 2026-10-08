@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** `feature/find-that-book`, last commit `4393dfe`. Final test counts: 196 .NET tests, 31 frontend tests, all passing.
+**Branch:** `feature/find-that-book`, last commit `4393dfe`. Final test counts: 202 .NET tests, 31 frontend tests, all passing.
 
 ## Global Constraints
 
@@ -100,7 +100,7 @@ Failure modes the feature tasks would not otherwise exercise. All have tests.
 
 **Files:** `OpenLibrary/OpenLibraryCatalog.cs`, `OpenLibraryOptions.cs`, `OpenLibraryGate.cs`, `tests/.../OpenLibraryCatalogTests.cs`, `OpenLibraryLoadTests.cs`.
 
-**Behavior (final):** hypotheses are searched in parallel (`limit=5`, `fields` includes `editions`, `sort=editions` without a title, one free-text retry when a fielded search finds nothing). Up to `MaxDetailLookups` works are chosen round-robin across hypotheses and enriched four at a time. Authors come from the work record (first `MaxAuthorsPerWork`), with the author record's `name` for display and `personal_name` plus `alternate_names` as aliases. Edition titles from the search become `AlternativeTitles`. Tolerant parsing skips docs with wrongly typed fields. A failed lookup yields an unenriched candidate. Retries apply to 5xx, timeouts and network errors. A 429 starts a shared cooldown and is never retried.
+**Behavior (final):** hypotheses are searched in parallel (`limit=5`, `fields` includes `editions`, `sort=editions` without a title, a supplementary free-text search, appended after the fielded results and de-duplicated by work, when a fielded search finds fewer than three works). Up to `MaxDetailLookups` works are chosen round-robin across hypotheses and enriched four at a time. Authors come from the work record (first `MaxAuthorsPerWork`), with the author record's `name` for display and `personal_name` plus `alternate_names` as aliases. Edition titles from the search become `AlternativeTitles`. Tolerant parsing skips docs with wrongly typed fields. A failed lookup yields an unenriched candidate. Retries apply to 5xx, timeouts and network errors. A 429 starts a shared cooldown and is never retried.
 
 ### Task 6: Gemini clients and fallbacks (original), reworked in Task 11
 
