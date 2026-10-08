@@ -1,3 +1,4 @@
+using FindThatBook.Infrastructure.Ai;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -90,9 +91,9 @@ public class GeminiTests
     [Fact]
     public async Task Parser_maps_json_to_a_single_hypothesis()
     {
-        var gemini = new FakeGeminiClient(_ => """{"title":"The Hobbit","author":"J.R.R. Tolkien","keywords":["1937","illustrated"]}""");
+        var gemini = new FakeAiClient(_ => """{"title":"The Hobbit","author":"J.R.R. Tolkien","keywords":["1937","illustrated"]}""");
 
-        var outcome = await new GeminiQueryParser(gemini).ParseAsync("tolkien hobbit illustrated deluxe 1937", default);
+        var outcome = await new AiQueryParser(gemini).ParseAsync("tolkien hobbit illustrated deluxe 1937", default);
 
         Assert.True(outcome.AiUsed);
         var h = Assert.Single(outcome.Hypotheses);
@@ -104,9 +105,9 @@ public class GeminiTests
     [Fact]
     public async Task Parser_accepts_a_null_title_for_author_only_queries()
     {
-        var gemini = new FakeGeminiClient(_ => """{"title":null,"author":"Charles Dickens","keywords":[]}""");
+        var gemini = new FakeAiClient(_ => """{"title":null,"author":"Charles Dickens","keywords":[]}""");
 
-        var outcome = await new GeminiQueryParser(gemini).ParseAsync("dickens", default);
+        var outcome = await new AiQueryParser(gemini).ParseAsync("dickens", default);
 
         Assert.Null(Assert.Single(outcome.Hypotheses).Title);
     }
@@ -119,9 +120,9 @@ public class GeminiTests
     [InlineData("[]")]
     public async Task Parser_rejects_malformed_or_empty_output(string reply)
     {
-        var gemini = new FakeGeminiClient(_ => reply);
+        var gemini = new FakeAiClient(_ => reply);
 
-        await Assert.ThrowsAsync<AiUnavailableException>(() => new GeminiQueryParser(gemini).ParseAsync("x", default));
+        await Assert.ThrowsAsync<AiUnavailableException>(() => new AiQueryParser(gemini).ParseAsync("x", default));
     }
 
     private static MatchedBook[] Matches()
@@ -134,9 +135,9 @@ public class GeminiTests
     [Fact]
     public async Task Writer_returns_explanations_in_match_order()
     {
-        var gemini = new FakeGeminiClient(_ => """[{"index":1,"explanation":"Second."},{"index":0,"explanation":"First."}]""");
+        var gemini = new FakeAiClient(_ => """[{"index":1,"explanation":"Second."},{"index":0,"explanation":"First."}]""");
 
-        var outcome = await new GeminiExplanationWriter(gemini).WriteAsync(Matches(), default);
+        var outcome = await new AiExplanationWriter(gemini).WriteAsync(Matches(), default);
 
         Assert.True(outcome.AiUsed);
         Assert.Equal(["First.", "Second."], outcome.Explanations);
@@ -149,22 +150,22 @@ public class GeminiTests
     [InlineData("garbage")]
     public async Task Writer_rejects_incomplete_or_malformed_output(string reply)
     {
-        var gemini = new FakeGeminiClient(_ => reply);
+        var gemini = new FakeAiClient(_ => reply);
 
-        await Assert.ThrowsAsync<AiUnavailableException>(() => new GeminiExplanationWriter(gemini).WriteAsync(Matches(), default));
+        await Assert.ThrowsAsync<AiUnavailableException>(() => new AiExplanationWriter(gemini).WriteAsync(Matches(), default));
     }
 
     [Fact]
     public async Task Writer_prompt_contains_the_facts_it_may_cite()
     {
         string? prompt = null;
-        var gemini = new FakeGeminiClient(p =>
+        var gemini = new FakeAiClient(p =>
         {
             prompt = p;
             return """[{"index":0,"explanation":"a"},{"index":1,"explanation":"b"}]""";
         });
 
-        await new GeminiExplanationWriter(gemini).WriteAsync(Matches(), default);
+        await new AiExplanationWriter(gemini).WriteAsync(Matches(), default);
 
         Assert.Contains("J.R.R. Tolkien", prompt);
         Assert.Contains("Dixon", prompt);

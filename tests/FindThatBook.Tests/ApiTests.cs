@@ -1,3 +1,4 @@
+using FindThatBook.Infrastructure.Ai;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -20,7 +21,7 @@ public class ApiTests
 
     private static HttpClient CreateClient(
         Func<IReadOnlyList<ParsedQuery>, IReadOnlyList<CatalogCandidate>>? catalog = null,
-        IGeminiClient? gemini = null)
+        IAiClient? gemini = null)
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -31,7 +32,7 @@ public class ApiTests
                 services.AddSingleton<IBookCatalog>(new FakeCatalog(catalog ?? (_ => [Hobbit])));
                 if (gemini is not null)
                 {
-                    services.RemoveAll<IGeminiClient>();
+                    services.RemoveAll<IAiClient>();
                     services.AddSingleton(gemini);
                 }
             });
@@ -61,7 +62,7 @@ public class ApiTests
     [Fact]
     public async Task With_gemini_available_ai_used_is_true()
     {
-        var gemini = new FakeGeminiClient(prompt => prompt.Contains("Extract book search fields")
+        var gemini = new FakeAiClient(prompt => prompt.Contains("Extract book search fields")
             ? """{"title":"The Hobbit","author":"J.R.R. Tolkien","keywords":["1937"]}"""
             : """[{"index":0,"explanation":"Exact title; Tolkien is primary author; Dixon listed as contributor."}]""");
         var client = CreateClient(gemini: gemini);
@@ -75,7 +76,7 @@ public class ApiTests
     [Fact]
     public async Task Malformed_gemini_output_degrades_instead_of_failing()
     {
-        var client = CreateClient(gemini: new FakeGeminiClient(_ => "```not json```"));
+        var client = CreateClient(gemini: new FakeAiClient(_ => "```not json```"));
 
         var response = await client.PostAsJsonAsync("/api/search", new { query = "tolkien hobbit" });
 

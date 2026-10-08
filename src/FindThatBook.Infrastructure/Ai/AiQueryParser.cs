@@ -3,18 +3,10 @@ using System.Text.Json.Nodes;
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Models;
 
-namespace FindThatBook.Infrastructure.Gemini;
+namespace FindThatBook.Infrastructure.Ai;
 
-public sealed class GeminiQueryParser(IGeminiClient gemini) : IQueryParser
+public sealed class AiQueryParser(IAiClient ai) : IQueryParser
 {
-    private static readonly JsonNode Schema = JsonNode.Parse("""
-        {"type":"OBJECT","properties":{
-          "title":{"type":"STRING","nullable":true},
-          "author":{"type":"STRING","nullable":true},
-          "keywords":{"type":"ARRAY","items":{"type":"STRING"}}},
-         "required":["keywords"]}
-        """)!;
-
     public async Task<ParseOutcome> ParseAsync(string query, CancellationToken ct)
     {
         var prompt = $"""
@@ -28,7 +20,7 @@ public sealed class GeminiQueryParser(IGeminiClient gemini) : IQueryParser
             Reader's text: <<<{query}>>>
             """;
 
-        var text = await gemini.GenerateJsonAsync(prompt, Schema, ct);
+        var text = await ai.GenerateJsonAsync(prompt, AiSchemas.Query, ct);
         try
         {
             using var doc = JsonDocument.Parse(text);
@@ -36,7 +28,7 @@ public sealed class GeminiQueryParser(IGeminiClient gemini) : IQueryParser
             var title = ReadString(root, "title");
             var author = ReadString(root, "author");
             if (title is null && author is null)
-                throw new AiUnavailableException("Gemini returned neither a title nor an author.");
+                throw new AiUnavailableException("AI provider returned neither a title nor an author.");
 
             var keywords = root.TryGetProperty("keywords", out var k) && k.ValueKind == JsonValueKind.Array
                 ? k.EnumerateArray()
@@ -49,7 +41,7 @@ public sealed class GeminiQueryParser(IGeminiClient gemini) : IQueryParser
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
-            throw new AiUnavailableException("Gemini returned malformed JSON.", ex);
+            throw new AiUnavailableException("AI provider returned malformed JSON.", ex);
         }
     }
 

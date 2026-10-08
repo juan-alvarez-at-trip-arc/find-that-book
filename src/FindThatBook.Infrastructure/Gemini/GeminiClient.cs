@@ -1,3 +1,4 @@
+using FindThatBook.Infrastructure.Ai;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -6,7 +7,7 @@ using Microsoft.Extensions.Options;
 
 namespace FindThatBook.Infrastructure.Gemini;
 
-public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> options) : IGeminiClient
+public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> options) : IAiClient
 {
     private static JsonNode? First(JsonNode? node) => node is JsonArray { Count: > 0 } array ? array[0] : null;
 
@@ -25,7 +26,7 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
             ["generationConfig"] = new JsonObject
             {
                 ["responseMimeType"] = "application/json",
-                ["responseSchema"] = schema.DeepClone(),
+                ["responseSchema"] = GeminiSchema.FromJsonSchema(schema),
                 ["temperature"] = 0,
             },
         };
