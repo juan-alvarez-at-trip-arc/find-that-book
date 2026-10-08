@@ -17,7 +17,18 @@ Requirements: .NET 8 SDK, Node 22+.
 4. UI: `cd web && npm install && npm run dev` (http://localhost:5173, proxies `/api`)
 5. Tests: `dotnet test` and `cd web && npm test`
 
-Docker (UI and API on one port):
+Docker Compose (UI and API on one port, http://localhost:8080):
+
+1. Optional: put your key in a `.env` file next to `docker-compose.yml` (without it the app runs in fallback mode):
+   ```
+   GEMINI_API_KEY=<your key>
+   GEMINI_MODEL=gemini-2.5-flash
+   ```
+   `GEMINI_MODEL` is optional.
+2. Start it: `docker compose up --build`
+3. Stop it: `docker compose down`
+
+Plain Docker works too:
 
     docker build -t find-that-book .
     docker run --rm -p 8080:8080 -e Gemini__ApiKey=<your key> find-that-book
