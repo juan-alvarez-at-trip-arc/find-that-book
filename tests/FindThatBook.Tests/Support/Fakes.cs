@@ -1,3 +1,4 @@
+using FindThatBook.Infrastructure.Ai;
 using System.Net;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -40,7 +41,7 @@ public static class Books
         => new(id ?? "OL" + Math.Abs(title.GetHashCode()) + "W", title, primary, contributors ?? [], year, editions, null, enriched);
 }
 
-public sealed class FakeGeminiClient(Func<string, string> respond) : IGeminiClient
+public sealed class FakeAiClient(Func<string, string> respond) : IAiClient
 {
     public Task<string> GenerateJsonAsync(string prompt, JsonNode schema, CancellationToken ct)
         => Task.FromResult(respond(prompt));

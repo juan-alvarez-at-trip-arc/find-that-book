@@ -1,8 +1,10 @@
+using FindThatBook.Infrastructure.Ai;
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Explanations;
 using FindThatBook.Application.Parsing;
 using FindThatBook.Application.Search;
 using FindThatBook.Infrastructure.Gemini;
+using FindThatBook.Infrastructure.OpenAi;
 using FindThatBook.Infrastructure.OpenLibrary;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,19 +28,37 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.UserAgent.ParseAdd("FindThatBook/1.0 (coding challenge)");
         });
 
-        services.AddHttpClient<IGeminiClient, GeminiClient>(client =>
+        services.Configure<OpenAiCompatibleOptions>(config.GetSection("OpenAiCompatible"));
+
+        var provider = (config["Ai:Provider"] ?? "").Trim();
+        if (provider.Length == 0 || provider.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
         {
-            client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
-            client.Timeout = TimeSpan.FromSeconds(30);
-        });
+            services.AddHttpClient<IAiClient, GeminiClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+        }
+        else if (provider.Equals("OpenAiCompatible", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddHttpClient<IAiClient, OpenAiCompatibleClient>((sp, client) =>
+            {
+                client.BaseAddress = sp.GetRequiredService<IOptions<OpenAiCompatibleOptions>>().Value.BaseUri;
+                client.Timeout = TimeSpan.FromSeconds(30);
+            });
+        }
+        else
+        {
+            throw new InvalidOperationException($"Unknown Ai:Provider '{provider}'. Use 'Gemini' or 'OpenAiCompatible'.");
+        }
 
         services.AddTransient<IQueryParser>(sp => new FallbackQueryParser(
-            new GeminiQueryParser(sp.GetRequiredService<IGeminiClient>()),
+            new AiQueryParser(sp.GetRequiredService<IAiClient>()),
             new HeuristicQueryParser(),
             sp.GetRequiredService<ILogger<FallbackQueryParser>>()));
 
         services.AddTransient<IExplanationWriter>(sp => new FallbackExplanationWriter(
-            new GeminiExplanationWriter(sp.GetRequiredService<IGeminiClient>()),
+            new AiExplanationWriter(sp.GetRequiredService<IAiClient>()),
             new TemplateExplanationWriter(),
             sp.GetRequiredService<ILogger<FallbackExplanationWriter>>()));
 

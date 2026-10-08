@@ -1,0 +1,55 @@
+using System.Text.Json.Nodes;
+
+namespace FindThatBook.Infrastructure.Gemini;
+
+/// <summary>Converts standard JSON Schema into the dialect Gemini's <c>responseSchema</c> expects.</summary>
+public static class GeminiSchema
+{
+    public static JsonNode FromJsonSchema(JsonNode schema) => Convert(schema)!;
+
+    private static JsonNode? Convert(JsonNode? node) => node switch
+    {
+        JsonObject obj => ConvertSchema(obj),
+        JsonArray array => new JsonArray(array.Select(Convert).ToArray()),
+        null => null,
+        _ => node.DeepClone(),
+    };
+
+    private static JsonObject ConvertSchema(JsonObject schema)
+    {
+        var result = new JsonObject();
+        foreach (var (key, value) in schema)
+        {
+            switch (key)
+            {
+                case "type":
+                    ApplyType(result, value);
+                    break;
+                case "properties" when value is JsonObject properties:
+                    var converted = new JsonObject();
+                    foreach (var (name, property) in properties) converted[name] = Convert(property);
+                    result[key] = converted;
+                    break;
+                default:
+                    result[key] = Convert(value);
+                    break;
+            }
+        }
+        return result;
+    }
+
+    private static void ApplyType(JsonObject target, JsonNode? type)
+    {
+        if (type is JsonArray types)
+        {
+            var names = types.Select(t => t?.GetValue<string>()).OfType<string>().ToList();
+            var main = names.FirstOrDefault(n => n != "null");
+            if (main is not null) target["type"] = main.ToUpperInvariant();
+            if (names.Contains("null")) target["nullable"] = true;
+        }
+        else if (type is not null)
+        {
+            target["type"] = type.GetValue<string>().ToUpperInvariant();
+        }
+    }
+}

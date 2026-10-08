@@ -3,16 +3,10 @@ using System.Text.Json.Nodes;
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Models;
 
-namespace FindThatBook.Infrastructure.Gemini;
+namespace FindThatBook.Infrastructure.Ai;
 
-public sealed class GeminiExplanationWriter(IGeminiClient gemini) : IExplanationWriter
+public sealed class AiExplanationWriter(IAiClient ai) : IExplanationWriter
 {
-    private static readonly JsonNode Schema = JsonNode.Parse("""
-        {"type":"ARRAY","items":{"type":"OBJECT","properties":{
-          "index":{"type":"INTEGER"},"explanation":{"type":"STRING"}},
-         "required":["index","explanation"]}}
-        """)!;
-
     public async Task<ExplanationOutcome> WriteAsync(IReadOnlyList<MatchedBook> matches, CancellationToken ct)
     {
         var facts = JsonSerializer.Serialize(matches.Select((m, i) => new
@@ -38,12 +32,12 @@ public sealed class GeminiExplanationWriter(IGeminiClient gemini) : IExplanation
             Books: {facts}
             """;
 
-        var text = await gemini.GenerateJsonAsync(prompt, Schema, ct);
+        var text = await ai.GenerateJsonAsync(prompt, AiSchemas.Explanations, ct);
         try
         {
             using var doc = JsonDocument.Parse(text);
             if (doc.RootElement.ValueKind != JsonValueKind.Array)
-                throw new AiUnavailableException("Gemini did not return an array.");
+                throw new AiUnavailableException("AI provider did not return an array.");
 
             var byIndex = new Dictionary<int, string>();
             foreach (var item in doc.RootElement.EnumerateArray())
@@ -59,14 +53,14 @@ public sealed class GeminiExplanationWriter(IGeminiClient gemini) : IExplanation
             for (var i = 0; i < matches.Count; i++)
             {
                 if (!byIndex.TryGetValue(i, out var explanation))
-                    throw new AiUnavailableException($"Gemini returned no explanation for result {i}.");
+                    throw new AiUnavailableException($"AI provider returned no explanation for result {i}.");
                 result.Add(explanation);
             }
             return new ExplanationOutcome(result, true);
         }
         catch (JsonException ex)
         {
-            throw new AiUnavailableException("Gemini returned malformed JSON.", ex);
+            throw new AiUnavailableException("AI provider returned malformed JSON.", ex);
         }
     }
 }
