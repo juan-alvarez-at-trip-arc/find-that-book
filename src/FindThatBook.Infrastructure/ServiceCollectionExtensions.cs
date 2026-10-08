@@ -29,7 +29,7 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IGeminiClient, GeminiClient>(client =>
         {
             client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
-            client.Timeout = TimeSpan.FromSeconds(15);
+            client.Timeout = TimeSpan.FromSeconds(30);
         });
 
         services.AddTransient<IQueryParser>(sp => new FallbackQueryParser(

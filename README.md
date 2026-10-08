@@ -22,7 +22,7 @@ Docker Compose (UI and API on one port, http://localhost:8080):
 1. Optional: put your key in a `.env` file next to `docker-compose.yml` (without it the app runs in fallback mode):
    ```
    GEMINI_API_KEY=<your key>
-   GEMINI_MODEL=gemini-2.5-flash
+   GEMINI_MODEL=gemini-3.8-flash
    ```
    `GEMINI_MODEL` is optional.
 2. Start it: `docker compose up --build`
@@ -33,7 +33,7 @@ Plain Docker works too:
     docker build -t find-that-book .
     docker run --rm -p 8080:8080 -e Gemini__ApiKey=<your key> find-that-book
 
-`Gemini__Model` overrides the model (default `gemini-2.5-flash`). AI provider: Gemini, as the brief suggests.
+`Gemini__Model` overrides the model (default `gemini-3.8-flash`; a blank value also uses the default). AI provider: Gemini, as the brief suggests.
 
 ## API
 
