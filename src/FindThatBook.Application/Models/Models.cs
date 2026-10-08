@@ -2,7 +2,8 @@ using System.Text.Json.Serialization;
 
 namespace FindThatBook.Application.Models;
 
-public sealed record ParsedQuery(string? Title, string? Author, IReadOnlyList<string> Keywords);
+/// <param name="Guessed">True when the heuristic parser guessed this title/author split instead of the AI extracting it.</param>
+public sealed record ParsedQuery(string? Title, string? Author, IReadOnlyList<string> Keywords, bool Guessed = false);
 
 public sealed record CatalogCandidate(
     string WorkId,
@@ -12,7 +13,9 @@ public sealed record CatalogCandidate(
     int? FirstPublishYear,
     int EditionCount,
     int? CoverId,
-    bool Enriched);
+    bool Enriched,
+    IReadOnlyList<string> AlternativeTitles,
+    IReadOnlyList<string> PrimaryAuthorAliases);
 
 public enum MatchTier
 {
@@ -31,7 +34,9 @@ public sealed record MatchedBook(
     bool ExactTitle,
     AuthorMatchKind AuthorMatch,
     string? MatchedAuthor,
-    bool YearMatches);
+    bool YearMatches,
+    bool FromGuess = false,
+    string? MatchedTitle = null);
 
 public sealed record ParseOutcome(IReadOnlyList<ParsedQuery> Hypotheses, bool AiUsed);
 

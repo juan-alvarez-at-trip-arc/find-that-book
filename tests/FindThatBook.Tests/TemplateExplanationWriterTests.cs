@@ -42,6 +42,16 @@ public class TemplateExplanationWriterTests
     }
 
     [Fact]
+    public void A_match_through_an_edition_title_says_so()
+    {
+        var book = Books.Make("海辺のカフカ", ["村上春樹"], altTitles: ["Kafka on the Shore"], aliases: ["Haruki Murakami"]);
+
+        var text = TemplateExplanationWriter.Describe(Match(Q.Make("kafka on the shore", "murakami"), book));
+
+        Assert.Equal("Exact title match on the edition title \"Kafka on the Shore\"; 村上春樹 is primary author.", text);
+    }
+
+    [Fact]
     public void Unenriched_candidate_mentions_missing_author_details()
     {
         var book = Books.Make("The Hobbit", [], ["Tolkien"], enriched: false);

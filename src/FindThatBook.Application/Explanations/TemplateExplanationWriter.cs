@@ -38,6 +38,9 @@ public sealed class TemplateExplanationWriter : IExplanationWriter
                 break;
         }
 
+        if (match.MatchedTitle is not null)
+            parts[0] = parts[0].Replace("title match", $"title match on the edition title \"{match.MatchedTitle}\"");
+
         if (book.Contributors.Count > 0 && match.Tier != MatchTier.ExactTitleContributorAuthor)
             parts.Add($"{JoinNames(book.Contributors)} listed as contributor");
         if (match.YearMatches)

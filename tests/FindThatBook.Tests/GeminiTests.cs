@@ -194,6 +194,25 @@ public class GeminiTests
     }
 
     [Fact]
+    public async Task Writer_prompt_names_the_edition_title_only_when_the_match_came_through_one()
+    {
+        var prompts = new List<string>();
+        var ai = new FakeAiClient(p =>
+        {
+            prompts.Add(p);
+            return """[{"index":0,"explanation":"a"}]""";
+        });
+        var kafka = Books.Make("海辺のカフカ", ["村上春樹"], altTitles: ["Kafka on the Shore"], aliases: ["Haruki Murakami"]);
+        var hobbit = Books.Make("The Hobbit", ["J.R.R. Tolkien"]);
+
+        await new AiExplanationWriter(ai).WriteAsync(Matcher.Rank([Q.Make("kafka on the shore", "murakami")], [kafka]), default);
+        await new AiExplanationWriter(ai).WriteAsync(Matcher.Rank([Q.Make("the hobbit", "tolkien")], [hobbit]), default);
+
+        Assert.Contains("\"matchedEditionTitle\":\"Kafka on the Shore\"", prompts[0]);
+        Assert.DoesNotContain("matchedEditionTitle\"", prompts[1]);
+    }
+
+    [Fact]
     public async Task Writer_prompt_contains_the_facts_it_may_cite()
     {
         string? prompt = null;

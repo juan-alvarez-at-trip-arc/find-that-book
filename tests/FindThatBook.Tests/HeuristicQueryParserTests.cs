@@ -27,6 +27,15 @@ public class HeuristicQueryParserTests
     }
 
     [Fact]
+    public async Task Every_hypothesis_is_flagged_as_a_guess()
+    {
+        var outcome = await _parser.ParseAsync("pride and prejudice jane austen", default);
+
+        Assert.NotEmpty(outcome.Hypotheses);
+        Assert.All(outcome.Hypotheses, h => Assert.True(h.Guessed));
+    }
+
+    [Fact]
     public async Task Single_word_is_tried_as_title_and_as_author()
     {
         var outcome = await _parser.ParseAsync("dickens", default);
