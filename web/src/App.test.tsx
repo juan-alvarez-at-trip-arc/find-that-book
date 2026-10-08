@@ -117,6 +117,54 @@ test("shows animated progress while searching and removes it when results arrive
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });
 
+const chips = () => [...document.querySelectorAll(".chip")].map((el) => el.textContent);
+
+test("a successful search is pushed to the front of the examples and the last one is dropped", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+  const before = chips();
+
+  await search("moby dick");
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+
+  expect(chips()).toEqual(["moby dick", ...before.slice(0, -1)]);
+  expect(chips()).toHaveLength(before.length);
+});
+
+test("searching an example that is already listed moves it to the front and keeps the rest", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+  const before = chips();
+  const picked = before[3] as string;
+
+  await userEvent.click(screen.getByRole("button", { name: picked }));
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+
+  expect(chips()).toEqual([picked, ...before.filter((c) => c !== picked)]);
+});
+
+test("a failed search does not change the examples", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json")));
+  render(<App />);
+  const before = chips();
+
+  await search("moby dick");
+  await screen.findByRole("alert");
+
+  expect(chips()).toEqual(before);
+});
+
+test("a search with no results does not change the examples", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: "No matching books found.", results: [] })));
+  render(<App />);
+  const before = chips();
+
+  await search("zzzz");
+  await screen.findByText("No matching books found.");
+
+  expect(chips()).toEqual(before);
+});
+
 test("does not search for blank input", async () => {
   const fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
