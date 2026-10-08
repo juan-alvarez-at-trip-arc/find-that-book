@@ -2,21 +2,28 @@
 
 Source brief: `docs/2025_Developer_Project.md`.
 
+Status: this document describes the application as built on branch `feature/find-that-book` (last commit `4393dfe`). The first draft is summarized under "Changes from the first draft".
+
 ## Goal
 
-Submission for the InfoTrack "Find That Book" challenge. A messy text query goes in. Up to 5 ranked Open Library matches come out, each with a one-sentence explanation grounded in fetched fields. Scope stays small enough to build in 4-6 hours and present.
+Submission for the InfoTrack "Find That Book" challenge. A messy text query goes in. Up to 5 ranked Open Library matches come out, each with a one-sentence explanation grounded in fetched fields. Scope stays small enough to build in 4-6 hours and present, with the extras listed below added afterwards.
 
 ## Decisions
 
 | # | Decision |
 |---|----------|
-| D1 | Frontend: React + Vite + TypeScript, built and served by the API in one container |
+| D1 | Frontend: React + Vite + TypeScript, built and served by the API in one container. Source is split into `components/<Name>/` and `lib/` |
 | D2 | AI extracts the query and writes explanations. Ranking is deterministic code. No LLM re-ranking |
-| D3 | If Gemini fails, degrade to a heuristic parser and template explanations. Response carries `aiUsed: false` |
+| D3 | Every AI step has a non-AI fallback (heuristic parser, template explanations). The response carries `aiUsed: false` when any step fell back |
 | D4 | Layered .NET 8 solution: `Api`, `Application`, `Infrastructure`, `Tests` |
-| D5 | Live demo: single container on Azure Container Apps or Render. Stretch step, does not block core work |
-| D6 | Open Library strategy: search, then enrich. Author-only queries use `/authors/{id}/works.json` |
-| D7 | AI model: Gemini Flash (model name configurable), per the brief's default |
+| D5 | One `Dockerfile` (frontend + API in one image) and a `docker-compose.yml`. A hosted live demo was not deployed |
+| D6 | Open Library strategy: search, then enrich. Author-only queries use `/search.json?sort=editions`, not `/authors/{id}/works.json`, which has no popularity order |
+| D7 | AI provider is selectable by configuration: `Gemini` (default, per the brief) or `OpenAiCompatible` (Groq, Cerebras, Ollama, OpenRouter, Mistral). Gemini defaults to `gemini-3.8-flash` |
+| D8 | The parser returns a list of hypotheses. The AI returns one, the heuristic parser up to six. The catalog searches each and the matcher scores every candidate against all of them |
+| D9 | Tier 5 (`TitleOnly`) covers a title match with no matching author. Hypotheses guessed by the heuristic parser rank below an exact title on its own |
+| D10 | Titles are matched against the work title and the matching edition titles. Authors are matched against names, aliases and transliteration variants |
+| D11 | Open Library is treated gently: capped detail lookups, a shared request limit, a cooldown after HTTP 429, and an optional contact in the `User-Agent` |
+| D12 | UI extras: timed progress panel, light/dark/system theme, example chips that promote successful searches |
 
 ## API
 
@@ -36,82 +43,142 @@ Response 200:
       "author": "J.R.R. Tolkien",
       "authors": ["J.R.R. Tolkien"],
       "first_publish_year": 1937,
-      "workId": "OL262758W",
-      "url": "https://openlibrary.org/works/OL262758W",
-      "coverUrl": "https://covers.openlibrary.org/b/id/....-M.jpg",
-      "explanation": "Exact title match; Tolkien is primary author; Dixon listed as adaptor."
+      "workId": "OL27482W",
+      "url": "https://openlibrary.org/works/OL27482W",
+      "coverUrl": "https://covers.openlibrary.org/b/id/14627509-M.jpg",
+      "explanation": "Exact title match; J.R.R. Tolkien is primary author; first published 1937, matching the query."
     }
   ]
 }
 ```
 
-- `author` is the joined primary authors (matches the brief's example shape). `authors` is the list.
+- `author` is the joined primary authors. `authors` is the list. When a work's primary authors could not be resolved, the first contributor is used.
+- `first_publish_year` is the only snake_case field, matching the brief's example.
 - `coverUrl` is null when unavailable.
+- The query is trimmed and truncated to 200 characters.
 - No results: 200 with `results: []` and a `message`.
-- Errors use RFC 7807 problem details: 400 invalid input, 502 Open Library unavailable.
+- Errors use RFC 7807 problem details: 400 for a blank query ("Query is required."), 502 when Open Library cannot be searched ("Open Library is unavailable. Please try again shortly."), 500 for anything else.
 
-`GET /api/health` returns 200 for deploy checks.
+`GET /api/health` returns `{ "status": "ok" }` for deploy checks.
 
 ## Pipeline
 
-1. **QueryParser** (Gemini, heuristic fallback) returns `ParsedQuery { title?, author?, keywords[] }`. Gemini uses a JSON response schema. The result is validated before use.
-2. **OpenLibraryClient** calls `/search.json` with `title` and `author` params, falling back to `q` when both are empty. It then calls `/works/{id}.json` for the top ~8 candidates to resolve primary authors from `works.authors`, and `/authors/{id}.json` for names. Author-only queries resolve the author and call `/authors/{id}/works.json`.
-3. **Normalizer** lowercases, strips diacritics and punctuation, strips subtitles ("The Hobbit" vs "The Hobbit, or There and Back Again"), and dedupes results to canonical work keys.
-4. **Matcher** assigns a tier and sorts by tier, then tie-breakers (edition count, publish year matching a year keyword). Keeps the top 5.
-   - Tier 1: exact normalized title + primary author match
-   - Tier 2: exact normalized title + contributor-only author
-   - Tier 3: near-match title + author match
-   - Tier 4: author-only fallback, top works by that author
-5. **ExplanationWriter** (Gemini, template fallback) writes one sentence per candidate from fetched fields only: tier, primary authors, contributors. The prompt forbids facts outside those fields.
+1. **QueryParser** returns `ParseOutcome { Hypotheses, AiUsed }`. Each hypothesis is `ParsedQuery { Title?, Author?, Keywords[], Guessed }`.
+   - AI parser: one JSON-mode call with a provider-neutral JSON Schema. The query text is delimited as data. A reply with neither title nor author, or malformed JSON, counts as AI failure.
+   - Heuristic parser: removes noise words (`illustrated`, `deluxe`, `edition`, `hardcover`, `paperback`, `novel`, `book`, `by`, `unabridged`, `audiobook`, `signed`, `reprint`, `anniversary`, `collectors`) and 1500-2099 years into keywords. It then emits up to six hypotheses, all flagged `Guessed`: whole text as title, whole text as author, first word or last word as author, and (three or more words) first two or last two words as author. Text with no words left yields no hypotheses.
+2. **OpenLibraryCatalog** searches every hypothesis in parallel.
+   - Request: `/search.json` with `title` and/or `author`, plus `sort=editions` when there is no title, `limit=5`, and `fields` including `editions` (the matching edition titles). A fielded search with no hits is retried once as free text (`q`).
+   - Detail lookups are capped (6 works per search, taken round-robin across hypotheses). Each work gets `/works/{id}.json` for its primary authors, then `/authors/{id}.json` for up to 3 authors: the display `name`, plus `personal_name` and `alternate_names` as aliases used only for matching.
+   - Authors named in search results but not on the work record are contributors.
+   - A failed work or author lookup keeps the candidate as `Enriched = false`, ranks it by contributor-level signal, and the explanation says author details are unavailable.
+3. **Normalizer** (pure): lowercases, strips diacritics, apostrophes and punctuation, merges initials ("J.R.R." becomes `jrr`), cuts subtitles and parentheticals, removes leading articles, and builds name tokens that fold transliteration variants (`y`/`j` to `i`, `tch` to `ch`, `ie` to `e`, trailing `ii` to `i`).
+4. **Matcher** (pure) assigns each candidate its best match across all hypotheses, then sorts.
+   - Title match: compared with the work title, then the edition titles. Exact is equal normalized keys. Near is one title's words contained in the other's, or word overlap (Jaccard) of at least 0.6.
+   - Author match: every query token equals, or (3+ characters) prefixes, a name token. Primary authors are checked first, then their aliases, then contributors.
+   - Tiers: 1 exact title + primary author, 2 exact title + contributor-only author, 3 near title + author, 4 author only (no title in the hypothesis), 5 title match with no matching author.
+   - Sort order (lower is stronger): tier 1, tier 2, tier 3 from an AI hypothesis, tier 4, tier 5 with an exact title, tier 3 from a guessed hypothesis, tier 5 with a near title. Ties break on exact title, then a year keyword matching the first publish year, then edition count, then title.
+   - Candidates are deduplicated by full title (subtitle kept) and first primary author, keeping the one with the most editions. The top 5 are kept.
+5. **ExplanationWriter** writes one sentence per result from fetched facts only.
+   - AI writer facts: index, title, primary authors, contributors, match kind, exact-title flag, matched author and its role, whether author details are available. `firstPublishYear` and `yearMatchesQuery` are sent only when the year matched the query, so the model cannot misstate it. `matchedEditionTitle` is sent when the match came through an edition title.
+   - Template writer: deterministic wording from the same facts.
 
-Primary authors come from canonical work records. `author_name` from search results is contributor-level signal only.
+`aiUsed` is true only when both the parser and the writer used the AI.
 
 ## Components
 
-| Component | Layer | Responsibility | Depends on |
-|-----------|-------|----------------|------------|
-| `SearchController` | Api | HTTP, validation, problem details | `ISearchService` |
-| `SearchService` | Application | Orchestrates the pipeline | parser, catalog client, matcher, writer |
-| `IQueryParser` | Application | Interface for step 1 | none |
-| `IBookCatalog` | Application | Interface for step 2 | none |
-| `IExplanationWriter` | Application | Interface for step 5 | none |
-| `Normalizer`, `Matcher` | Application | Pure logic, steps 3 and 4 | none |
-| `GeminiQueryParser`, `GeminiExplanationWriter` | Infrastructure | Gemini calls | `GeminiClient` |
-| `HeuristicQueryParser`, `TemplateExplanationWriter` | Application | AI-free fallbacks | none |
-| `OpenLibraryCatalog` | Infrastructure | HTTP, retry, cache | `HttpClient` |
+Backend (`src/`):
 
-AI-backed implementations are wrapped by a fallback decorator that catches failure and delegates to the heuristic or template version, then sets `aiUsed = false`.
+| Component | Layer | Responsibility |
+|-----------|-------|----------------|
+| `SearchController`, `ApiExceptionHandler`, `Program` | Api | HTTP, validation, problem details, static files |
+| `SearchService` | Application | Orchestrates the pipeline, truncates the query, builds the response |
+| `IQueryParser`, `IBookCatalog`, `IExplanationWriter`, `ISearchService` | Application | Interfaces; `AiUnavailableException` and `CatalogUnavailableException` |
+| `Normalizer`, `Matcher` | Application | Pure logic, steps 3 and 4 |
+| `HeuristicQueryParser`, `TemplateExplanationWriter` | Application | AI-free fallbacks |
+| `FallbackQueryParser`, `FallbackExplanationWriter` | Application | Decorators that catch only `AiUnavailableException` and delegate to the fallback |
+| `IAiClient`, `AiSchemas`, `AiQueryParser`, `AiExplanationWriter` | Infrastructure | Provider-neutral AI seam, schemas and prompts |
+| `GeminiClient`, `GeminiSchema`, `GeminiOptions` | Infrastructure | Gemini `generateContent`; converts the neutral schema to Gemini's dialect |
+| `OpenAiCompatibleClient`, `OpenAiCompatibleOptions` | Infrastructure | Any `/chat/completions` endpoint in JSON mode |
+| `OpenLibraryCatalog`, `OpenLibraryGate`, `OpenLibraryOptions` | Infrastructure | Open Library HTTP, retry, cache, request limit and 429 cooldown |
+| `ServiceCollectionExtensions` | Infrastructure | Registration; selects the AI client from `Ai:Provider` |
+
+Frontend (`web/src/`):
+
+| Path | Responsibility |
+|------|----------------|
+| `components/App/` | Page, search flow, example chips, error and notice banners |
+| `components/ResultCard/` | One result: cover, title, author, year, explanation, Open Library link |
+| `components/SearchProgress/` | Animated, timed progress panel |
+| `components/ThemeToggle/` | System, Light and Dark toggle |
+| `lib/` | `api.ts` (fetch), `types.ts`, `theme.ts` (storage and attribute), `examples.ts` (promotion rule) |
+
+## AI providers
+
+- `Ai:Provider` is `Gemini` (default), `OpenAiCompatible`, or blank (Gemini). An unknown value stops the app at startup with a clear message.
+- Gemini: `POST v1beta/models/{model}:generateContent` with the key in `x-goog-api-key`, `responseMimeType: application/json`, `responseSchema` converted from the neutral schema, temperature 0. A blank model uses the default.
+- OpenAI-compatible: `POST {BaseUrl}/chat/completions` with `response_format: json_object`, `stream: false`, temperature 0, the JSON Schema in the system message, and a Bearer key when one is set (optional, for local servers). Array-shaped schemas are wrapped as `{"result": ...}` and unwrapped from the reply. Defaults: Groq endpoint and `openai/gpt-oss-20b`.
+- Both clients turn every failure (missing key, HTTP error, timeout, empty or malformed reply) into `AiUnavailableException`, which the decorators handle. Both HTTP clients time out at 30 seconds.
+- The README records why Gemini alone was not reliable enough when tested (a default model that stopped being available to new users, repeated 503 and 429 responses).
 
 ## Error handling
 
-- Empty or whitespace query: 400. Queries over 200 characters are truncated before parsing.
-- Open Library: 10s timeout, 2 retries with backoff on 5xx and timeouts, small in-memory cache. Search failure returns 502. A failed `/works` or `/authors` call keeps the candidate, drops it to lower rank, and says so in the explanation.
-- Gemini failures (missing key, 429, timeout, invalid JSON) trigger the fallback path with `aiUsed: false`.
-- Global exception handler returns problem details with no stack traces.
-
-## Testing
-
-- Unit: `Normalizer` and `Matcher` (each tier, contributor-only authors, subtitles, diacritics, ties). This is the bulk of coverage.
-- Unit: `GeminiQueryParser` and `GeminiExplanationWriter` with a fake Gemini client (success, invalid JSON, failure triggers fallback). `HeuristicQueryParser` and `TemplateExplanationWriter` directly.
-- Integration: `WebApplicationFactory` with fake `IBookCatalog` and fake Gemini, using fixtures for `tolkien hobbit illustrated deluxe 1937`, `mark huckleberry`, `austen bennet`, `dickens`, `tale two cities`, `twilight meyer`.
-- No test calls a live API. An optional smoke script hits the real services.
-- Frontend: Vitest + React Testing Library for loading, error, empty and `aiUsed: false` states.
+- Blank query: 400. Over 200 characters: truncated.
+- Open Library: 10 s per attempt, 2 retries with growing backoff on 5xx, timeouts and network errors, in-memory cache for an hour (size-limited to 2000 entries). If no hypothesis can be searched, 502.
+- HTTP 429 is never retried. It starts a shared cooldown (`Retry-After`, or 30 s) during which every Open Library request fails fast without being sent. Cached lookups still work.
+- At most 2 Open Library requests run at once across the process.
+- Optional `OpenLibrary:Contact` (an email or URL) is added to the `User-Agent`. It is empty by default.
+- AI failures of any kind fall back with `aiUsed: false`.
+- The global exception handler returns problem details with no stack traces.
 
 ## Frontend
 
-Single page: search box, example-query chips, result cards (cover, title, author, year, explanation, Open Library link), loading skeletons, empty state, error banner, and a notice when `aiUsed` is false. Built with Vite, output copied into the API's `wwwroot` by the Dockerfile.
+Single page with: search box, example chips, result cards, empty state, error banner, a notice when `aiUsed` is false, a theme toggle, and a progress panel.
+
+- Starting a search clears the previous results, notice and error. A late response from an older search is ignored.
+- The Search button is disabled while a search runs, so pressing Enter during a search does nothing.
+- Progress panel: gradient bar, bouncing dots and four pips, with a status line that advances every 2.5 seconds through four steps and then says the search is taking longer than usual. The steps are timed, not driven by the server. Animations stop under `prefers-reduced-motion`.
+- Examples: five chips at start. A search with at least one result moves its text to the front (case-insensitive, an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches do not change the list. The list is not persisted.
+- Theme: System (default), Light or Dark through `data-theme` on `<html>` plus `color-scheme`. The choice is stored under `ftb-theme` with every storage access guarded, and a small inline script in `index.html` applies it before first paint.
 
 ## Config and run
 
-- `Gemini__ApiKey` via user-secrets or an environment variable. `Gemini__Model` optional, defaults to a Gemini Flash model.
-- Without a key the app runs in fallback mode.
-- One `Dockerfile` builds the frontend and the API into a single image.
-- README covers setup, implementation overview, assumptions and decisions, features, testing strategy, and future work.
+- Settings come from `appsettings.json`, user secrets and environment variables (`Ai__Provider`, `Gemini__ApiKey`, `OpenAiCompatible__BaseUrl`, `OpenLibrary__Contact` and so on). The appsettings sections are `Ai`, `Gemini`, `OpenAiCompatible` and `OpenLibrary` (`BaseUrl`, `MaxDetailLookups`, `MaxAuthorsPerWork`, `MaxConcurrentRequests`, `DefaultCooldownSeconds`, `Contact`).
+- `docker-compose.yml` maps `.env` variables (`AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENLIBRARY_*`) to those settings. `.env` is git-ignored. `dotnet run` does not read it.
+- Without any key the app runs in fallback mode.
+- The API serves the built frontend from `wwwroot` (copied from `web/dist` by the Dockerfile).
+- Production code under `src/` carries XML documentation comments.
+
+## Testing
+
+- .NET (196 tests): `Matcher` (tiers, ranking, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, and `WebApplicationFactory` integration tests with a fake catalog.
+- Frontend (31 tests, Vitest + Testing Library): results, notices, empty and error states, stale-response handling, progress panel, theme toggle, example promotion.
+- No test calls a live API.
+
+## Known limitations
+
+- Pressing Enter while a search runs is ignored (the button is disabled).
+- When the AI provider hangs, a search can wait up to about 40 seconds before falling back (two AI steps at a 30 second timeout each).
+- In fallback mode the guessed hypotheses can still surface odd results, and summaries or study guides can appear among results.
+- Author names and titles are shown as Open Library stores them, so they can be in another script.
+- Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
+- Open Library rate-limits heavy use. The mitigations above reduce the load but cannot prevent a block.
 
 ## Out of scope
 
-LLM re-ranking, persistent cache, edition-level matching, authentication, rate limiting beyond Open Library retry behavior.
+LLM re-ranking, persistent cache, ISBN matching, authentication, a hosted live demo.
 
-## Future improvements (README)
+## Future improvements
 
-LLM re-ranking behind a flag, persistent or distributed cache, edition-level and ISBN matching, query logging for tuning, language filtering.
+- Fail faster when Open Library does not answer (a time budget per lookup phase) and a Retry button on the error banner. Both were tried and set aside.
+- Let a new search or Enter replace a running one.
+- Sort title-only searches by edition count so popular works come first.
+- Persist the example list and the theme choice together, and show an English display name for authors stored in another script.
+- LLM re-ranking behind a flag, a persistent cache, query logging for tuning.
+
+## Changes from the first draft
+
+- D6: the first draft used `/authors/{id}/works.json` for author-only queries. The build uses `/search.json?sort=editions`.
+- D7: the first draft named Gemini only. The build has a provider-neutral AI seam and an OpenAI-compatible client.
+- The parser returns hypotheses (the draft returned one). A fifth tier was added. The heuristic parser's guesses rank below exact titles.
+- Detail lookups were 8 works in the draft and are 6 in the build, with an author cap, a request limit and a 429 cooldown that the draft did not have.
+- New in the build: edition-title and author-alias matching, transliteration-tolerant author names, the year-aware AI explanation facts, the timed progress panel, the theme toggle, example promotion, Docker Compose, and XML documentation.
