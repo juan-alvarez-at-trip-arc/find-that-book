@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { searchBooks } from "./api";
 import { ResultCard } from "./ResultCard";
+import { SearchProgress } from "./SearchProgress";
 import type { SearchResponse } from "./types";
 import "./App.css";
 
@@ -79,7 +80,7 @@ export default function App() {
       {data && !data.aiUsed && (
         <div className="banner notice">AI is unavailable, so results use basic parsing and may be less precise.</div>
       )}
-      {loading && <div className="skeleton" aria-hidden="true" />}
+      {loading && <SearchProgress />}
       {data && data.results.length === 0 && <p className="empty">{data.message ?? "No matching books found."}</p>}
       {data && data.results.length > 0 && (
         <ol className="results">
