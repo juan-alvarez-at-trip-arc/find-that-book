@@ -99,7 +99,9 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Every AI step degrades to a non-AI version and `aiUsed` becomes `false` (missing key, rate limit, timeout, malformed JSON).
 - Tier 5 was added for title-only queries, which the brief's four tiers do not cover.
 - Author-only queries use `/search.json?sort=editions` instead of `/authors/{id}/works.json`, which has no popularity order.
-- Open Library calls are cached in memory for an hour, retried twice on 5xx/429/timeouts, and one failed enrichment call lowers a candidate's rank instead of failing the request.
+- Open Library calls are cached in memory for an hour and retried twice on 5xx and timeouts. A failed detail lookup lowers a candidate's rank instead of failing the request.
+- The app is gentle with Open Library, which rate-limits (HTTP 429) heavy use. Each search looks up details for at most 6 works and 3 authors per work (`OpenLibrary:MaxDetailLookups`, `MaxAuthorsPerWork`), and at most 2 requests run at the same time (`MaxConcurrentRequests`). A 429 is never retried: it pauses all Open Library requests for the `Retry-After` time, or 30 s (`DefaultCooldownSeconds`), and during that pause searches fail fast with a 502 while cached lookups still work.
+- Open Library asks API users to identify themselves. Set `OpenLibrary__Contact` (an email or URL, or `OPENLIBRARY_CONTACT` for Docker Compose) and it is added to the `User-Agent`. It is empty by default and never filled in automatically.
 - User text goes to the AI provider as delimited data, and only the structured fields it returns are used.
 
 ## Testing

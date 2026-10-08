@@ -25,8 +25,9 @@ public static class ServiceCollectionExtensions
         {
             client.BaseAddress = new Uri(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.BaseUrl);
             client.Timeout = TimeSpan.FromSeconds(10);
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("FindThatBook/1.0 (coding challenge)");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.UserAgent);
         });
+        services.AddSingleton(sp => new OpenLibraryGate(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.MaxConcurrentRequests));
 
         services.Configure<OpenAiCompatibleOptions>(config.GetSection("OpenAiCompatible"));
 

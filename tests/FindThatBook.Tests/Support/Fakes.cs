@@ -47,6 +47,18 @@ public sealed class FakeAiClient(Func<string, string> respond) : IAiClient
         => Task.FromResult(respond(prompt));
 }
 
+public sealed class AsyncStubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond) : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => respond(request, ct);
+}
+
+public sealed class FakeClock(DateTimeOffset start) : TimeProvider
+{
+    private DateTimeOffset _now = start;
+    public override DateTimeOffset GetUtcNow() => _now;
+    public void Advance(TimeSpan by) => _now += by;
+}
+
 public static class Q
 {
     public static ParsedQuery Make(string? title, string? author, params string[] keywords) => new(title, author, keywords);
