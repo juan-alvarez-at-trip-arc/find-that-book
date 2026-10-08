@@ -34,6 +34,41 @@ public class NormalizerTests
         => Assert.Equal(expected, Normalizer.TitleKey(input));
 
     [Theory]
+    [InlineData("Dostoevsky", "Dostoyevsky")]
+    [InlineData("Dostoevsky", "Dostoievski")]
+    [InlineData("Dostoevsky", "Dostoevskij")]
+    [InlineData("Dostoevsky", "Dostoïevski")]
+    [InlineData("Fyodor Dostoevsky", "Fiódor Dostoievski")]
+    [InlineData("Tolstoy", "Tolstoi")]
+    [InlineData("Tolstoy", "Tolstoj")]
+    [InlineData("Tchaikovsky", "Chaikovsky")]
+    [InlineData("Tchaikovsky", "Tchaikovski")]
+    [InlineData("J.R.R. Tolkien", "jrr tolkien")]
+    [InlineData("Murakami, Haruki", "Haruki Murakami")]
+    public void NameKey_treats_transliteration_variants_of_a_name_as_equal(string a, string b)
+        => Assert.Equal(
+            string.Join(' ', Normalizer.NameTokens(a).Order()),
+            string.Join(' ', Normalizer.NameTokens(b).Order()));
+
+    [Theory]
+    [InlineData("Tolkien", "Tolstoy")]
+    [InlineData("Dostoevsky", "Doyle")]
+    [InlineData("Mark Twain", "Mark Twin")]
+    [InlineData("Austen", "Austin")]
+    public void NameKey_keeps_different_names_apart(string a, string b)
+        => Assert.NotEqual(
+            string.Join(' ', Normalizer.NameTokens(a).Order()),
+            string.Join(' ', Normalizer.NameTokens(b).Order()));
+
+    [Fact]
+    public void NameTokens_is_empty_for_a_blank_name()
+    {
+        Assert.Empty(Normalizer.NameTokens(null));
+        Assert.Empty(Normalizer.NameTokens("   "));
+        Assert.Empty(Normalizer.NameTokens("???"));
+    }
+
+    [Theory]
     [InlineData("J.R.R. Tolkien", "jrr tolkien")]
     [InlineData("jrr tolkien", "jrr tolkien")]
     [InlineData("C. S. Lewis", "cs lewis")]

@@ -151,7 +151,7 @@ public static partial class Matcher
     /// <returns>The kind of author match and the matched author name, or <see cref="AuthorMatchKind.None"/> and null.</returns>
     private static (AuthorMatchKind, string?) MatchAuthor(string? queryAuthor, CatalogCandidate candidate)
     {
-        var tokens = Normalizer.NormalizeName(queryAuthor).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var tokens = Normalizer.NameTokens(queryAuthor);
         if (tokens.Length == 0) return (AuthorMatchKind.None, null);
 
         foreach (var name in candidate.PrimaryAuthors)
@@ -172,7 +172,7 @@ public static partial class Matcher
     /// <returns>True when all query tokens are found in the name.</returns>
     private static bool NameMatches(string[] queryTokens, string name)
     {
-        var nameTokens = Normalizer.NormalizeName(name).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var nameTokens = Normalizer.NameTokens(name);
         return queryTokens.All(q => nameTokens.Any(n => n == q || (q.Length >= 3 && n.StartsWith(q, StringComparison.Ordinal))));
     }
 
