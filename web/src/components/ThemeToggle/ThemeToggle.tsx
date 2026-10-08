@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { applyMode, readStoredMode, storeMode, type ThemeMode } from "./theme";
+import { applyMode, readStoredMode, storeMode, type ThemeMode } from "../../lib/theme";
 
 const OPTIONS: { value: ThemeMode; label: string }[] = [
   { value: "system", label: "System" },

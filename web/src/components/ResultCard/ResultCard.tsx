@@ -1,4 +1,4 @@
-import type { BookResult } from "./types";
+import type { BookResult } from "../../lib/types";
 
 export function ResultCard({ book, rank }: { book: BookResult; rank: number }) {
   return (

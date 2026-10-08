@@ -1,10 +1,10 @@
 import { useRef, useState, type FormEvent } from "react";
-import { searchBooks } from "./api";
-import { promoteExample } from "./examples";
-import { ResultCard } from "./ResultCard";
-import { SearchProgress } from "./SearchProgress";
-import { ThemeToggle } from "./ThemeToggle";
-import type { SearchResponse } from "./types";
+import { searchBooks } from "../../lib/api";
+import { promoteExample } from "../../lib/examples";
+import { ResultCard } from "../ResultCard/ResultCard";
+import { SearchProgress } from "../SearchProgress/SearchProgress";
+import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
+import type { SearchResponse } from "../../lib/types";
 import "./App.css";
 
 const INITIAL_EXAMPLES = [
