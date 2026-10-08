@@ -100,6 +100,8 @@ public sealed record SearchRequest(string? Query);
 /// <param name="Url">The link to the work on Open Library.</param>
 /// <param name="CoverUrl">The link to the cover image, or null when the work has no cover.</param>
 /// <param name="Explanation">The one-sentence reason this book matched.</param>
+/// <param name="MatchTier">The match tier from 1 (strongest) to 5,.</param>
+/// <param name="ExactTitle">True when the title matched exactly rather than nearly.</param>
 public sealed record BookResult(
     string Title,
     string Author,
@@ -108,7 +110,9 @@ public sealed record BookResult(
     string WorkId,
     string Url,
     string? CoverUrl,
-    string Explanation);
+    string Explanation,
+    int MatchTier,
+    bool ExactTitle);
 
 /// <summary>The response of a search.</summary>
 /// <param name="AiUsed">True only when both query parsing and explanations used the AI.</param>

@@ -15,6 +15,8 @@ const hobbit = {
   url: "https://openlibrary.org/works/OL1W",
   coverUrl: null,
   explanation: "Exact title match; J.R.R. Tolkien is primary author.",
+  matchTier: 1,
+  exactTitle: true,
 };
 
 async function search(text: string) {
@@ -32,7 +34,8 @@ test("shows results with their explanation", async () => {
 
   expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
   expect(screen.getByText(/Exact title match/)).toBeInTheDocument();
-  expect(screen.getByText(/first published 1937/)).toBeInTheDocument();
+  expect(screen.getByText("J.R.R. Tolkien · 1937")).toBeInTheDocument();
+  expect(screen.getByText("Best match")).toBeInTheDocument();
   expect(screen.queryByText(/basic parsing/i)).not.toBeInTheDocument();
 });
 
@@ -173,4 +176,21 @@ test("does not search for blank input", async () => {
   await userEvent.click(screen.getByRole("button", { name: /search/i }));
 
   expect(fetchMock).not.toHaveBeenCalled();
+});
+
+test("labels exact and close matches and toggles the reason", async () => {
+  const close = { ...hobbit, workId: "OL2W", title: "Poems from The Hobbit", exactTitle: false, matchTier: 3 };
+  const second = { ...hobbit, workId: "OL3W", title: "The Hobbit (1990)" };
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit, second, close] })));
+  render(<App />);
+
+  await search("hobbit");
+
+  await screen.findByText("Best match");
+  expect(screen.getByText("Exact title")).toBeInTheDocument();
+  expect(screen.getByText("Close title")).toBeInTheDocument();
+  const toggle = screen.getAllByRole("button", { name: /why this book/i })[0];
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  await userEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
 });
