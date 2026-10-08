@@ -7,6 +7,8 @@ export interface BookResult {
   url: string;
   coverUrl: string | null;
   explanation: string;
+  matchTier: number;
+  exactTitle: boolean;
 }
 
 export interface SearchResponse {

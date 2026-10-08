@@ -35,16 +35,17 @@ public sealed class SearchService(IQueryParser parser, IBookCatalog catalog, IEx
         }
 
         var explanations = await writer.WriteAsync(matches, ct);
-        var results = matches.Select((m, i) => ToResult(m.Book, explanations.Explanations[i])).ToList();
+        var results = matches.Select((m, i) => ToResult(m, explanations.Explanations[i])).ToList();
         return new SearchResponse(parsed.AiUsed && explanations.AiUsed, null, results);
     }
 
     /// <summary>Converts a matched candidate into the client result, using the first contributor as the author when the work has no primary authors.</summary>
-    /// <param name="book">The matched candidate.</param>
+    /// <param name="match">The matched candidate with its match evidence.</param>
     /// <param name="explanation">The explanation written for the match.</param>
     /// <returns>The result with Open Library work and cover links.</returns>
-    private static BookResult ToResult(CatalogCandidate book, string explanation)
+    private static BookResult ToResult(MatchedBook match, string explanation)
     {
+        var book = match.Book;
         var authors = book.PrimaryAuthors.Count > 0 ? book.PrimaryAuthors : book.Contributors.Take(1).ToList();
         return new BookResult(
             book.Title,
@@ -54,6 +55,8 @@ public sealed class SearchService(IQueryParser parser, IBookCatalog catalog, IEx
             book.WorkId,
             $"https://openlibrary.org/works/{book.WorkId}",
             book.CoverId is { } id ? $"https://covers.openlibrary.org/b/id/{id}-M.jpg" : null,
-            explanation);
+            explanation,
+            (int)match.Tier,
+            match.ExactTitle);
     }
 }

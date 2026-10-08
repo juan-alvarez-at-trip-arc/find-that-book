@@ -52,40 +52,42 @@ export default function App() {
   return (
     <main className="page">
       <header className="top">
-        <div>
-          <h1>Find That Book</h1>
-          <p className="lead">Type whatever you remember: a title, an author, or a messy mix.</p>
-        </div>
+        <div className="logo">Find<span>That</span>Book</div>
         <ThemeToggle />
       </header>
 
-      <form onSubmit={onSubmit} className="search">
-        <input
-          type="search"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="e.g. tolkien hobbit illustrated deluxe 1937"
-          aria-label="Search for a book"
-          maxLength={200}
-        />
-        <button type="submit" disabled={loading}>{loading ? "Searching…" : "Search"}</button>
-      </form>
+      <section className="hero">
+        <h1>What was that book?</h1>
+        <p className="lead">Type a title, an author, or whatever you remember.</p>
 
-      <div className="examples">
-        {examples.map((example) => (
-          <button
-            key={example}
-            type="button"
-            className="chip"
-            onClick={() => {
-              setQuery(example);
-              void run(example);
-            }}
-          >
-            {example}
-          </button>
-        ))}
-      </div>
+        <form onSubmit={onSubmit} className="search">
+          <input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="e.g. tolkien hobbit illustrated deluxe 1937"
+            aria-label="Search for a book"
+            maxLength={200}
+          />
+          <button type="submit" disabled={loading}>{loading ? "Searching…" : "Search"}</button>
+        </form>
+
+        <div className="examples">
+          {examples.map((example) => (
+            <button
+              key={example}
+              type="button"
+              className="chip"
+              onClick={() => {
+                setQuery(example);
+                void run(example);
+              }}
+            >
+              {example}
+            </button>
+          ))}
+        </div>
+      </section>
 
       {error && <div role="alert" className="banner error">{error}</div>}
       {data && !data.aiUsed && (
@@ -94,9 +96,12 @@ export default function App() {
       {loading && <SearchProgress />}
       {data && data.results.length === 0 && <p className="empty">{data.message ?? "No matching books found."}</p>}
       {data && data.results.length > 0 && (
-        <ol className="results">
-          {data.results.map((book, i) => <ResultCard key={book.workId} book={book} rank={i + 1} />)}
-        </ol>
+        <>
+          <p className="count"><strong>{data.results.length} {data.results.length === 1 ? "book" : "books"}</strong></p>
+          <ol className="results">
+            {data.results.map((book, i) => <ResultCard key={book.workId} book={book} rank={i + 1} />)}
+          </ol>
+        </>
       )}
     </main>
   );
