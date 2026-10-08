@@ -24,6 +24,7 @@ export default function App() {
     const id = ++latest.current;
     setLoading(true);
     setError(null);
+    setData(null);
     try {
       const response = await searchBooks(text);
       if (id === latest.current) setData(response);
