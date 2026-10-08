@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text;
+using System.Text.Json.Nodes;
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Models;
+using FindThatBook.Infrastructure.Gemini;
 
 namespace FindThatBook.Tests.Support;
 
@@ -36,6 +38,12 @@ public static class Books
         bool enriched = true,
         string? id = null)
         => new(id ?? "OL" + Math.Abs(title.GetHashCode()) + "W", title, primary, contributors ?? [], year, editions, null, enriched);
+}
+
+public sealed class FakeGeminiClient(Func<string, string> respond) : IGeminiClient
+{
+    public Task<string> GenerateJsonAsync(string prompt, JsonNode schema, CancellationToken ct)
+        => Task.FromResult(respond(prompt));
 }
 
 public static class Q
