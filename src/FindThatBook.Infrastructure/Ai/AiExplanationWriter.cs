@@ -9,24 +9,32 @@ public sealed class AiExplanationWriter(IAiClient ai) : IExplanationWriter
 {
     public async Task<ExplanationOutcome> WriteAsync(IReadOnlyList<MatchedBook> matches, CancellationToken ct)
     {
-        var facts = JsonSerializer.Serialize(matches.Select((m, i) => new
+        var facts = JsonSerializer.Serialize(matches.Select((m, i) =>
         {
-            index = i,
-            title = m.Book.Title,
-            primaryAuthors = m.Book.PrimaryAuthors,
-            contributors = m.Book.Contributors,
-            firstPublishYear = m.Book.FirstPublishYear,
-            matchKind = m.Tier.ToString(),
-            exactTitle = m.ExactTitle,
-            matchedAuthor = m.MatchedAuthor,
-            matchedAuthorRole = m.AuthorMatch.ToString(),
-            yearMatchesQuery = m.YearMatches,
-            authorDetailsAvailable = m.Book.Enriched,
+            var fact = new Dictionary<string, object?>
+            {
+                ["index"] = i,
+                ["title"] = m.Book.Title,
+                ["primaryAuthors"] = m.Book.PrimaryAuthors,
+                ["contributors"] = m.Book.Contributors,
+                ["matchKind"] = m.Tier.ToString(),
+                ["exactTitle"] = m.ExactTitle,
+                ["matchedAuthor"] = m.MatchedAuthor,
+                ["matchedAuthorRole"] = m.AuthorMatch.ToString(),
+                ["authorDetailsAvailable"] = m.Book.Enriched,
+            };
+            // The year is shown only when it matches the reader's year; otherwise the model cannot misstate it.
+            if (m.YearMatches)
+            {
+                fact["yearMatchesQuery"] = true;
+                fact["firstPublishYear"] = m.Book.FirstPublishYear;
+            }
+            return fact;
         }));
 
         var prompt = $"""
             For each book below, write ONE sentence (at most 30 words) explaining why it matches the reader's search.
-            Use ONLY the facts given. Do not add outside knowledge. Say whether the matched author is the primary author or only a contributor, and mention other contributors when present.
+            Use ONLY the facts given. Do not add outside knowledge. Say whether the matched author is the primary author or only a contributor, and mention other contributors when present. Mention the publication year only when yearMatchesQuery is true, and never comment on a year that did not match.
             matchKind values: ExactTitlePrimaryAuthor, ExactTitleContributorAuthor, NearTitleAuthor, AuthorOnly (no title was given), TitleOnly (title matched, no matching author in the query).
             Return a JSON array with one object per book: index and explanation.
             Books: {facts}
