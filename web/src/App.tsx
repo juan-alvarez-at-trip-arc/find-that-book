@@ -1,12 +1,13 @@
 import { useRef, useState, type FormEvent } from "react";
 import { searchBooks } from "./api";
+import { promoteExample } from "./examples";
 import { ResultCard } from "./ResultCard";
 import { SearchProgress } from "./SearchProgress";
 import { ThemeToggle } from "./ThemeToggle";
 import type { SearchResponse } from "./types";
 import "./App.css";
 
-const EXAMPLES = [
+const INITIAL_EXAMPLES = [
   "tolkien hobbit illustrated deluxe 1937",
   "mark huckleberry",
   "austen bennet",
@@ -19,6 +20,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SearchResponse | null>(null);
+  const [examples, setExamples] = useState(INITIAL_EXAMPLES);
   const latest = useRef(0);
 
   async function run(text: string) {
@@ -29,7 +31,10 @@ export default function App() {
     setData(null);
     try {
       const response = await searchBooks(text);
-      if (id === latest.current) setData(response);
+      if (id === latest.current) {
+        setData(response);
+        if (response.results.length > 0) setExamples((current) => promoteExample(current, text));
+      }
     } catch (e) {
       if (id !== latest.current) return;
       setData(null);
@@ -67,7 +72,7 @@ export default function App() {
       </form>
 
       <div className="examples">
-        {EXAMPLES.map((example) => (
+        {examples.map((example) => (
           <button
             key={example}
             type="button"
