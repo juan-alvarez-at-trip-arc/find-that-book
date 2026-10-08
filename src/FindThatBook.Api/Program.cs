@@ -18,4 +18,5 @@ app.MapFallbackToFile("index.html");
 
 app.Run();
 
+/// <summary>Entry point class of the API. It is declared public and partial so integration tests can start the app with <c>WebApplicationFactory&lt;Program&gt;</c>.</summary>
 public partial class Program;

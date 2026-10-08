@@ -5,8 +5,15 @@ using FindThatBook.Application.Models;
 
 namespace FindThatBook.Infrastructure.Ai;
 
+/// <summary>Writes one short explanation per matched book by asking the AI provider, using only facts taken from the match so the model cannot invent details.</summary>
+/// <param name="ai">The provider-neutral AI client used to generate the JSON reply.</param>
 public sealed class AiExplanationWriter(IAiClient ai) : IExplanationWriter
 {
+    /// <summary>Builds a facts-only prompt for the matches, requests a JSON array of explanations, and validates that every match received one.</summary>
+    /// <param name="matches">The ranked matches to explain, in result order.</param>
+    /// <param name="ct">Token used to cancel the AI request.</param>
+    /// <returns>An <see cref="ExplanationOutcome"/> with one explanation per match, in the same order, and <c>AiUsed</c> set to <c>true</c>.</returns>
+    /// <exception cref="AiUnavailableException">The AI call failed, or the reply is malformed, is not an array, or lacks an explanation for some match, so the caller can fall back to templates.</exception>
     public async Task<ExplanationOutcome> WriteAsync(IReadOnlyList<MatchedBook> matches, CancellationToken ct)
     {
         var facts = JsonSerializer.Serialize(matches.Select((m, i) =>

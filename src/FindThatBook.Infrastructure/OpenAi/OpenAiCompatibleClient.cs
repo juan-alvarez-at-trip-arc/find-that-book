@@ -8,9 +8,17 @@ using Microsoft.Extensions.Options;
 
 namespace FindThatBook.Infrastructure.OpenAi;
 
-/// <summary>Talks to any OpenAI-compatible <c>/chat/completions</c> endpoint (Groq, Cerebras, Ollama, OpenRouter, Mistral).</summary>
+/// <summary>Talks to any OpenAI-compatible <c>/chat/completions</c> endpoint (Groq, Cerebras, Ollama, OpenRouter, Mistral) in JSON mode, putting the JSON Schema in the system message and wrapping non-object schemas as <c>{"result": ...}</c>.</summary>
+/// <param name="http">HTTP client whose base address points at the provider's API root.</param>
+/// <param name="options">Provider settings: API key, base URL and model name.</param>
 public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompatibleOptions> options) : IAiClient
 {
+    /// <summary>Posts a <c>chat/completions</c> request with <c>response_format</c> set to <c>json_object</c> at temperature 0, wrapping array-shaped schemas in an object because JSON mode needs an object at the root.</summary>
+    /// <param name="prompt">The full prompt text, sent as the user message.</param>
+    /// <param name="schema">The expected output shape as standard JSON Schema. It is cloned, never mutated.</param>
+    /// <param name="ct">Token used to cancel the request.</param>
+    /// <returns>The JSON text of the first choice's message, unwrapped when the schema was wrapped.</returns>
+    /// <exception cref="AiUnavailableException">The request fails or times out, the status is not a success, the reply has no content or an unexpected shape, or a wrapped reply lacks the <c>result</c> property.</exception>
     public async Task<string> GenerateJsonAsync(string prompt, JsonNode schema, CancellationToken ct)
     {
         var settings = options.Value;
@@ -74,6 +82,10 @@ public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompa
         }
     }
 
+    /// <summary>Extracts the <c>result</c> property from a wrapped reply so callers see the JSON shape they asked for.</summary>
+    /// <param name="text">The reply text, expected to be a JSON object with a <c>result</c> property.</param>
+    /// <returns>The raw JSON of the <c>result</c> property.</returns>
+    /// <exception cref="AiUnavailableException">The reply is not an object or has no <c>result</c> property.</exception>
     private static string Unwrap(string text)
     {
         using var doc = JsonDocument.Parse(text);

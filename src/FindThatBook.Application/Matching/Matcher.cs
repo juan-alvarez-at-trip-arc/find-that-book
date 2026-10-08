@@ -4,8 +4,14 @@ using FindThatBook.Application.Text;
 
 namespace FindThatBook.Application.Matching;
 
+/// <summary>Pure ranking logic that scores catalog candidates against the query hypotheses, assigns a match tier and orders the best results.</summary>
 public static partial class Matcher
 {
+    /// <summary>Dedupes candidates, keeps each one's best match across all hypotheses and orders them by tier strength, then exact title, matching year, edition count and title.</summary>
+    /// <param name="hypotheses">The parsed interpretations of the query, whose keywords supply the years to match.</param>
+    /// <param name="candidates">The candidate works returned by the catalog.</param>
+    /// <param name="max">The maximum number of matches to return.</param>
+    /// <returns>Up to <paramref name="max"/> matches, strongest first. Candidates that match no hypothesis are left out.</returns>
     public static IReadOnlyList<MatchedBook> Rank(
         IReadOnlyList<ParsedQuery> hypotheses,
         IReadOnlyList<CatalogCandidate> candidates,
@@ -44,6 +50,8 @@ public static partial class Matcher
     /// heuristic parser merely guessed ranks below an exact title on its own: typing exactly a title is better evidence
     /// than a guessed word that happens to be part of someone's name.
     /// </summary>
+    /// <param name="m">The match to score.</param>
+    /// <returns>The strength value, where a lower number ranks higher.</returns>
     private static int Strength(MatchedBook m) => m.Tier switch
     {
         MatchTier.ExactTitlePrimaryAuthor => 10,
@@ -53,14 +61,26 @@ public static partial class Matcher
         _ => m.ExactTitle ? 50 : 70,
     };
 
+    /// <summary>Collapses candidates that share a full title and first primary author, keeping the one with the most editions.</summary>
+    /// <param name="candidates">The candidates to dedupe.</param>
+    /// <returns>One candidate per full-title and primary-author key.</returns>
     private static IEnumerable<CatalogCandidate> Dedupe(IEnumerable<CatalogCandidate> candidates)
         => candidates
             .GroupBy(c => (Normalizer.FullTitleKey(c.Title), Normalizer.NormalizeName(c.PrimaryAuthors.FirstOrDefault())))
             .Select(g => g.OrderByDescending(c => c.EditionCount).First());
 
+    /// <summary>Decides whether one match for the same candidate beats another, preferring lower strength and then an exact title.</summary>
+    /// <param name="a">The match being tested.</param>
+    /// <param name="b">The current best match.</param>
+    /// <returns>True when <paramref name="a"/> should replace <paramref name="b"/>.</returns>
     private static bool IsBetter(MatchedBook a, MatchedBook b)
         => Strength(a) < Strength(b) || (Strength(a) == Strength(b) && a.ExactTitle && !b.ExactTitle);
 
+    /// <summary>Compares one hypothesis with one candidate and assigns a match tier from the title and author results.</summary>
+    /// <param name="hypothesis">The interpretation of the query to test.</param>
+    /// <param name="candidate">The candidate work to test against.</param>
+    /// <param name="years">The publication years found in the query keywords.</param>
+    /// <returns>The match with its tier, or null when the candidate does not fit the hypothesis.</returns>
     private static MatchedBook? Evaluate(ParsedQuery hypothesis, CatalogCandidate candidate, HashSet<int> years)
     {
         var queryTitle = Normalizer.TitleKey(hypothesis.Title);
@@ -86,6 +106,9 @@ public static partial class Matcher
     /// Compares against the work title first, then the edition titles Open Library matched (a work can be titled in
     /// another language while its English edition carries the title the reader typed).
     /// </summary>
+    /// <param name="queryTitle">The normalized title key of the query.</param>
+    /// <param name="candidate">The candidate work whose title and edition titles are compared.</param>
+    /// <returns>Whether the title matched exactly or nearly, and the edition title that produced the match (null when the work title matched or nothing did).</returns>
     private static (bool Exact, bool Near, string? ViaTitle) MatchTitle(string queryTitle, CatalogCandidate candidate)
     {
         var workKey = Normalizer.TitleKey(candidate.Title);
@@ -107,6 +130,10 @@ public static partial class Matcher
         return (false, false, null);
     }
 
+    /// <summary>Tests whether two normalized titles are close: one contains all words of the other, or the word overlap (Jaccard) is at least 0.6.</summary>
+    /// <param name="query">The normalized query title key.</param>
+    /// <param name="candidate">The normalized candidate title key.</param>
+    /// <returns>True when the titles are near matches.</returns>
     private static bool IsNear(string query, string candidate)
     {
         var q = query.Split(' ', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
@@ -118,6 +145,10 @@ public static partial class Matcher
         return (double)shared / q.Union(c).Count() >= 0.6;
     }
 
+    /// <summary>Finds how the queried author relates to the candidate, checking primary authors, then their aliases, then contributors.</summary>
+    /// <param name="queryAuthor">The author text from the hypothesis, if any.</param>
+    /// <param name="candidate">The candidate work whose authors are compared.</param>
+    /// <returns>The kind of author match and the matched author name, or <see cref="AuthorMatchKind.None"/> and null.</returns>
     private static (AuthorMatchKind, string?) MatchAuthor(string? queryAuthor, CatalogCandidate candidate)
     {
         var tokens = Normalizer.NormalizeName(queryAuthor).Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -135,12 +166,18 @@ public static partial class Matcher
         return (AuthorMatchKind.None, null);
     }
 
+    /// <summary>Checks that every query token equals a name token or, for tokens of three or more characters, prefixes one.</summary>
+    /// <param name="queryTokens">The normalized tokens of the queried author name.</param>
+    /// <param name="name">The author name to test.</param>
+    /// <returns>True when all query tokens are found in the name.</returns>
     private static bool NameMatches(string[] queryTokens, string name)
     {
         var nameTokens = Normalizer.NormalizeName(name).Split(' ', StringSplitOptions.RemoveEmptyEntries);
         return queryTokens.All(q => nameTokens.Any(n => n == q || (q.Length >= 3 && n.StartsWith(q, StringComparison.Ordinal))));
     }
 
+    /// <summary>Regular expression for a four-digit year between 1500 and 2099.</summary>
+    /// <returns>The compiled regular expression.</returns>
     [GeneratedRegex(@"^(1[5-9]\d\d|20\d\d)$")]
     private static partial Regex YearPattern();
 }

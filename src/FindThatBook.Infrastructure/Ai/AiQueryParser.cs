@@ -5,8 +5,15 @@ using FindThatBook.Application.Models;
 
 namespace FindThatBook.Infrastructure.Ai;
 
+/// <summary>Extracts a title, author and keywords from a reader's messy query by asking the AI provider, treating the query strictly as data.</summary>
+/// <param name="ai">The provider-neutral AI client used to generate the JSON reply.</param>
 public sealed class AiQueryParser(IAiClient ai) : IQueryParser
 {
+    /// <summary>Sends the query to the AI provider in JSON mode and converts the reply into a single parsed hypothesis.</summary>
+    /// <param name="query">The reader's raw search text.</param>
+    /// <param name="ct">Token used to cancel the AI request.</param>
+    /// <returns>A <see cref="ParseOutcome"/> with one <see cref="ParsedQuery"/> hypothesis and <c>AiUsed</c> set to <c>true</c>.</returns>
+    /// <exception cref="AiUnavailableException">The AI call failed, the reply is malformed, or it contains neither a title nor an author, so the caller can fall back to the heuristic parser.</exception>
     public async Task<ParseOutcome> ParseAsync(string query, CancellationToken ct)
     {
         var prompt = $"""
@@ -45,6 +52,10 @@ public sealed class AiQueryParser(IAiClient ai) : IQueryParser
         }
     }
 
+    /// <summary>Reads a string property from the reply, trimming it and treating missing, non-string or blank values as absent.</summary>
+    /// <param name="root">The JSON object returned by the AI provider.</param>
+    /// <param name="name">The property name to read.</param>
+    /// <returns>The trimmed string, or <c>null</c> when the property is missing, not a string, or blank.</returns>
     private static string? ReadString(JsonElement root, string name)
     {
         if (!root.TryGetProperty(name, out var value) || value.ValueKind != JsonValueKind.String) return null;
