@@ -11,4 +11,5 @@ services:
       OpenAiCompatible__ApiKey: ${OPENAI_API_KEY:-}
       OpenAiCompatible__BaseUrl: ${OPENAI_BASE_URL:-https://api.groq.com/openai/v1/}
       OpenAiCompatible__Model: ${OPENAI_MODEL:-openai/gpt-oss-20b}
+      OpenLibrary__Contact: ${OPENLIBRARY_CONTACT:-}
     restart: unless-stopped

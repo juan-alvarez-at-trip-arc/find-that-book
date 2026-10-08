@@ -15,12 +15,13 @@ public sealed class OpenLibraryCatalog(
     HttpClient http,
     IMemoryCache cache,
     ILogger<OpenLibraryCatalog> log,
-    IOptions<OpenLibraryOptions> options) : IBookCatalog
+    IOptions<OpenLibraryOptions> options,
+    OpenLibraryGate? limiter = null) : IBookCatalog
 {
     private const string SearchFields = "key,title,author_name,author_key,first_publish_year,edition_count,cover_i";
     private const int DocsPerSearch = 5;
-    private const int MaxEnriched = 12;
     private const int EnrichmentConcurrency = 4;
+    private readonly OpenLibraryGate _limiter = limiter ?? new OpenLibraryGate(options.Value.MaxConcurrentRequests);
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
 
     private sealed record SearchDoc(
@@ -37,13 +38,14 @@ public sealed class OpenLibraryCatalog(
 
         // Round-robin across hypotheses so a late hypothesis is not starved by the enrichment cap.
         var lists = searches.OfType<IReadOnlyList<SearchDoc>>().ToList();
+        var maxDocs = Math.Max(1, options.Value.MaxDetailLookups);
         var docs = new List<SearchDoc>();
         var seen = new HashSet<string>();
-        for (var i = 0; docs.Count < MaxEnriched && lists.Any(l => i < l.Count); i++)
+        for (var i = 0; docs.Count < maxDocs && lists.Any(l => i < l.Count); i++)
         {
             foreach (var list in lists)
             {
-                if (i < list.Count && docs.Count < MaxEnriched && seen.Add(list[i].WorkId)) docs.Add(list[i]);
+                if (i < list.Count && docs.Count < maxDocs && seen.Add(list[i].WorkId)) docs.Add(list[i]);
             }
         }
 
@@ -132,6 +134,7 @@ public sealed class OpenLibraryCatalog(
                 .OfType<string>()
                 .Select(k => k.Split('/')[^1])
                 .Distinct()
+                .Take(Math.Max(1, options.Value.MaxAuthorsPerWork))
                 .ToList();
 
             var names = await Task.WhenAll(authorIds.Select(id => AuthorNameAsync(id, ct)));
@@ -176,14 +179,26 @@ public sealed class OpenLibraryCatalog(
         var settings = options.Value;
         for (var attempt = 0; ; attempt++)
         {
+            // While Open Library is asking us to slow down, do not send anything at all.
+            if (_limiter.IsCoolingDown(out var remaining))
+                throw new CatalogUnavailableException($"Open Library asked us to slow down; retry in {Math.Ceiling(remaining.TotalSeconds)}s.");
+
             string failure;
             try
             {
+                using var slot = await _limiter.WaitAsync(ct);
                 using var response = await http.GetAsync(relativeUrl, ct);
                 if (response.IsSuccessStatusCode) return await response.Content.ReadFromJsonAsync<JsonNode>(ct);
                 if (response.StatusCode == HttpStatusCode.NotFound) return null;
 
-                var retryable = (int)response.StatusCode >= 500 || response.StatusCode == HttpStatusCode.TooManyRequests;
+                if (response.StatusCode == HttpStatusCode.TooManyRequests)
+                {
+                    // Retrying a 429 only adds load: pause every request for what Open Library asked, and fail this one.
+                    _limiter.StartCooldown(response.Headers.RetryAfter, TimeSpan.FromSeconds(Math.Max(1, settings.DefaultCooldownSeconds)));
+                    throw new CatalogUnavailableException("Open Library is rate limiting requests.");
+                }
+
+                var retryable = (int)response.StatusCode >= 500;
                 if (!retryable) throw new CatalogUnavailableException($"Open Library returned {(int)response.StatusCode}.");
                 failure = $"Open Library returned {(int)response.StatusCode}.";
             }

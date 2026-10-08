@@ -167,10 +167,11 @@ public class OpenLibraryCatalogTests
 
         var found = await Catalog(handler).FindAsync([Q.Make("aaa", null), Q.Make("bbb", null), Q.Make("ccc", null)], default);
 
-        Assert.Equal(12, found.Count);
+        Assert.Equal(6, found.Count);
+        Assert.Contains(found, b => b.WorkId == "A1W");
+        Assert.Contains(found, b => b.WorkId == "B1W");
         Assert.Contains(found, b => b.WorkId == "C1W");
-        Assert.Contains(found, b => b.WorkId == "C4W");
-        Assert.DoesNotContain(found, b => b.WorkId == "A5W");
+        Assert.DoesNotContain(found, b => b.WorkId == "A3W");
     }
 
     [Fact]
