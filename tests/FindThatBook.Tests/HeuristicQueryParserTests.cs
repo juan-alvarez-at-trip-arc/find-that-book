@@ -19,6 +19,14 @@ public class HeuristicQueryParserTests
     }
 
     [Fact]
+    public async Task Two_word_author_at_the_end_is_tried_as_author()
+    {
+        var outcome = await _parser.ParseAsync("pride and prejudice jane austen", default);
+
+        Assert.Contains(outcome.Hypotheses, h => h.Author == "jane austen" && h.Title == "pride and prejudice");
+    }
+
+    [Fact]
     public async Task Single_word_is_tried_as_title_and_as_author()
     {
         var outcome = await _parser.ParseAsync("dickens", default);

@@ -58,9 +58,9 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
         {
             throw new AiUnavailableException("Gemini timed out.", ex);
         }
-        catch (JsonException ex)
+        catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
-            throw new AiUnavailableException("Gemini returned invalid JSON.", ex);
+            throw new AiUnavailableException("Gemini returned an unexpected payload.", ex);
         }
     }
 }

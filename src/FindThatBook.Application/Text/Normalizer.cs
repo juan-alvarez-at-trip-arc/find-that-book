@@ -18,6 +18,7 @@ public static partial class Normalizer
         foreach (var ch in decomposed)
         {
             if (CharUnicodeInfo.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark) continue;
+            if (ch is '\'' or '’' or 'ʼ') continue;
             sb.Append(char.IsLetterOrDigit(ch) ? char.ToLowerInvariant(ch) : ' ');
         }
         return Whitespace().Replace(sb.ToString(), " ").Trim();
@@ -36,8 +37,14 @@ public static partial class Normalizer
     }
 
     public static string TitleKey(string? title)
+        => WithoutLeadingArticle(Normalize(StripSubtitle(title ?? "")));
+
+    /// <summary>Like <see cref="TitleKey"/> but keeps the subtitle, so "Series: Book 1" and "Series: Book 2" stay distinct.</summary>
+    public static string FullTitleKey(string? title)
+        => WithoutLeadingArticle(Normalize(Parenthetical().Replace(title ?? "", "")));
+
+    private static string WithoutLeadingArticle(string key)
     {
-        var key = Normalize(StripSubtitle(title ?? ""));
         foreach (var article in LeadingArticles)
         {
             if (key.StartsWith(article, StringComparison.Ordinal)) return key[article.Length..];

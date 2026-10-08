@@ -17,7 +17,7 @@ public static class ServiceCollectionExtensions
     {
         services.Configure<GeminiOptions>(config.GetSection("Gemini"));
         services.Configure<OpenLibraryOptions>(config.GetSection("OpenLibrary"));
-        services.AddMemoryCache();
+        services.AddMemoryCache(options => options.SizeLimit = 2000);
 
         services.AddHttpClient<IBookCatalog, OpenLibraryCatalog>((sp, client) =>
         {

@@ -31,33 +31,43 @@ public sealed class OpenLibraryCatalog(
     {
         if (hypotheses.Count == 0) return [];
 
-        var docs = new List<SearchDoc>();
-        var seen = new HashSet<string>();
-        var failures = 0;
-        foreach (var hypothesis in hypotheses)
-        {
-            try
-            {
-                foreach (var doc in await SearchAsync(hypothesis, ct))
-                    if (seen.Add(doc.WorkId)) docs.Add(doc);
-            }
-            catch (CatalogUnavailableException ex)
-            {
-                failures++;
-                log.LogWarning(ex, "Open Library search failed for one hypothesis");
-            }
-        }
-        if (failures == hypotheses.Count)
+        var searches = await Task.WhenAll(hypotheses.Select(h => SearchSafelyAsync(h, ct)));
+        if (searches.All(s => s is null))
             throw new CatalogUnavailableException("Open Library could not be searched.");
 
+        // Round-robin across hypotheses so a late hypothesis is not starved by the enrichment cap.
+        var lists = searches.OfType<IReadOnlyList<SearchDoc>>().ToList();
+        var docs = new List<SearchDoc>();
+        var seen = new HashSet<string>();
+        for (var i = 0; docs.Count < MaxEnriched && lists.Any(l => i < l.Count); i++)
+        {
+            foreach (var list in lists)
+            {
+                if (i < list.Count && docs.Count < MaxEnriched && seen.Add(list[i].WorkId)) docs.Add(list[i]);
+            }
+        }
+
         using var gate = new SemaphoreSlim(EnrichmentConcurrency);
-        var tasks = docs.Take(MaxEnriched).Select(async doc =>
+        var tasks = docs.Select(async doc =>
         {
             await gate.WaitAsync(ct);
             try { return await EnrichAsync(doc, ct); }
             finally { gate.Release(); }
         });
         return await Task.WhenAll(tasks);
+    }
+
+    private async Task<IReadOnlyList<SearchDoc>?> SearchSafelyAsync(ParsedQuery hypothesis, CancellationToken ct)
+    {
+        try
+        {
+            return await SearchAsync(hypothesis, ct);
+        }
+        catch (CatalogUnavailableException ex)
+        {
+            log.LogWarning(ex, "Open Library search failed for one hypothesis");
+            return null;
+        }
     }
 
     private async Task<IReadOnlyList<SearchDoc>> SearchAsync(ParsedQuery hypothesis, CancellationToken ct)
@@ -87,20 +97,27 @@ public sealed class OpenLibraryCatalog(
 
         foreach (var node in array)
         {
-            var key = node?["key"]?.GetValue<string>();
-            var title = node?["title"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(title)) continue;
+            try
+            {
+                var key = node?["key"]?.GetValue<string>();
+                var title = node?["title"]?.GetValue<string>();
+                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(title)) continue;
 
-            var names = node!["author_name"] is JsonArray authorNames
-                ? authorNames.Select(n => n?.GetValue<string>()).OfType<string>().ToList()
-                : [];
-            result.Add(new SearchDoc(
-                key.Split('/')[^1],
-                title,
-                names,
-                node["first_publish_year"]?.GetValue<int>(),
-                node["edition_count"]?.GetValue<int>() ?? 0,
-                node["cover_i"]?.GetValue<int>()));
+                var names = node!["author_name"] is JsonArray authorNames
+                    ? authorNames.Select(n => n?.GetValue<string>()).OfType<string>().ToList()
+                    : [];
+                result.Add(new SearchDoc(
+                    key.Split('/')[^1],
+                    title,
+                    names,
+                    node["first_publish_year"]?.GetValue<int>(),
+                    node["edition_count"]?.GetValue<int>() ?? 0,
+                    node["cover_i"]?.GetValue<int>()));
+            }
+            catch (InvalidOperationException)
+            {
+                // A doc with a wrongly typed field is skipped; the rest of the page is still usable.
+            }
         }
         return result;
     }
@@ -148,6 +165,7 @@ public sealed class OpenLibraryCatalog(
         var json = await cache.GetOrCreateAsync(relativeUrl, async entry =>
         {
             entry.AbsoluteExpirationRelativeToNow = CacheLifetime;
+            entry.Size = 1;
             return await FetchAsync(relativeUrl, ct);
         });
         return json;
