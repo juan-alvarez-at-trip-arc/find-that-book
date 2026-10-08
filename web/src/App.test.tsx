@@ -102,6 +102,21 @@ test("clears the previous results while a new search is running", async () => {
   expect(screen.queryByText(/basic parsing/i)).not.toBeInTheDocument();
 });
 
+test("shows animated progress while searching and removes it when results arrive", async () => {
+  let finish: (response: Response) => void = () => {};
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => (finish = resolve))));
+  render(<App />);
+
+  await search("tolkien hobbit");
+
+  expect(await screen.findByRole("status")).toHaveTextContent("Understanding your query");
+
+  finish(new Response(JSON.stringify({ aiUsed: true, message: null, results: [hobbit] }), { status: 200 }));
+
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
 test("does not search for blank input", async () => {
   const fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
