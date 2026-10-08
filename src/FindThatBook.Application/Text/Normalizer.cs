@@ -92,6 +92,22 @@ public static partial class Normalizer
         return string.Join(' ', result);
     }
 
+    /// <summary>Splits a person's name into comparison tokens that ignore case, diacritics, spacing of initials and common transliteration variants, so "Dostoevsky", "Dostoyevsky" and "Dostoievski" produce the same token.</summary>
+    /// <param name="name">The name to tokenize, which may be null.</param>
+    /// <returns>The canonical name tokens, empty for a null or blank name.</returns>
+    public static string[] NameTokens(string? name)
+        => NormalizeName(name).Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(CanonicalNameToken).ToArray();
+
+    /// <summary>Reduces one normalized name token to a canonical spelling by folding "y" and "j" into "i", "tch" into "ch", "ie" into "e" and a trailing "ii" into "i".</summary>
+    /// <param name="token">A normalized name token.</param>
+    /// <returns>The canonical token, used only to compare names and never shown to the reader.</returns>
+    private static string CanonicalNameToken(string token)
+    {
+        var canonical = token.Replace("tch", "ch").Replace('y', 'i').Replace('j', 'i').Replace("ie", "e");
+        while (canonical.EndsWith("ii", StringComparison.Ordinal)) canonical = canonical[..^1];
+        return canonical;
+    }
+
     /// <summary>Regular expression that matches a run of whitespace.</summary>
     /// <returns>The compiled regular expression.</returns>
     [GeneratedRegex(@"\s+")]

@@ -268,6 +268,58 @@ public class MatcherTests
         Assert.Empty(Matcher.Rank([Q.Make("kafka on the shore", "murakami")], [other]));
     }
 
+    // Transliteration variants of an author's name.
+
+    [Theory]
+    [InlineData("dostoevsky", "Fiódor Dostoievski")]
+    [InlineData("dostoyevsky", "Fyodor Dostoevsky")]
+    [InlineData("fyodor dostoevsky", "Fiódor Dostoievski")]
+    [InlineData("tolstoy", "Lev Tolstoi")]
+    [InlineData("tchaikovsky", "Piotr Chaikovski")]
+    public void An_author_matches_through_a_transliteration_variant_of_the_name(string queried, string listedAs)
+    {
+        var book = Books.Make("Crime and Punishment", [listedAs]);
+
+        var match = Assert.Single(Matcher.Rank([Q.Make("crime and punishment", queried)], [book]));
+
+        Assert.Equal(MatchTier.ExactTitlePrimaryAuthor, match.Tier);
+        Assert.Equal(AuthorMatchKind.Primary, match.AuthorMatch);
+        Assert.Equal(listedAs, match.MatchedAuthor);
+    }
+
+    [Fact]
+    public void A_transliteration_variant_also_matches_through_an_author_alias()
+    {
+        var book = Books.Make("Anna Karenina", ["Лев Толстой"], aliases: ["Tolstoi, Lev"]);
+
+        var match = Assert.Single(Matcher.Rank([Q.Make("anna karenina", "tolstoy")], [book]));
+
+        Assert.Equal(MatchTier.ExactTitlePrimaryAuthor, match.Tier);
+    }
+
+    [Fact]
+    public void A_different_author_is_still_not_matched()
+    {
+        var book = Books.Make("Crime and Punishment", ["Arthur Conan Doyle"]);
+
+        var match = Assert.Single(Matcher.Rank([Q.Make("crime and punishment", "dostoevsky")], [book]));
+
+        Assert.Equal(MatchTier.TitleOnly, match.Tier);
+    }
+
+    [Fact]
+    public void Editions_credited_to_a_variant_spelling_rank_with_the_exact_author_match()
+    {
+        var plain = Books.Make("Crime and Punishment", ["Fyodor Dostoevsky"], editions: 5, id: "OL1W");
+        var variant = Books.Make("Crime and Punishment", ["Fiódor Dostoievski"], editions: 50, id: "OL2W");
+        var other = Books.Make("Crime and Punishment", ["Someone Else"], editions: 900, id: "OL3W");
+
+        var ranked = Matcher.Rank([Q.Make("crime and punishment", "dostoevsky")], [other, plain, variant]);
+
+        Assert.Equal(["OL2W", "OL1W", "OL3W"], ranked.Select(r => r.Book.WorkId));
+        Assert.Equal(MatchTier.TitleOnly, ranked[2].Tier);
+    }
+
     [Fact]
     public void Returns_at_most_the_requested_number_of_results()
     {
