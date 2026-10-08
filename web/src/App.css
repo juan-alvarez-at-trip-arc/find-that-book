@@ -1,0 +1,25 @@
+:root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+body { margin: 0; }
+.page { max-width: 720px; margin: 0 auto; padding: 32px 16px 64px; }
+h1 { margin: 0 0 4px; }
+.lead { margin: 0 0 20px; opacity: 0.7; }
+.search { display: flex; gap: 8px; }
+.search input { flex: 1; padding: 10px 12px; font-size: 1rem; border-radius: 8px; border: 1px solid #8886; }
+.search button { padding: 10px 18px; font-size: 1rem; border-radius: 8px; border: 0; background: #2f6fed; color: #fff; cursor: pointer; }
+.search button:disabled { opacity: 0.6; cursor: progress; }
+.examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 20px; }
+.chip { padding: 4px 10px; border-radius: 999px; border: 1px solid #8886; background: transparent; color: inherit; cursor: pointer; font-size: 0.85rem; }
+.banner { padding: 10px 12px; border-radius: 8px; margin-bottom: 12px; }
+.banner.error { background: #c0392b22; border: 1px solid #c0392b; }
+.banner.notice { background: #f1c40f22; border: 1px solid #f1c40f; }
+.skeleton { height: 120px; border-radius: 10px; background: linear-gradient(90deg, #8882, #8884, #8882); background-size: 200% 100%; animation: shimmer 1.2s infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.results { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.card { display: flex; gap: 14px; padding: 14px; border: 1px solid #8884; border-radius: 10px; }
+.cover { width: 80px; height: 120px; object-fit: cover; border-radius: 4px; flex-shrink: 0; }
+.cover.placeholder { display: grid; place-items: center; background: #8883; font-size: 0.75rem; opacity: 0.7; }
+.details h2 { margin: 0; font-size: 1.15rem; }
+.rank { font-size: 0.75rem; opacity: 0.6; }
+.meta { margin: 2px 0 8px; opacity: 0.75; }
+.why { margin: 0 0 8px; }
+.empty { opacity: 0.8; }
