@@ -11,5 +11,10 @@ services:
       OpenAiCompatible__ApiKey: ${OPENAI_API_KEY:-}
       OpenAiCompatible__BaseUrl: ${OPENAI_BASE_URL:-https://api.groq.com/openai/v1/}
       OpenAiCompatible__Model: ${OPENAI_MODEL:-openai/gpt-oss-20b}
+      OpenLibrary__BaseUrl: ${OPENLIBRARY_BASE_URL:-https://openlibrary.org/}
+      OpenLibrary__MaxDetailLookups: ${OPENLIBRARY_MAX_DETAIL_LOOKUPS:-6}
+      OpenLibrary__MaxAuthorsPerWork: ${OPENLIBRARY_MAX_AUTHORS_PER_WORK:-3}
+      OpenLibrary__MaxConcurrentRequests: ${OPENLIBRARY_MAX_CONCURRENT_REQUESTS:-2}
+      OpenLibrary__DefaultCooldownSeconds: ${OPENLIBRARY_DEFAULT_COOLDOWN_SECONDS:-30}
       OpenLibrary__Contact: ${OPENLIBRARY_CONTACT:-}
     restart: unless-stopped
