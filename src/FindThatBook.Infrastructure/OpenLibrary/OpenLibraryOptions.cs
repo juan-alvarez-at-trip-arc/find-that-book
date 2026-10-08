@@ -1,9 +1,13 @@
 namespace FindThatBook.Infrastructure.OpenLibrary;
 
+/// <summary>Settings for the Open Library client: address, retry policy, request volume limits and the User-Agent contact.</summary>
 public sealed class OpenLibraryOptions
 {
+    /// <summary>Base address of the Open Library API.</summary>
     public string BaseUrl { get; set; } = "https://openlibrary.org/";
+    /// <summary>Retries after a 5xx response, timeout or network error. 429 and other 4xx responses are never retried.</summary>
     public int MaxRetries { get; set; } = 2;
+    /// <summary>Base delay in milliseconds before a retry; it is multiplied by the attempt number.</summary>
     public int RetryDelayMs { get; set; } = 300;
 
     /// <summary>How many works per search get a detail lookup (works plus authors). Each one costs several requests.</summary>
@@ -21,5 +25,6 @@ public sealed class OpenLibraryOptions
     /// <summary>Optional contact (email or URL) so Open Library can reach the operator; sent in the User-Agent.</summary>
     public string? Contact { get; set; }
 
+    /// <summary>User-Agent header value sent to Open Library, which identifies the app and includes <see cref="Contact"/> when set.</summary>
     public string UserAgent => $"FindThatBook/1.0 ({(string.IsNullOrWhiteSpace(Contact) ? "coding challenge" : Contact.Trim())})";
 }

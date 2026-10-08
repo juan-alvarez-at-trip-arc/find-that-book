@@ -11,6 +11,14 @@ using Microsoft.Extensions.Options;
 
 namespace FindThatBook.Infrastructure.OpenLibrary;
 
+/// <summary>
+/// Book catalog backed by the Open Library search, works and authors APIs. It runs one search per hypothesis, looks up details for a capped number of works, and returns candidates carrying edition titles and author aliases for matching.
+/// </summary>
+/// <param name="http">Client whose base address points at Open Library.</param>
+/// <param name="cache">Response cache so repeated lookups do not hit Open Library again.</param>
+/// <param name="log">Logger for failed searches and detail lookups.</param>
+/// <param name="options">Limits for detail lookups, retries and cooldown.</param>
+/// <param name="limiter">Shared request gate with the concurrency cap and 429 cooldown. When null, a private gate is created from <paramref name="options"/>.</param>
 public sealed class OpenLibraryCatalog(
     HttpClient http,
     IMemoryCache cache,
@@ -24,10 +32,25 @@ public sealed class OpenLibraryCatalog(
     private readonly OpenLibraryGate _limiter = limiter ?? new OpenLibraryGate(options.Value.MaxConcurrentRequests);
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
 
+    /// <summary>One work as returned by an Open Library search, before its detail lookup.</summary>
+    /// <param name="WorkId">Open Library work id without the path prefix.</param>
+    /// <param name="Title">The work's title.</param>
+    /// <param name="AuthorNames">Author names listed on the search result.</param>
+    /// <param name="FirstPublishYear">Year of first publication, when known.</param>
+    /// <param name="EditionCount">Number of editions Open Library holds for the work.</param>
+    /// <param name="CoverId">Open Library cover id, when the work has a cover.</param>
+    /// <param name="EditionTitles">Titles of matched editions that differ from the work title, used for title matching.</param>
     private sealed record SearchDoc(
         string WorkId, string Title, IReadOnlyList<string> AuthorNames,
         int? FirstPublishYear, int EditionCount, int? CoverId, IReadOnlyList<string> EditionTitles);
 
+    /// <summary>
+    /// Searches every hypothesis, merges the results round-robin so no hypothesis is starved, and enriches up to the configured number of works with detail lookups. Works whose lookup fails are returned unenriched.
+    /// </summary>
+    /// <param name="hypotheses">Parsed interpretations of the user's query.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>De-duplicated candidates, one per work, enriched with primary authors and aliases where the lookup succeeded.</returns>
+    /// <exception cref="CatalogUnavailableException">Every hypothesis search failed.</exception>
     public async Task<IReadOnlyList<CatalogCandidate>> FindAsync(IReadOnlyList<ParsedQuery> hypotheses, CancellationToken ct)
     {
         if (hypotheses.Count == 0) return [];
@@ -59,6 +82,10 @@ public sealed class OpenLibraryCatalog(
         return await Task.WhenAll(tasks);
     }
 
+    /// <summary>Runs one hypothesis search and turns an Open Library failure into a logged null, so one failing hypothesis does not fail the whole search.</summary>
+    /// <param name="hypothesis">The interpretation to search for.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The found works, or null when Open Library could not be searched for this hypothesis.</returns>
     private async Task<IReadOnlyList<SearchDoc>?> SearchSafelyAsync(ParsedQuery hypothesis, CancellationToken ct)
     {
         try
@@ -72,6 +99,10 @@ public sealed class OpenLibraryCatalog(
         }
     }
 
+    /// <summary>Searches Open Library by title and author. When both are given and the field search finds nothing, it retries once with a free-text query.</summary>
+    /// <param name="hypothesis">The interpretation to search for.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Up to a few works from the search page, or an empty list when the hypothesis has no title and no author.</returns>
     private async Task<IReadOnlyList<SearchDoc>> SearchAsync(ParsedQuery hypothesis, CancellationToken ct)
     {
         var hasTitle = !string.IsNullOrWhiteSpace(hypothesis.Title);
@@ -92,6 +123,9 @@ public sealed class OpenLibraryCatalog(
         return docs;
     }
 
+    /// <summary>Reads works from a search response, skipping entries without a key or title and entries with wrongly typed fields.</summary>
+    /// <param name="json">The search response body, or null when nothing was returned.</param>
+    /// <returns>The parsed works; empty when the response has no docs.</returns>
     private static List<SearchDoc> ParseDocs(JsonNode? json)
     {
         var result = new List<SearchDoc>();
@@ -126,6 +160,9 @@ public sealed class OpenLibraryCatalog(
     }
 
     /// <summary>Titles of the editions Open Library matched for this work, other than the work's own title.</summary>
+    /// <param name="doc">The search result entry for the work.</param>
+    /// <param name="workTitle">The work's own title, which is excluded.</param>
+    /// <returns>Distinct edition titles, compared case-insensitively.</returns>
     private static List<string> EditionTitles(JsonNode doc, string workTitle)
     {
         if (doc["editions"]?["docs"] is not JsonArray editions) return [];
@@ -138,6 +175,10 @@ public sealed class OpenLibraryCatalog(
             .ToList();
     }
 
+    /// <summary>Looks up the work and its authors to separate primary authors from contributors and to collect author aliases for matching. A failed lookup yields an unenriched candidate instead of an error.</summary>
+    /// <param name="doc">The search result to enrich.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>An enriched candidate, or an unenriched one when the lookup failed or no author name was found.</returns>
     private async Task<CatalogCandidate> EnrichAsync(SearchDoc doc, CancellationToken ct)
     {
         try
@@ -169,15 +210,23 @@ public sealed class OpenLibraryCatalog(
         }
     }
 
+    /// <summary>Builds a candidate from search data alone, with no primary authors or aliases, so the work can still be ranked when its detail lookup fails.</summary>
+    /// <param name="doc">The search result to convert.</param>
+    /// <returns>A candidate marked as not enriched.</returns>
     private static CatalogCandidate Unenriched(SearchDoc doc)
         => new(doc.WorkId, doc.Title, [], doc.AuthorNames, doc.FirstPublishYear, doc.EditionCount, doc.CoverId, false, doc.EditionTitles, []);
 
     private const int MaxAliasesPerAuthor = 40;
 
+    /// <summary>An author from the Open Library authors API: the display name plus alternate spellings.</summary>
     /// <param name="Name">The display name, as Open Library shows it (can be in another script).</param>
     /// <param name="Aliases">Other spellings used only for matching: the personal name and alternate names.</param>
     private sealed record AuthorInfo(string Name, IReadOnlyList<string> Aliases);
 
+    /// <summary>Fetches an author's display name and aliases (personal name and alternate names, capped, excluding the display name).</summary>
+    /// <param name="authorId">Open Library author id without the path prefix.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The author, or null when the author is not found or has no name.</returns>
     private async Task<AuthorInfo?> AuthorAsync(string authorId, CancellationToken ct)
     {
         var json = await GetJsonAsync($"authors/{authorId}.json", ct);
@@ -200,6 +249,10 @@ public sealed class OpenLibraryCatalog(
             .ToList());
     }
 
+    /// <summary>Returns the JSON for a relative Open Library URL, served from the cache for an hour so repeated lookups cost no requests.</summary>
+    /// <param name="relativeUrl">Path and query relative to the Open Library base address, also used as the cache key.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parsed JSON, or null when Open Library answered 404.</returns>
     private async Task<JsonNode?> GetJsonAsync(string relativeUrl, CancellationToken ct)
     {
         var json = await cache.GetOrCreateAsync(relativeUrl, async entry =>
@@ -211,6 +264,13 @@ public sealed class OpenLibraryCatalog(
         return json;
     }
 
+    /// <summary>
+    /// Sends one GET through the shared request gate. Only 5xx responses, timeouts, network errors and invalid JSON are retried with a growing delay. A 429 starts the shared cooldown and fails immediately, and other 4xx responses fail immediately.
+    /// </summary>
+    /// <param name="relativeUrl">Path and query relative to the Open Library base address.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The parsed JSON, or null when Open Library answered 404.</returns>
+    /// <exception cref="CatalogUnavailableException">The gate is cooling down, Open Library returned 429 or another non-retryable error, or retries were exhausted.</exception>
     private async Task<JsonNode?> FetchAsync(string relativeUrl, CancellationToken ct)
     {
         var settings = options.Value;

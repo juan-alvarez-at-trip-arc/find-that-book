@@ -7,10 +7,22 @@ using Microsoft.Extensions.Options;
 
 namespace FindThatBook.Infrastructure.Gemini;
 
+/// <summary>AI client for the Gemini <c>generateContent</c> API, sending the prompt with a converted <c>responseSchema</c> and returning the JSON text from the first candidate.</summary>
+/// <param name="http">HTTP client whose base address points at the Gemini API.</param>
+/// <param name="options">Gemini settings: API key and model name.</param>
 public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> options) : IAiClient
 {
+    /// <summary>Gets the first element of a JSON array node.</summary>
+    /// <param name="node">The node to inspect, expected to be a JSON array.</param>
+    /// <returns>The first element, or <c>null</c> when the node is not an array or is empty.</returns>
     private static JsonNode? First(JsonNode? node) => node is JsonArray { Count: > 0 } array ? array[0] : null;
 
+    /// <summary>Calls Gemini with JSON response mode and the schema converted to Gemini's dialect, at temperature 0.</summary>
+    /// <param name="prompt">The full prompt text to send.</param>
+    /// <param name="schema">The expected output shape as standard JSON Schema.</param>
+    /// <param name="ct">Token used to cancel the request.</param>
+    /// <returns>The JSON text of the first candidate's first part.</returns>
+    /// <exception cref="AiUnavailableException">The API key is missing, the request fails or times out, the status is not a success, or the response has no text or an unexpected shape.</exception>
     public async Task<string> GenerateJsonAsync(string prompt, JsonNode schema, CancellationToken ct)
     {
         var settings = options.Value;

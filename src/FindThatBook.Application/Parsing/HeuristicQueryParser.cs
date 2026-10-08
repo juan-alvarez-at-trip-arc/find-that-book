@@ -5,6 +5,7 @@ using FindThatBook.Application.Text;
 
 namespace FindThatBook.Application.Parsing;
 
+/// <summary>Non-AI query parser that cannot tell title from author, so it emits several guessed hypotheses (whole text as title, as author, first or last words as author) for the matcher to test.</summary>
 public sealed partial class HeuristicQueryParser : IQueryParser
 {
     private static readonly HashSet<string> NoiseWords = new(StringComparer.Ordinal)
@@ -13,6 +14,10 @@ public sealed partial class HeuristicQueryParser : IQueryParser
         "unabridged", "audiobook", "signed", "reprint", "anniversary", "collectors",
     };
 
+    /// <summary>Normalizes the text, sets aside years and edition noise words as keywords and builds guessed title and author splits from the remaining words.</summary>
+    /// <param name="query">The raw search text typed by the reader.</param>
+    /// <param name="ct">Token that cancels the operation (not used, the work is synchronous).</param>
+    /// <returns>A completed task holding the guessed hypotheses with <c>aiUsed</c> false, or no hypotheses when only keywords remain.</returns>
     public Task<ParseOutcome> ParseAsync(string query, CancellationToken ct)
     {
         var keywords = new List<string>();
@@ -45,6 +50,8 @@ public sealed partial class HeuristicQueryParser : IQueryParser
         return Task.FromResult(new ParseOutcome(hypotheses, false));
     }
 
+    /// <summary>Regular expression for a four-digit year between 1500 and 2099.</summary>
+    /// <returns>The compiled regular expression.</returns>
     [GeneratedRegex(@"^(1[5-9]\d\d|20\d\d)$")]
     private static partial Regex YearPattern();
 }

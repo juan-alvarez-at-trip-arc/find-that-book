@@ -13,8 +13,14 @@ using Microsoft.Extensions.Options;
 
 namespace FindThatBook.Infrastructure;
 
+/// <summary>Dependency injection registration for the Infrastructure layer.</summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>Registers the Open Library catalog, the selected AI client, the AI-first parsers and writers with their non-AI fallbacks, and the search service.</summary>
+    /// <param name="services">The service collection to add registrations to.</param>
+    /// <param name="config">Application configuration. <c>Ai:Provider</c> selects <c>Gemini</c> (default) or <c>OpenAiCompatible</c>.</param>
+    /// <returns>The same <paramref name="services"/> instance, for chaining.</returns>
+    /// <exception cref="InvalidOperationException"><c>Ai:Provider</c> names an unknown provider.</exception>
     public static IServiceCollection AddFindThatBook(this IServiceCollection services, IConfiguration config)
     {
         services.Configure<GeminiOptions>(config.GetSection("Gemini"));
