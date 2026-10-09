@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** merged into `master`, last commit `5adc586` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Final test counts: 202 .NET tests, 32 frontend tests, all passing.
+**Branch:** merged into `master`, last commit `5adc586` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at that commit: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264.
 
 ## Global Constraints
 
@@ -120,6 +120,8 @@ Failure modes the feature tasks would not otherwise exercise. All have tests.
 
 **Verified live:** a search against the real Open Library with no AI key returned The Hobbit first.
 
+Readiness and configuration endpoints were added later, see Task 18.
+
 ### Task 8: React frontend (original), extended in Tasks 12 and 16
 
 - [x] Commit `1155695`.
@@ -211,6 +213,18 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 **Tests:** `App.test.tsx` was updated and gained a test for the badges and the toggle (32 frontend tests).
 
 **Verified:** by hand in headed Chrome (dark mode, desktop width and a window about 250px wide): covers load, hover popover, inline toggle, and no horizontal scroll after the header fix. Not verified: light mode of the new layout, widths of 360 to 430px, real touch devices.
+
+### Task 18: Health endpoints
+
+- [x] Commit `2344f97`.
+
+**Files:** `Api/Controllers/HealthController.cs`, `Infrastructure/Health/*` (`HealthReportService`, `HealthConfigCheck`, `ConfigDump`, `HealthModels`, `ProbeRunner`, `OpenLibraryProbe`, `GeminiProbe`, `OpenAiCompatibleProbe`), tests `HealthProbeTests`, `HealthReportTests`, `HealthConfigDumpTests`.
+
+**Behavior:** `GET /api/health` (liveness, no outside calls), `GET /api/health/ready` (validates configuration, probes Open Library and the selected AI provider, cached 30 s, `unready` gives 503, a failing AI provider gives `degraded` with 200) and `GET /api/health/config` (effective settings with masked API keys). Probes cost no AI tokens and time out after 5 seconds.
+
+**Tests:** each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the status rules, the cache, the 200 and 503 responses and the masked dump. .NET total: 264.
+
+**Not verified:** the Gemini probe with a real key.
 
 ---
 
