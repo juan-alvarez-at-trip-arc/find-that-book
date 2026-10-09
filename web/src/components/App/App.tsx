@@ -29,6 +29,7 @@ export default function App() {
   const [examples, setExamples] = useState(() => readStoredExamples(INITIAL_EXAMPLES));
   const [searched, setSearched] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<string[]>([]);
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
   const latest = useRef(0);
   const opened = useRef(false);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
@@ -42,6 +43,16 @@ export default function App() {
   useEffect(() => {
     if (data && data.results.length > 0) resultsHeading.current?.focus();
   }, [data]);
+
+  useEffect(() => {
+    const base = "Find That Book";
+    if (data && searched) {
+      const count = data.results.length;
+      document.title = `${count} ${count === 1 ? "book" : "books"} for “${searched}” · ${base}`;
+    } else {
+      document.title = base;
+    }
+  }, [data, searched]);
 
   async function run(text: string) {
     if (!text.trim()) return;
@@ -79,19 +90,23 @@ export default function App() {
   }
 
   return (
-    <main className="page">
+    <div className="page">
       <header className="top">
         <div className="logo">Find<span>That</span>Book</div>
         <ThemeToggle />
       </header>
 
+      <main>
       <section className={searched ? "hero compact" : "hero"}>
         <h1>What was that book?</h1>
         <p className="lead">Type a title, an author, or whatever you remember.</p>
 
-        <form onSubmit={onSubmit} className="search">
+        <form onSubmit={onSubmit} className="search" role="search">
           <input
             type="search"
+            name="q"
+            autoComplete="off"
+            enterKeyHint="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="e.g. tolkien hobbit illustrated deluxe 1937"
@@ -131,8 +146,8 @@ export default function App() {
             {error}
           </Toast>
         )}
-        {data && !data.aiUsed && !dismissed.includes("notice") && (
-          <Toast kind="notice" title="Basic search mode" onDismiss={() => setDismissed((current) => [...current, "notice"])}>
+        {data && !data.aiUsed && !noticeDismissed && (
+          <Toast kind="notice" title="Basic search mode" onDismiss={() => setNoticeDismissed(true)}>
             AI is unavailable, so results use basic parsing and may be less precise.
           </Toast>
         )}
@@ -142,7 +157,7 @@ export default function App() {
           </Toast>
         )}
         {data && data.results.length === 0 && !dismissed.includes("empty") && (
-          <Toast kind="info" title={data.message ?? "No matching books found."} onDismiss={() => setDismissed((current) => [...current, "empty"])}>
+          <Toast kind="info" title="No matching books found." onDismiss={() => setDismissed((current) => [...current, "empty"])}>
             Try just the author's last name, or fewer words.
           </Toast>
         )}
@@ -157,6 +172,7 @@ export default function App() {
           <FeaturedResults results={data.results} />
         </>
       )}
-    </main>
+      </main>
+    </div>
   );
 }

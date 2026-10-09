@@ -299,6 +299,17 @@ test("puts the searched text in the q parameter so the page can be shared", asyn
   expect(new URLSearchParams(window.location.search).get("q")).toBe("tolkien hobbit");
 });
 
+test("sets the page title to the book count and the query after a search", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+  expect(document.title).toBe("Find That Book");
+
+  await search("tolkien hobbit");
+  await screen.findByText("The Hobbit");
+
+  expect(document.title).toBe("1 book for “tolkien hobbit” · Find That Book");
+});
+
 test("moves focus to a results heading that names the query and the book count", async () => {
   vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
   render(<App />);
@@ -379,7 +390,7 @@ test("the error toast can be dismissed", async () => {
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
-test("the basic search notice can be dismissed and returns after the next search", async () => {
+test("the basic search notice stays dismissed for later searches", async () => {
   vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: false, message: null, results: [hobbit] })));
   render(<App />);
   await search("hobbit");
@@ -389,7 +400,20 @@ test("the basic search notice can be dismissed and returns after the next search
   expect(screen.queryByText("Basic search mode")).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: /search/i }));
-  expect(await screen.findByText("Basic search mode")).toBeInTheDocument();
+  await screen.findByText("The Hobbit");
+  expect(screen.queryByText("Basic search mode")).not.toBeInTheDocument();
+});
+
+test("the empty state gives its advice once, even when the server message already carries advice", async () => {
+  const serverMessage = "No matching books found. Try adding an author or a different part of the title.";
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: serverMessage, results: [] })));
+  render(<App />);
+
+  await search("zzzz");
+
+  const toast = (await screen.findByText("No matching books found.")).closest(".toast") as HTMLElement;
+  expect(toast).toHaveTextContent("Try just the author's last name, or fewer words.");
+  expect(toast).not.toHaveTextContent("Try adding an author");
 });
 
 test("the error toast has a try again button that repeats the search", async () => {

@@ -65,3 +65,17 @@ test("uses the cover image when there is one", () => {
 
   expect(screen.getByRole("img", { name: "Cover of The Hobbit" })).toHaveAttribute("src", "https://covers.openlibrary.org/b/id/1-M.jpg");
 });
+
+test("names the matched edition title under the title when the work is titled differently", () => {
+  const kafka = book({ title: "海辺のカフカ", matchedTitle: "Kafka on the Shore" });
+  render(<FeaturedResults results={[kafka, book({ workId: "OL9W", title: "Other", matchedTitle: "Another Edition" })]} />);
+
+  expect(within(screen.getByRole("article")).getByText("Matched on edition title “Kafka on the Shore”")).toBeInTheDocument();
+  expect(within(screen.getByRole("listitem")).getByText("Matched on edition title “Another Edition”")).toBeInTheDocument();
+});
+
+test("shows no edition title line when the work title matched", () => {
+  render(<FeaturedResults results={[book({ matchedTitle: null })]} />);
+
+  expect(screen.queryByText(/Matched on edition title/)).not.toBeInTheDocument();
+});
