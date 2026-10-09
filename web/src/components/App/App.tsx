@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { searchBooks } from "../../lib/api";
 import { promoteExample, readStoredExamples, storeExamples } from "../../lib/examples";
+import { EmptyShelf } from "../EmptyShelf/EmptyShelf";
 import { FeaturedResults } from "../FeaturedResults/FeaturedResults";
-import { ResultsSkeleton } from "../ResultsSkeleton/ResultsSkeleton";
 import { SearchProgress } from "../SearchProgress/SearchProgress";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import { Toast } from "../Toast/Toast";
@@ -147,12 +147,8 @@ export default function App() {
           </Toast>
         )}
       </div>
-      {loading && (
-        <>
-          <SearchProgress />
-          <ResultsSkeleton />
-        </>
-      )}
+      {loading && <SearchProgress />}
+      {data && data.results.length === 0 && <EmptyShelf />}
       {data && data.results.length > 0 && (
         <>
           <h2 ref={resultsHeading} tabIndex={-1} className="count">

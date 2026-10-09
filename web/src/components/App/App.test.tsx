@@ -62,6 +62,34 @@ test("shows the server message when there are no results", async () => {
   expect(await screen.findByText("No matching books found.")).toBeInTheDocument();
 });
 
+test("shows an empty bookshelf picture when there are no results, even after the toast is dismissed", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: "No matching books found.", results: [] })));
+  render(<App />);
+
+  await search("zzzz");
+  const toast = (await screen.findByText("No matching books found.")).closest(".toast") as HTMLElement;
+
+  expect(screen.getByRole("img", { name: "An empty bookshelf" })).toBeInTheDocument();
+
+  await userEvent.click(within(toast).getByRole("button", { name: "Dismiss" }));
+  expect(screen.getByRole("img", { name: "An empty bookshelf" })).toBeInTheDocument();
+});
+
+test("does not show the empty bookshelf when there are results or an error", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  const { unmount } = render(<App />);
+  await search("tolkien hobbit");
+  await screen.findByText("The Hobbit");
+  expect(screen.queryByRole("img", { name: "An empty bookshelf" })).not.toBeInTheDocument();
+  unmount();
+
+  vi.stubGlobal("fetch", vi.fn(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json")));
+  render(<App />);
+  await search("hobbit");
+  await screen.findByRole("alert");
+  expect(screen.queryByRole("img", { name: "An empty bookshelf" })).not.toBeInTheDocument();
+});
+
 test("shows an error toast from problem details", async () => {
   vi.stubGlobal("fetch", vi.fn(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json")));
   render(<App />);
@@ -382,7 +410,7 @@ test("the error toast has a try again button that repeats the search", async () 
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
-test("shows a placeholder for the results while searching and removes it with the results", async () => {
+test("shows the progress stage while searching and removes it with the results", async () => {
   let finish: (response: Response) => void = () => {};
   vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => (finish = resolve))));
   render(<App />);
@@ -390,12 +418,12 @@ test("shows a placeholder for the results while searching and removes it with th
   await search("tolkien hobbit");
 
   await screen.findByRole("status");
-  expect(document.querySelectorAll(".skeleton")).toHaveLength(1);
+  expect(document.querySelectorAll(".stage")).toHaveLength(1);
 
   finish(new Response(JSON.stringify({ aiUsed: true, message: null, results: [hobbit] }), { status: 200 }));
 
   expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
-  expect(document.querySelectorAll(".skeleton")).toHaveLength(0);
+  expect(document.querySelectorAll(".stage")).toHaveLength(0);
 });
 
 test("the hero shrinks after the first search", async () => {
