@@ -2,7 +2,7 @@
 
 Source brief: `docs/2025_Developer_Project.md`.
 
-Status: this document describes the application as built on branch `feature/find-that-book` (last commit `4393dfe`). The first draft is summarized under "Changes from the first draft".
+Status: this document describes the application as built and merged into `master` (last commit `5adc586`, from branch `feature/ui-design-improvements`). The first draft is summarized under "Changes from the first draft".
 
 ## Goal
 
@@ -24,6 +24,8 @@ Submission for the InfoTrack "Find That Book" challenge. A messy text query goes
 | D10 | Titles are matched against the work title and the matching edition titles. Authors are matched against names, aliases and transliteration variants |
 | D11 | Open Library is treated gently: capped detail lookups, a shared request limit, a cooldown after HTTP 429, and an optional contact in the `User-Agent` |
 | D12 | UI extras: timed progress panel, light/dark/system theme, example chips that promote successful searches |
+| D13 | UI design: "Bookshelf" (cover-first results on shelves with match badges), chosen from three proposals kept in `docs/ui-proposals/`. The layout works on phones |
+| D14 | The API returns `matchTier` and `exactTitle` per result so the UI can badge matches without parsing the explanation |
 
 ## API
 
@@ -46,12 +48,15 @@ Response 200:
       "workId": "OL27482W",
       "url": "https://openlibrary.org/works/OL27482W",
       "coverUrl": "https://covers.openlibrary.org/b/id/14627509-M.jpg",
-      "explanation": "Exact title match; J.R.R. Tolkien is primary author; first published 1937, matching the query."
+      "explanation": "Exact title match; J.R.R. Tolkien is primary author; first published 1937, matching the query.",
+      "matchTier": 1,
+      "exactTitle": true
     }
   ]
 }
 ```
 
+- `matchTier` is 1 (strongest) to 5, see the tiers under "Pipeline". `exactTitle` is true when the title matched exactly rather than nearly.
 - `author` is the joined primary authors. `authors` is the list. When a work's primary authors could not be resolved, the first contributor is used.
 - `first_publish_year` is the only snake_case field, matching the brief's example.
 - `coverUrl` is null when unavailable.
@@ -106,11 +111,11 @@ Frontend (`web/src/`):
 
 | Path | Responsibility |
 |------|----------------|
-| `components/App/` | Page, search flow, example chips, error and notice banners |
-| `components/ResultCard/` | One result: cover, title, author, year, explanation, Open Library link |
+| `components/App/` | Page (hero search, example chips, banners, results count, shelf grid) and `App.css` with the theme tokens, shelf and mobile styles |
+| `components/ResultCard/` | One book on a shelf: cover linking to Open Library, match badge, title, author and year, and a "Why this book?" toggle for the explanation |
 | `components/SearchProgress/` | Animated, timed progress panel |
 | `components/ThemeToggle/` | System, Light and Dark toggle |
-| `lib/` | `api.ts` (fetch), `types.ts`, `theme.ts` (storage and attribute), `examples.ts` (promotion rule) |
+| `lib/` | `api.ts` (fetch), `types.ts`, `theme.ts` (storage and attribute), `examples.ts` (promotion rule), `badge.ts` (badge from tier, exact title and rank) |
 
 ## AI providers
 
@@ -132,13 +137,19 @@ Frontend (`web/src/`):
 
 ## Frontend
 
-Single page with: search box, example chips, result cards, empty state, error banner, a notice when `aiUsed` is false, a theme toggle, and a progress panel.
+Single page with: a hero search box, example chips, a bookshelf of results, empty state, error banner, a notice when `aiUsed` is false, a theme toggle, and a progress panel.
+
+- Bookshelf: results are covers in a 4-column grid (2 on screens up to 760px wide, 1 up to 340px), each row standing on a wooden ledge. A book without a cover gets a generated blue cover showing its title.
+- Badges: `Best match` (first result with an exact title), `Exact title`, `Author match` (tier 4) and `Close title` (everything else), chosen by `lib/badge.ts`.
+- Explanation: shown in a popover on hover or keyboard focus on wide screens with a pointer. On narrow screens and touch devices the "Why this book?" button opens it inline under the card (`aria-expanded`). The cover links to the Open Library page.
+- Mobile: `viewport-fit=cover` with safe-area padding, tap targets of at least 36 to 44px, example chips in one horizontally scrolling row, and a header that wraps at 420px so the theme toggle does not overflow.
+- Design: the three proposals (Reading Room, Bookshelf, Modern Catalog) are static mockups in `docs/ui-proposals/`. Bookshelf was implemented.
 
 - Starting a search clears the previous results, notice and error. A late response from an older search is ignored.
 - The Search button is disabled while a search runs, so pressing Enter during a search does nothing.
 - Progress panel: gradient bar, bouncing dots and four pips, with a status line that advances every 2.5 seconds through four steps and then says the search is taking longer than usual. The steps are timed, not driven by the server. Animations stop under `prefers-reduced-motion`.
 - Examples: five chips at start. A search with at least one result moves its text to the front (case-insensitive, an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches do not change the list. The list is not persisted.
-- Theme: System (default), Light or Dark through `data-theme` on `<html>` plus `color-scheme`. The choice is stored under `ftb-theme` with every storage access guarded, and a small inline script in `index.html` applies it before first paint.
+- Theme: System (default), Light or Dark through `data-theme` on `<html>` plus `color-scheme`, with colors defined as CSS variables for each mode. The choice is stored under `ftb-theme` with every storage access guarded, and a small inline script in `index.html` applies it before first paint.
 
 ## Config and run
 
@@ -151,7 +162,7 @@ Single page with: search box, example chips, result cards, empty state, error ba
 ## Testing
 
 - .NET (202 tests): `Matcher` (tiers, ranking, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, and `WebApplicationFactory` integration tests with a fake catalog.
-- Frontend (31 tests, Vitest + Testing Library): results, notices, empty and error states, stale-response handling, progress panel, theme toggle, example promotion.
+- Frontend (32 tests, Vitest + Testing Library): results, badges and the reason toggle, notices, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 
 ## Known limitations
@@ -182,3 +193,4 @@ LLM re-ranking, persistent cache, ISBN matching, authentication, a hosted live d
 - The parser returns hypotheses (the draft returned one). A fifth tier was added. The heuristic parser's guesses rank below exact titles.
 - Detail lookups were 8 works in the draft and are 6 in the build, with an author cap, a request limit and a 429 cooldown that the draft did not have.
 - New in the build: edition-title and author-alias matching, transliteration-tolerant author names, the year-aware AI explanation facts, the timed progress panel, the theme toggle, example promotion, Docker Compose, and XML documentation.
+- New after that: the free-text supplement for thin searches, the Bookshelf UI with `matchTier` and `exactTitle` in the API, and the mobile layout.
