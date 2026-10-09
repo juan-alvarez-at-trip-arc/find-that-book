@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { searchBooks } from "../../lib/api";
 import { promoteExample, readStoredExamples, storeExamples } from "../../lib/examples";
-import { ResultCard } from "../ResultCard/ResultCard";
+import { FeaturedResults } from "../FeaturedResults/FeaturedResults";
+import { ResultsSkeleton } from "../ResultsSkeleton/ResultsSkeleton";
 import { SearchProgress } from "../SearchProgress/SearchProgress";
-import { ShelfSkeleton } from "../ShelfSkeleton/ShelfSkeleton";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import type { SearchResponse } from "../../lib/types";
 import "./App.css";
@@ -131,7 +131,7 @@ export default function App() {
       {loading && (
         <>
           <SearchProgress />
-          <ShelfSkeleton />
+          <ResultsSkeleton />
         </>
       )}
       {data && data.results.length === 0 && (
@@ -146,9 +146,7 @@ export default function App() {
           <h2 ref={resultsHeading} tabIndex={-1} className="count">
             {data.results.length} {data.results.length === 1 ? "book" : "books"} for “{searched}”
           </h2>
-          <ol className="results">
-            {data.results.map((book, i) => <ResultCard key={book.workId} book={book} rank={i + 1} />)}
-          </ol>
+          <FeaturedResults results={data.results} />
         </>
       )}
     </main>

@@ -10,7 +10,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
 - Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
-- UI: a "bookshelf" of covers with match badges (Best match, Exact title, Author match, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel with placeholder books, a Try again button on errors, keyboard and screen reader support (Escape, focused results heading, status notices), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
+- UI: the top match shown large with its reason, the other matches as compact cards with match badges (Best match, Exact title, Author match, Close title) and a collapsible reason, a layout that works on phones, a timed progress panel with a placeholder for the results, a Try again button on errors, keyboard and screen reader support (Escape, focused results heading, status notices), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
 
 ## Run it
 
@@ -74,7 +74,8 @@ src/
 tests/FindThatBook.Tests/       xUnit tests (stub HTTP handlers, fake AI client and catalog)
 web/                            React + Vite + TypeScript UI (see web/README.md)
 docs/superpowers/               design spec and implementation plan
-docs/ui-proposals/              three static UI mockups (Bookshelf was implemented)
+docs/ui-proposals/              three static UI mockups (a featured-result layout based on Bookshelf was implemented)
+docs/ui-tests/                  by-hand UI test results, screenshots and pending checks
 Dockerfile, docker-compose.yml  one image with UI and API
 ```
 
