@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { badgeFor } from "../../lib/badge";
 import type { BookResult } from "../../lib/types";
 
 function Cover({ book, className, priority = false }: { book: BookResult; className: string; priority?: boolean }) {
+  const [failed, setFailed] = useState(false);
   return (
     <a className="cover-link" href={book.url} target="_blank" rel="noreferrer" aria-label={`${shownTitle(book)}, view on Open Library`}>
-      {book.coverUrl ? (
-        <img className={className} src={book.coverUrl} alt={`Cover of ${shownTitle(book)}`} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async" />
+      {book.coverUrl && !failed ? (
+        <img className={className} src={book.coverUrl} alt={`Cover of ${shownTitle(book)}`} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async" onError={() => setFailed(true)} />
       ) : (
         <div className={`${className} placeholder`} aria-hidden="true" data-title={shownTitle(book)} />
       )}

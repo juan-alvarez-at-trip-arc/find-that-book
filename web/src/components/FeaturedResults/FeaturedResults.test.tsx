@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { expect, test } from "vitest";
 import type { BookResult } from "../../lib/types";
@@ -83,4 +83,13 @@ test("keeps the work title as the headline when the work title matched", () => {
 
   expect(screen.getByRole("heading", { name: "The Hobbit" })).toBeInTheDocument();
   expect(screen.queryByText(/Catalogued as/)).not.toBeInTheDocument();
+});
+
+test("falls back to the generated cover when the cover image fails to load", () => {
+  const { container } = render(<FeaturedResults results={[book({ coverUrl: "https://covers.openlibrary.org/b/id/1-M.jpg" })]} />);
+
+  fireEvent.error(screen.getByRole("img", { name: "Cover of The Hobbit" }));
+
+  expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  expect(container.querySelector(".cover.placeholder")).toHaveAttribute("data-title", "The Hobbit");
 });

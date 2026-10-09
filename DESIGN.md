@@ -178,7 +178,7 @@ A single centered column, 1040px at most, with 20px side padding (14px on phones
 
 Results sit in an 860px column. The featured card is a two-column grid: a 200px cover, a 28px gap, then text. The other matches are a two-column grid with 12px gaps, one column at 760px and below, where the featured cover narrows to 110px. Messages are toasts in a fixed container at the bottom right (across the bottom at 600px and below). While a toast shows, the page reserves extra bottom padding so nothing is covered.
 
-Touch targets: Search button at least 44px tall, chips and "Why this book?" at least 36px, below 760px.
+Touch targets: every control is at least 24px tall at any width. Below 760px the Search button is at least 44px tall and the chips and "Why this book?" at least 36px.
 
 ## Elevation & Depth
 
