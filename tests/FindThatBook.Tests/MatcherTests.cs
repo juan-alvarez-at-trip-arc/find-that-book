@@ -329,4 +329,54 @@ public class MatcherTests
 
         Assert.Equal(5, Rank(Q.Make(null, "dickens"), books).Count);
     }
+
+    [Theory]
+    [InlineData("Summary of The Hobbit")]
+    [InlineData("The Hobbit: A Study Guide")]
+    [InlineData("SparkNotes The Hobbit")]
+    [InlineData("CliffsNotes The Hobbit")]
+    [InlineData("Cliffs Notes on The Hobbit")]
+    public void Study_aids_and_summaries_are_left_out_of_the_results(string aidTitle)
+    {
+        var hobbit = Books.Make("The Hobbit", ["J.R.R. Tolkien"], editions: 5, id: "OL1W");
+        var aid = Books.Make(aidTitle, ["Some Publisher"], editions: 900, id: "OL2W");
+
+        var ranked = Rank(Q.Make("the hobbit", null), aid, hobbit);
+
+        Assert.Equal(["OL1W"], ranked.Select(r => r.Book.WorkId));
+    }
+
+    [Fact]
+    public void A_study_aid_stays_when_the_query_asks_for_one()
+    {
+        var aid = Books.Make("The Hobbit: A Study Guide", ["Some Publisher"], id: "OL2W");
+
+        var ranked = Rank(Q.Make("the hobbit study guide", null), aid);
+
+        Assert.Equal(["OL2W"], ranked.Select(r => r.Book.WorkId));
+    }
+
+    [Fact]
+    public void A_word_that_only_contains_a_noise_word_is_not_filtered()
+    {
+        var book = Books.Make("Summaries", ["Someone"], id: "OL1W");
+
+        Assert.Single(Rank(Q.Make("summaries", null), book));
+    }
+
+    [Theory]
+    [InlineData(MatchTier.ExactTitlePrimaryAuthor, true, false, true)]
+    [InlineData(MatchTier.ExactTitleContributorAuthor, true, false, true)]
+    [InlineData(MatchTier.NearTitleAuthor, false, false, true)]
+    [InlineData(MatchTier.AuthorOnly, false, false, true)]
+    [InlineData(MatchTier.TitleOnly, true, false, true)]
+    [InlineData(MatchTier.NearTitleAuthor, false, true, false)]
+    [InlineData(MatchTier.TitleOnly, false, false, false)]
+    public void IsConfident_is_false_only_for_guessed_near_titles_and_title_only_near_titles(
+        MatchTier tier, bool exactTitle, bool fromGuess, bool expected)
+    {
+        var match = new MatchedBook(Books.Make("Any", ["Someone"]), tier, exactTitle, AuthorMatchKind.None, null, false, fromGuess);
+
+        Assert.Equal(expected, Matcher.IsConfident(match));
+    }
 }

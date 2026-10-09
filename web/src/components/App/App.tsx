@@ -1,6 +1,6 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { searchBooks } from "../../lib/api";
-import { promoteExample } from "../../lib/examples";
+import { promoteExample, readStoredExamples, storeExamples } from "../../lib/examples";
 import { ResultCard } from "../ResultCard/ResultCard";
 import { SearchProgress } from "../SearchProgress/SearchProgress";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
@@ -15,16 +15,28 @@ const INITIAL_EXAMPLES = [
   "twilight meyer",
 ];
 
+function queryFromUrl(): string {
+  return (new URLSearchParams(window.location.search).get("q") ?? "").slice(0, 200);
+}
+
 export default function App() {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(queryFromUrl);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SearchResponse | null>(null);
-  const [examples, setExamples] = useState(INITIAL_EXAMPLES);
+  const [examples, setExamples] = useState(() => readStoredExamples(INITIAL_EXAMPLES));
   const latest = useRef(0);
+  const opened = useRef(false);
+
+  useEffect(() => {
+    if (opened.current) return;
+    opened.current = true;
+    if (query.trim()) void run(query);
+  });
 
   async function run(text: string) {
     if (!text.trim()) return;
+    window.history.replaceState(null, "", `?${new URLSearchParams({ q: text.trim() })}`);
     const id = ++latest.current;
     setLoading(true);
     setError(null);
@@ -33,7 +45,13 @@ export default function App() {
       const response = await searchBooks(text);
       if (id === latest.current) {
         setData(response);
-        if (response.results.length > 0) setExamples((current) => promoteExample(current, text));
+        if (response.results.length > 0) {
+          setExamples((current) => {
+            const next = promoteExample(current, text);
+            storeExamples(next);
+            return next;
+          });
+        }
       }
     } catch (e) {
       if (id !== latest.current) return;
@@ -97,6 +115,7 @@ export default function App() {
       {data && data.results.length === 0 && <p className="empty">{data.message ?? "No matching books found."}</p>}
       {data && data.results.length > 0 && (
         <>
+          {data.message && <div className="banner notice">{data.message}</div>}
           <p className="count"><strong>{data.results.length} {data.results.length === 1 ? "book" : "books"}</strong></p>
           <ol className="results">
             {data.results.map((book, i) => <ResultCard key={book.workId} book={book} rank={i + 1} />)}

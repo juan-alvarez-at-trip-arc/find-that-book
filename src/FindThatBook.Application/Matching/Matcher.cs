@@ -7,7 +7,13 @@ namespace FindThatBook.Application.Matching;
 /// <summary>Pure ranking logic that scores catalog candidates against the query hypotheses, assigns a match tier and orders the best results.</summary>
 public static partial class Matcher
 {
-    /// <summary>Dedupes candidates, keeps each one's best match across all hypotheses and orders them by tier strength, then exact title, matching year, edition count and title.</summary>
+    /// <summary>The strength from which a best match is reported as not confident.</summary>
+    private const int WeakStrength = 60;
+
+    /// <summary>Normalized phrases that mark a summary or study guide instead of the book itself.</summary>
+    private static readonly string[] StudyAidPhrases = ["summary", "study guide", "sparknotes", "cliffsnotes", "cliffs notes"];
+
+    /// <summary>Dedupes candidates, drops summaries and study guides, keeps each one's best match across all hypotheses and orders them by tier strength, then exact title, matching year, edition count and title.</summary>
     /// <param name="hypotheses">The parsed interpretations of the query, whose keywords supply the years to match.</param>
     /// <param name="candidates">The candidate works returned by the catalog.</param>
     /// <param name="max">The maximum number of matches to return.</param>
@@ -23,8 +29,10 @@ public static partial class Matcher
             .Select(int.Parse)
             .ToHashSet();
 
+        var queryText = $" {Normalizer.Normalize(string.Join(' ', hypotheses.SelectMany(h => h.Keywords.Prepend(h.Author).Prepend(h.Title))))} ";
+
         var matched = new List<MatchedBook>();
-        foreach (var candidate in Dedupe(candidates))
+        foreach (var candidate in Dedupe(candidates).Where(c => !IsStudyAid(c, queryText)))
         {
             MatchedBook? best = null;
             foreach (var hypothesis in hypotheses)
@@ -60,6 +68,21 @@ public static partial class Matcher
         MatchTier.AuthorOnly => 40,
         _ => m.ExactTitle ? 50 : 70,
     };
+
+    /// <summary>Tells whether the best match is strong enough to present as the answer. A guessed author split with a near title, or a near title with no author, is not.</summary>
+    /// <param name="best">The strongest match of the ranking.</param>
+    /// <returns>True when the match is confident, false when the results are only the closest candidates.</returns>
+    public static bool IsConfident(MatchedBook best) => Strength(best) < WeakStrength;
+
+    /// <summary>Tells whether the candidate is a summary or study guide of another book, unless the query itself asks for one.</summary>
+    /// <param name="candidate">The candidate whose title is checked.</param>
+    /// <param name="queryText">The normalized text of the whole query.</param>
+    /// <returns>True when the title contains a study-aid phrase that the query does not contain.</returns>
+    private static bool IsStudyAid(CatalogCandidate candidate, string queryText)
+    {
+        var title = $" {Normalizer.Normalize(candidate.Title)} ";
+        return StudyAidPhrases.Any(p => title.Contains($" {p} ") && !queryText.Contains($" {p} "));
+    }
 
     /// <summary>Collapses candidates that share a full title and first primary author, keeping the one with the most editions.</summary>
     /// <param name="candidates">The candidates to dedupe.</param>

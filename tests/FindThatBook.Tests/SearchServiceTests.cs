@@ -44,6 +44,28 @@ public class SearchServiceTests
     }
 
     [Fact]
+    public async Task A_weak_best_match_adds_a_no_confident_match_message_and_keeps_the_results()
+    {
+        var closeTitle = Books.Make("The Hobbit and Other Stories", ["Someone Else"], id: "OL3W");
+
+        var response = await Service(null, closeTitle).SearchAsync("hobbit stories", default);
+
+        Assert.NotEmpty(response.Results);
+        Assert.Contains("closest", response.Message);
+    }
+
+    [Fact]
+    public async Task A_confident_best_match_has_no_message_even_when_weaker_matches_follow()
+    {
+        var other = Books.Make("The Hobbit Companion", ["Someone Else"], id: "OL4W");
+
+        var response = await Service(null, Hobbit, other).SearchAsync("tolkien hobbit 1937", default);
+
+        Assert.True(response.Results.Count > 1);
+        Assert.Null(response.Message);
+    }
+
+    [Fact]
     public async Task No_matches_returns_empty_results_with_a_message()
     {
         var response = await Service(null, Books.Make("Moby Dick", ["Herman Melville"])).SearchAsync("tolkien hobbit", default);
