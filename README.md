@@ -10,7 +10,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
 - Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
-- UI: a "bookshelf" of covers with match badges (Best match, Exact title, Author match, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel, light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
+- UI: a "bookshelf" of covers with match badges (Best match, Exact title, Author match, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel with placeholder books, a Try again button on errors, keyboard and screen reader support (Escape, focused results heading, status notices), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
 
 ## Run it
 
@@ -176,7 +176,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
-- 45 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle, notices, the no-confident-match notice, empty and error states, stale responses, the progress panel, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
+- 53 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, notices, the no-confident-match notice, empty and error states, Try again, stale responses, the progress panel, the skeleton, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
 - Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 
@@ -188,4 +188,4 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 ## With more time
 
-Fail faster when Open Library does not answer and add a Retry button on the error banner, let a new search replace a running one, sort title-only searches by edition count, show an English display name for authors stored in another script, LLM re-ranking behind a flag, a persistent cache, ISBN matching, query logging for tuning, and a hosted live demo.
+Fail faster when Open Library does not answer, let a new search replace a running one, sort title-only searches by edition count, show an English display name for authors stored in another script, LLM re-ranking behind a flag, a persistent cache, ISBN matching, query logging for tuning, and a hosted live demo.

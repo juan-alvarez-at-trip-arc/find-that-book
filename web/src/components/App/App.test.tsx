@@ -242,6 +242,115 @@ test("puts the searched text in the q parameter so the page can be shared", asyn
   expect(new URLSearchParams(window.location.search).get("q")).toBe("tolkien hobbit");
 });
 
+test("Escape closes an open explanation and keeps the hover popover dismissed until the pointer leaves", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+  await search("hobbit");
+  const toggle = await screen.findByRole("button", { name: /why this book/i });
+  const card = toggle.closest("li") as HTMLElement;
+
+  await userEvent.click(toggle);
+  expect(toggle).toHaveAttribute("aria-expanded", "true");
+  await userEvent.keyboard("{Escape}");
+
+  expect(toggle).toHaveAttribute("aria-expanded", "false");
+  expect(card).toHaveAttribute("data-dismissed", "true");
+  await userEvent.unhover(card);
+  expect(card).toHaveAttribute("data-dismissed", "false");
+});
+
+test("moves focus to a results heading that names the query and the book count", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+
+  await search("tolkien hobbit");
+
+  const heading = await screen.findByRole("heading", { level: 2, name: "1 book for “tolkien hobbit”" });
+  expect(heading).toHaveFocus();
+  expect(screen.getByRole("heading", { level: 3, name: "The Hobbit" })).toBeInTheDocument();
+});
+
+test("announces the AI notice as a status and styles the weak-match notice as information", async () => {
+  const message = "No confident match. These are the closest results.";
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: false, message, results: [hobbit] })));
+  render(<App />);
+
+  await search("hobbit");
+
+  await screen.findByText("The Hobbit");
+  const ai = screen.getByText(/basic parsing/i);
+  const weak = screen.getByText(message);
+  expect(ai).toHaveAttribute("role", "status");
+  expect(ai).not.toHaveClass("info");
+  expect(weak).toHaveAttribute("role", "status");
+  expect(weak).toHaveClass("info");
+});
+
+test("the empty state suggests how to search again", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: "No matching books found.", results: [] })));
+  render(<App />);
+
+  await search("zzzz");
+
+  expect(await screen.findByText(/try just the author/i)).toBeInTheDocument();
+});
+
+test("the error banner has a try again button that repeats the search", async () => {
+  const fetchMock = vi
+    .fn((_url: string, _init: RequestInit) => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json"))
+    .mockImplementationOnce(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json"))
+    .mockImplementationOnce(() => reply({ aiUsed: true, message: null, results: [hobbit] }));
+  vi.stubGlobal("fetch", fetchMock);
+  render(<App />);
+  await search("hobbit");
+  await screen.findByRole("alert");
+
+  await userEvent.click(screen.getByRole("button", { name: /try again/i }));
+
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+  expect(fetchMock).toHaveBeenCalledTimes(2);
+  expect(JSON.parse(fetchMock.mock.calls[1][1].body as string)).toEqual({ query: "hobbit" });
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("shows placeholder books on the shelf while searching and removes them with the results", async () => {
+  let finish: (response: Response) => void = () => {};
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => (finish = resolve))));
+  render(<App />);
+
+  await search("tolkien hobbit");
+
+  await screen.findByRole("status");
+  expect(document.querySelectorAll(".skeleton-book")).toHaveLength(4);
+
+  finish(new Response(JSON.stringify({ aiUsed: true, message: null, results: [hobbit] }), { status: 200 }));
+
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+  expect(document.querySelectorAll(".skeleton-book")).toHaveLength(0);
+});
+
+test("the hero shrinks after the first search", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+  const hero = document.querySelector(".hero") as HTMLElement;
+  expect(hero).not.toHaveClass("compact");
+
+  await search("hobbit");
+  await screen.findByText("The Hobbit");
+
+  expect(hero).toHaveClass("compact");
+});
+
+test("each cover stands in a shelf slot that carries its ledge", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+
+  await search("hobbit");
+  await screen.findByText("The Hobbit");
+
+  expect(document.querySelector(".book > .shelf-slot > .cover-wrap")).not.toBeNull();
+});
+
 test("saves the examples after a successful search and restores them on the next visit", async () => {
   vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
   const first = render(<App />);
