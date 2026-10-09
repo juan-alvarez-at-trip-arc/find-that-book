@@ -1,0 +1,145 @@
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using FindThatBook.Infrastructure.Gemini;
+using FindThatBook.Infrastructure.Health;
+using FindThatBook.Infrastructure.OpenAi;
+using FindThatBook.Infrastructure.OpenLibrary;
+using Microsoft.AspNetCore.Mvc.Testing;
+
+namespace FindThatBook.Tests;
+
+public class HealthConfigDumpTests
+{
+    private static ConfigDump Build(
+        string provider = "Gemini",
+        GeminiOptions? gemini = null,
+        OpenAiCompatibleOptions? openAi = null,
+        OpenLibraryOptions? openLibrary = null)
+        => ConfigDump.Build(new AiProviderSelection(provider), gemini ?? new GeminiOptions(), openAi ?? new OpenAiCompatibleOptions(), openLibrary ?? new OpenLibraryOptions());
+
+    [Fact]
+    public void A_long_key_keeps_only_its_first_and_last_four_characters()
+    {
+        const string key = "freellmapi-66556a145888667463961087c5cd313902fa3ddd48d2654c";
+
+        var dump = Build(openAi: new OpenAiCompatibleOptions { ApiKey = key });
+
+        var masked = dump.OpenAiCompatible.ApiKey;
+        Assert.Equal(key.Length, masked.Length);
+        Assert.StartsWith("free", masked);
+        Assert.EndsWith("654c", masked);
+        Assert.Equal(new string('*', key.Length - 8), masked[4..^4]);
+        Assert.DoesNotContain(key, JsonSerializer.Serialize(dump));
+    }
+
+    [Theory]
+    [InlineData("gem-secret")]
+    [InlineData("12345678901")]
+    [InlineData("a")]
+    public void A_short_key_is_fully_masked(string key)
+    {
+        var dump = Build(gemini: new GeminiOptions { ApiKey = key });
+
+        Assert.Equal(new string('*', key.Length), dump.Gemini.ApiKey);
+    }
+
+    [Fact]
+    public void A_twelve_character_key_shows_four_characters_at_each_end()
+        => Assert.Equal("abcd****wxyz", Build(gemini: new GeminiOptions { ApiKey = "abcdefghwxyz" }).Gemini.ApiKey);
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_missing_key_is_reported_as_not_set(string? key)
+    {
+        var dump = Build(gemini: new GeminiOptions { ApiKey = key }, openAi: new OpenAiCompatibleOptions { ApiKey = key });
+
+        Assert.Equal("not set", dump.Gemini.ApiKey);
+        Assert.Equal("not set", dump.OpenAiCompatible.ApiKey);
+    }
+
+    [Fact]
+    public void Surrounding_whitespace_is_ignored_when_masking()
+        => Assert.Equal("abcd****wxyz", Build(gemini: new GeminiOptions { ApiKey = "  abcdefghwxyz " }).Gemini.ApiKey);
+
+    [Fact]
+    public void Blank_models_and_urls_show_the_effective_defaults()
+    {
+        var dump = Build(
+            gemini: new GeminiOptions { Model = "" },
+            openAi: new OpenAiCompatibleOptions { Model = " ", BaseUrl = "" });
+
+        Assert.Equal(GeminiOptions.DefaultModel, dump.Gemini.Model);
+        Assert.Equal(OpenAiCompatibleOptions.DefaultModel, dump.OpenAiCompatible.Model);
+        Assert.Equal(OpenAiCompatibleOptions.DefaultBaseUrl, dump.OpenAiCompatible.BaseUrl);
+    }
+
+    [Fact]
+    public void Credentials_embedded_in_a_url_are_removed()
+    {
+        var dump = Build(openAi: new OpenAiCompatibleOptions { BaseUrl = "http://user:pw-secret@host.test:8080/v1/" });
+
+        Assert.Equal("http://host.test:8080/v1/", dump.OpenAiCompatible.BaseUrl);
+        Assert.DoesNotContain("pw-secret", JsonSerializer.Serialize(dump));
+    }
+
+    [Fact]
+    public void An_unparseable_url_is_shown_as_is_without_throwing()
+    {
+        var dump = Build(openLibrary: new OpenLibraryOptions { BaseUrl = "not a url" });
+
+        Assert.Equal("not a url", dump.OpenLibrary.BaseUrl);
+    }
+
+    [Fact]
+    public void Open_library_values_and_the_user_agent_are_included()
+    {
+        var dump = Build(openLibrary: new OpenLibraryOptions { MaxDetailLookups = 4, Contact = "me@example.test" });
+
+        Assert.Equal(4, dump.OpenLibrary.MaxDetailLookups);
+        Assert.Equal("me@example.test", dump.OpenLibrary.Contact);
+        Assert.Contains("me@example.test", dump.OpenLibrary.UserAgent);
+        Assert.Equal(2, dump.OpenLibrary.MaxRetries);
+    }
+
+    [Fact]
+    public void The_selected_provider_is_reported_and_both_provider_sections_are_always_present()
+    {
+        var dump = Build(provider: "OpenAiCompatible");
+
+        Assert.Equal("OpenAiCompatible", dump.Ai.Provider);
+        Assert.NotNull(dump.Gemini);
+        Assert.NotNull(dump.OpenAiCompatible);
+    }
+
+    // HTTP endpoint
+
+    [Fact]
+    public async Task Config_endpoint_returns_effective_values_with_masked_keys()
+    {
+        var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+        {
+            b.UseSetting("Ai:Provider", "OpenAiCompatible");
+            b.UseSetting("Gemini:ApiKey", "gem-secret-123");
+            b.UseSetting("OpenAiCompatible:ApiKey", "oai-secret-456");
+            b.UseSetting("OpenAiCompatible:BaseUrl", "http://rpi-llm.local:3001/v1/");
+            b.UseSetting("OpenLibrary:MaxDetailLookups", "3");
+        });
+
+        var response = await factory.CreateClient().GetAsync("/api/health/config");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var raw = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("gem-secret-123", raw);
+        Assert.DoesNotContain("oai-secret-456", raw);
+
+        var body = JsonDocument.Parse(raw).RootElement;
+        Assert.Equal("OpenAiCompatible", body.GetProperty("ai").GetProperty("provider").GetString());
+        Assert.Equal("gem-******-123", body.GetProperty("gemini").GetProperty("apiKey").GetString());
+        Assert.Equal("oai-******-456", body.GetProperty("openAiCompatible").GetProperty("apiKey").GetString());
+        Assert.Equal("http://rpi-llm.local:3001/v1/", body.GetProperty("openAiCompatible").GetProperty("baseUrl").GetString());
+        Assert.Equal(3, body.GetProperty("openLibrary").GetProperty("maxDetailLookups").GetInt32());
+    }
+}

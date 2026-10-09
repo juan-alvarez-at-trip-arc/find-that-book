@@ -16,7 +16,7 @@
 
 - Target `net8.0` only. `global.json` pins SDK `8.0.100` with `rollForward: latestFeature`.
 - Layout: `src/FindThatBook.Application`, `src/FindThatBook.Infrastructure`, `src/FindThatBook.Api`, `tests/FindThatBook.Tests`, `web/` (frontend source in `web/src/components/<Name>/` and `web/src/lib/`).
-- Endpoint: `POST /api/search` with `{ "query": string }`. `GET /api/health` returns 200.
+- Endpoint: `POST /api/search` with `{ "query": string }`. `GET /api/health` returns 200. Later addition: `GET /api/health/ready` (readiness) and `GET /api/health/config` (masked configuration), see the design spec.
 - Response fields: `aiUsed`, `message`, `results[]` with `title`, `author`, `authors`, `first_publish_year`, `workId`, `url`, `coverUrl`, `explanation`, `matchTier`, `exactTitle`. Only `first_publish_year` is snake_case.
 - Max 5 results. Queries are trimmed and truncated to 200 characters. A blank query returns 400.
 - Errors use RFC 7807 problem details: 400, 502 (Open Library cannot be searched), 500. No stack traces.

@@ -64,7 +64,11 @@ Response 200:
 - No results: 200 with `results: []` and a `message`.
 - Errors use RFC 7807 problem details: 400 for a blank query ("Query is required."), 502 when Open Library cannot be searched ("Open Library is unavailable. Please try again shortly."), 500 for anything else.
 
-`GET /api/health` returns `{ "status": "ok" }` for deploy checks.
+Health endpoints, all in `HealthController`:
+
+- `GET /api/health` returns `{ "status": "ok" }` for deploy checks and makes no outside calls.
+- `GET /api/health/ready` validates configuration and probes Open Library and the selected AI provider, cached for 30 seconds. Open Library is critical: if it is down or the configuration is invalid the status is `unready` (503). A missing, rejected or failing AI provider gives `degraded` (200), because searches fall back to the heuristic parser. Probes cost no AI tokens (Gemini model lookup, OpenAI-compatible `GET /models`), time out after 5 seconds and skip the shared Open Library request gate, except that an active 429 cooldown counts as down.
+- `GET /api/health/config` returns the effective configuration. API keys are masked (the first and last four characters stay visible, keys shorter than 12 characters are fully masked, a missing key shows `not set`) and URL credentials are removed. It is open to any caller.
 
 ## Pipeline
 
