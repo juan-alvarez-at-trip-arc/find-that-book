@@ -2,7 +2,7 @@
 
 Scope: every UI decision, the three design proposals, and what was implemented. The backend design is in `docs/superpowers/specs/2026-10-08-find-that-book-design.md`.
 
-Status: Bookshelf (proposal 2) and the mobile layout are implemented and merged into `master` (commits `fc9615b`, `2eb23df`, `5adc586`, docs in `99e3f85`).
+Status: Bookshelf (proposal 2) and the mobile layout are implemented and merged into `master` (commits `fc9615b`, `2eb23df`, `5adc586`, docs in `99e3f85`). The accessibility and flow pass (D13 to D18) is in `659cc63`, also merged into `master`.
 
 ## 1. Decisions
 
