@@ -26,6 +26,7 @@ Status: Bookshelf (proposal 2) and the mobile layout are implemented and merged 
 | D16 | The error banner has a "Try again" button, and the empty state suggests a shorter query | Gives every dead end a next step |
 | D17 | Placeholder books on the shelf while searching, and the hero shrinks after the first search | No layout jump, and results start higher on small screens |
 | D18 | The ledge sits directly under the covers, with the title and author below it | Covers share one height, so every row gets a continuous ledge with no gap under shorter cards |
+| D19 | The search box and the example chips are disabled while a search runs, like the Search button | Input cannot change or start a second search mid-run. `.chip` has no `:disabled` style yet |
 
 ## 2. Proposals
 
@@ -126,6 +127,6 @@ Not verified: widths between 360 and 430px on a real device, the 1-column layout
 
 - F1: the "Why this book?" link sits about 2px to the right of the title.
 - F2 (fixed, see D18): the ledge used to sit under the taller card, leaving a gap under the shorter one.
-- Enter does nothing while a search runs, because the Search button is disabled.
+- Enter does nothing while a search runs, because the search box and the Search button are disabled.
 - Proposal 3's filters and P1's theme are not implemented. A hybrid (the shelf with P3's reason chips) would reuse `matchTier` and `exactTitle`, but needs the author match kind and year match in the API.
 - Authors and titles are shown as Open Library stores them, so they can be in another script.

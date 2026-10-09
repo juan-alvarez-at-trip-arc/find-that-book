@@ -94,6 +94,7 @@ export default function App() {
             placeholder="e.g. tolkien hobbit illustrated deluxe 1937"
             aria-label="Search for a book"
             maxLength={200}
+            disabled={loading}
           />
           <button type="submit" disabled={loading}>{loading ? "Searching…" : "Search"}</button>
         </form>
@@ -104,6 +105,7 @@ export default function App() {
               key={example}
               type="button"
               className="chip"
+              disabled={loading}
               onClick={() => {
                 setQuery(example);
                 void run(example);

@@ -170,7 +170,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 ## Known limitations
 
-- Pressing Enter while a search is running does nothing, because the Search button is disabled during a search.
+- Pressing Enter while a search is running does nothing, because the search box, the example chips and the Search button are disabled during a search.
 - When the AI provider hangs, a search can wait up to about 40 seconds before falling back (two AI steps at 30 seconds each).
 - In fallback mode the guessed hypotheses can still produce odd results. Summaries and study guides are filtered by title phrase (summary, study guide, SparkNotes, CliffsNotes), so ones with other wording can still appear.
 - Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
@@ -185,7 +185,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
-- 53 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, notices, the no-confident-match notice, empty and error states, Try again, stale responses, the progress panel, the skeleton, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
+- 55 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, notices, the no-confident-match notice, empty and error states, Try again, stale responses, the progress panel, the disabled search box and example chips during a search, the skeleton, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
 - Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 

@@ -28,7 +28,7 @@ In production the build in `dist/` is served by the API itself (the Dockerfile c
 - Results heading: when results arrive, focus moves to an `h2` ("N books for “query”"). Card titles are `h3`.
 - Escape closes an open explanation and keeps the hover popover hidden until the pointer or focus leaves the card.
 - While a search runs, four placeholder books appear on the shelf under the progress panel. After the first search the hero shrinks (smaller heading, no lead text, chips in one scrolling row).
-- A late response from an older search is ignored, so results never show for the wrong query. The Search button is disabled while a search runs, so pressing Enter during a search does nothing.
+- A late response from an older search is ignored, so results never show for the wrong query. The search box, the example chips and the Search button are disabled while a search runs, so pressing Enter during a search does nothing.
 - Shareable link: a search puts its text in the page URL as `?q=...` (without adding history entries), and opening a URL with `q` fills the search box and runs it once.
 - Example chips: five at start. A search that returns at least one result moves its text to the front of the list (an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches leave the list alone. The list is saved in `localStorage` under `ftb-examples` (guarded access, invalid data falls back to the defaults).
 - Theme toggle: System (default), Light or Dark. System follows the operating system live. The choice is stored in `localStorage` under `ftb-theme`, every storage access is guarded, and a small inline script in `index.html` applies a saved Light or Dark choice before the first paint to avoid a flash. The theme is applied through a `data-theme` attribute on `<html>` and `color-scheme` in CSS, and the colors are CSS variables defined for each mode in `App.css`.
@@ -58,7 +58,7 @@ Each component lives in its own folder with its tests. `lib/` holds plain TypeSc
 
 ## Tests
 
-53 tests, Vitest with jsdom and Testing Library, no network access (`fetch` is stubbed). The shelf layout and mobile styles are checked by hand, not by tests.
+55 tests, Vitest with jsdom and Testing Library, no network access (`fetch` is stubbed). The shelf layout and mobile styles are checked by hand, not by tests.
 
 - `App`: results with explanations and badges, the "Why this book?" toggle and Escape, the focused results heading, notice roles and styles, the empty message and tip, problem-details errors, generic network errors, Try again, example chips (running a search, promotion, no change on failure or empty results), clearing old results during a search, the progress panel, the skeleton, the compact hero, the shelf slot, blank input.
 - `SearchProgress`: step order with fake timers, the "longer than usual" message, pip states, timer cleanup.
@@ -69,4 +69,4 @@ Each component lives in its own folder with its tests. `lib/` holds plain TypeSc
 
 - Tooling: Vite with `@vitejs/plugin-react`, TypeScript, Vitest, Oxlint. The React Compiler is not enabled.
 - Type-aware lint rules are available by installing `oxlint-tsgolint` and setting `"typeAware": true` in `.oxlintrc.json`.
-- Known quirk: while a search is running, Enter does nothing because the Search button is disabled. A possible improvement is letting a new search replace the running one.
+- Known quirk: while a search is running, Enter does nothing because the search box and the Search button are disabled. A possible improvement is letting a new search replace the running one.

@@ -6,7 +6,7 @@
 
 - Backend tests: `dotnet test` (287 tests). Stop the running API first, it locks the DLLs.
 - Run the API: `dotnet run --project src/FindThatBook.Api` (http://localhost:5080). Pass settings as env vars (`Ai__Provider`, `Gemini__ApiKey`, `OpenAiCompatible__*`, `OpenLibrary__Contact`). `dotnet run` does not read `.env`, only `docker compose` does.
-- Frontend (from `web/`): `npm test` (53 tests), `npm run lint` (Oxlint), `npm run build` (`tsc -b` and Vite), `npm run dev` (http://localhost:5173, proxies `/api` to 5080).
+- Frontend (from `web/`): `npm test` (55 tests), `npm run lint` (Oxlint), `npm run build` (`tsc -b` and Vite), `npm run dev` (http://localhost:5173, proxies `/api` to 5080).
 - Serve the built UI from the API: `npx vite build --outDir ../src/FindThatBook.Api/wwwroot --emptyOutDir` from `web/`. `wwwroot` is git-ignored.
 - Docker: `docker compose up --build` (http://localhost:8080). The image has never been built in this environment.
 
@@ -35,4 +35,4 @@
 - Commit only when asked, and only the files named or staged. No co-author trailer in commit messages.
 - The default branch is `master` (there is no `main`).
 - Use the Write and Edit tools for files. Long bash heredocs with quotes have failed in this environment.
-- Chrome testing: the Search button is disabled while a search runs, so wait for it to re-enable before the next query. Open Library and the AI gateway can time out, so check both before judging results.
+- Chrome testing: the search box, the example chips and the Search button are disabled while a search runs, so wait for them to re-enable before the next query. Open Library and the AI gateway can time out, so check both before judging results.

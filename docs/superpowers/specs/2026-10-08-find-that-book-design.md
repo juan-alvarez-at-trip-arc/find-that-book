@@ -152,7 +152,7 @@ Single page with: a hero search box (compact after the first search), example ch
 - Design: the three proposals (Reading Room, Bookshelf, Modern Catalog) are static mockups in `docs/ui-proposals/`. Bookshelf was implemented.
 
 - Starting a search clears the previous results, notice and error. A late response from an older search is ignored.
-- The Search button is disabled while a search runs, so pressing Enter during a search does nothing.
+- The search box, the example chips and the Search button are disabled while a search runs, so pressing Enter during a search does nothing.
 - Progress panel: gradient bar, bouncing dots and four pips, with a status line that advances every 2.5 seconds through four steps and then says the search is taking longer than usual. The steps are timed, not driven by the server. Animations stop under `prefers-reduced-motion`.
 - Examples: five chips at start. A search with at least one result moves its text to the front (case-insensitive, an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches do not change the list. The list is saved in `localStorage` under `ftb-examples`.
 - Shareable searches: every search puts its text in the `q` parameter of the page URL (`history.replaceState`), and opening a page with `?q=...` fills the box (up to 200 characters) and runs that search once.
@@ -169,12 +169,12 @@ Single page with: a hero search box (compact after the first search), example ch
 ## Testing
 
 - .NET (287 tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
-- Frontend (53 tests, Vitest + Testing Library): results, badges, the reason toggle and Escape, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
+- Frontend (55 tests, Vitest + Testing Library): the disabled search box and example chips during a search, results, badges, the reason toggle and Escape, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 
 ## Known limitations
 
-- Pressing Enter while a search runs is ignored (the button is disabled).
+- Pressing Enter while a search runs is ignored (the search box and the button are disabled).
 - When the AI provider hangs, a search can wait up to about 40 seconds before falling back (two AI steps at a 30 second timeout each).
 - In fallback mode the guessed hypotheses can still surface odd results. The study-aid filter matches title phrases only (summary, study guide, SparkNotes, CliffsNotes).
 - Author names and titles are shown as Open Library stores them, so they can be in another script.

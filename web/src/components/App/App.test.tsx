@@ -125,6 +125,39 @@ test("shows animated progress while searching and removes it when results arrive
   expect(screen.queryByRole("status")).not.toBeInTheDocument();
 });
 
+test("disables the search box while searching and enables it when the search finishes", async () => {
+  let finish: (response: Response) => void = () => {};
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => (finish = resolve))));
+  render(<App />);
+  const box = screen.getByRole("searchbox", { name: /search for a book/i });
+
+  await search("tolkien hobbit");
+
+  expect(box).toBeDisabled();
+
+  finish(new Response(JSON.stringify({ aiUsed: true, message: null, results: [hobbit] }), { status: 200 }));
+
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+  expect(box).toBeEnabled();
+});
+
+test("disables the example chips while searching and enables them when the search finishes", async () => {
+  let finish: (response: Response) => void = () => {};
+  vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => (finish = resolve))));
+  render(<App />);
+  const chipButtons = () => [...document.querySelectorAll<HTMLButtonElement>(".chip")];
+  expect(chipButtons().length).toBeGreaterThan(0);
+
+  await search("tolkien hobbit");
+
+  expect(chipButtons().every((chip) => chip.disabled)).toBe(true);
+
+  finish(new Response(JSON.stringify({ aiUsed: true, message: null, results: [hobbit] }), { status: 200 }));
+
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+  expect(chipButtons().every((chip) => !chip.disabled)).toBe(true);
+});
+
 const chips = () => [...document.querySelectorAll(".chip")].map((el) => el.textContent);
 
 test("a successful search is pushed to the front of the examples and the last one is dropped", async () => {
