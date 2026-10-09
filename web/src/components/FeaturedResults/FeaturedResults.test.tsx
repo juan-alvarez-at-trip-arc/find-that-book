@@ -66,16 +66,21 @@ test("uses the cover image when there is one", () => {
   expect(screen.getByRole("img", { name: "Cover of The Hobbit" })).toHaveAttribute("src", "https://covers.openlibrary.org/b/id/1-M.jpg");
 });
 
-test("names the matched edition title under the title when the work is titled differently", () => {
+test("uses the matched edition title as the headline and names the catalogued title beneath it", () => {
   const kafka = book({ title: "海辺のカフカ", matchedTitle: "Kafka on the Shore" });
   render(<FeaturedResults results={[kafka, book({ workId: "OL9W", title: "Other", matchedTitle: "Another Edition" })]} />);
 
-  expect(within(screen.getByRole("article")).getByText("Matched on edition title “Kafka on the Shore”")).toBeInTheDocument();
-  expect(within(screen.getByRole("listitem")).getByText("Matched on edition title “Another Edition”")).toBeInTheDocument();
+  const featured = screen.getByRole("article");
+  expect(within(featured).getByRole("heading", { name: "Kafka on the Shore" })).toBeInTheDocument();
+  expect(within(featured).getByText("Catalogued as “海辺のカフカ”")).toBeInTheDocument();
+  const other = screen.getByRole("listitem");
+  expect(within(other).getByRole("heading", { name: "Another Edition" })).toBeInTheDocument();
+  expect(within(other).getByText("Catalogued as “Other”")).toBeInTheDocument();
 });
 
-test("shows no edition title line when the work title matched", () => {
+test("keeps the work title as the headline when the work title matched", () => {
   render(<FeaturedResults results={[book({ matchedTitle: null })]} />);
 
-  expect(screen.queryByText(/Matched on edition title/)).not.toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "The Hobbit" })).toBeInTheDocument();
+  expect(screen.queryByText(/Catalogued as/)).not.toBeInTheDocument();
 });

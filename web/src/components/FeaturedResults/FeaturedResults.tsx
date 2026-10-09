@@ -3,11 +3,11 @@ import type { BookResult } from "../../lib/types";
 
 function Cover({ book, className, priority = false }: { book: BookResult; className: string; priority?: boolean }) {
   return (
-    <a className="cover-link" href={book.url} target="_blank" rel="noreferrer" aria-label={`${book.title}, view on Open Library`}>
+    <a className="cover-link" href={book.url} target="_blank" rel="noreferrer" aria-label={`${shownTitle(book)}, view on Open Library`}>
       {book.coverUrl ? (
-        <img className={className} src={book.coverUrl} alt={`Cover of ${book.title}`} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async" />
+        <img className={className} src={book.coverUrl} alt={`Cover of ${shownTitle(book)}`} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async" />
       ) : (
-        <div className={`${className} placeholder`} aria-hidden="true" data-title={book.title} />
+        <div className={`${className} placeholder`} aria-hidden="true" data-title={shownTitle(book)} />
       )}
     </a>
   );
@@ -22,8 +22,12 @@ function Byline({ book }: { book: BookResult }) {
   );
 }
 
-function Matched({ book }: { book: BookResult }) {
-  return book.matchedTitle ? <p className="matched">Matched on edition title “{book.matchedTitle}”</p> : null;
+function shownTitle(book: BookResult): string {
+  return book.matchedTitle ?? book.title;
+}
+
+function Catalogued({ book }: { book: BookResult }) {
+  return book.matchedTitle ? <p className="matched">Catalogued as “{book.title}”</p> : null;
 }
 
 /** Shows the top match large with its reason visible, then the other matches as compact cards with the reason collapsed. */
@@ -37,8 +41,8 @@ export function FeaturedResults({ results }: { results: BookResult[] }) {
         <Cover book={top} className="cover featured-cover" priority />
         <div className="featured-body">
           <span className={`pill ${topBadge.kind}`}>{topBadge.label}</span>
-          <h3 className="featured-title">{top.title}</h3>
-          <Matched book={top} />
+          <h3 className="featured-title">{shownTitle(top)}</h3>
+          <Catalogued book={top} />
           <Byline book={top} />
           <p className="featured-why">{top.explanation}</p>
           <a className="featured-link" href={top.url} target="_blank" rel="noreferrer">View on Open Library</a>
@@ -55,8 +59,8 @@ export function FeaturedResults({ results }: { results: BookResult[] }) {
                   <Cover book={book} className="cover mini-cover" />
                   <div>
                     <span className={`pill ${badge.kind}`}>{badge.label}</span>
-                    <h4 className="mini-title">{book.title}</h4>
-                    <Matched book={book} />
+                    <h4 className="mini-title">{shownTitle(book)}</h4>
+                    <Catalogued book={book} />
                     <Byline book={book} />
                     <details>
                       <summary>Why this book?</summary>
