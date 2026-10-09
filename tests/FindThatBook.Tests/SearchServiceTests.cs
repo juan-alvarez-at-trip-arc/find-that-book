@@ -44,6 +44,24 @@ public class SearchServiceTests
     }
 
     [Fact]
+    public async Task Reports_the_matched_edition_title_when_the_work_is_titled_differently()
+    {
+        var kafka = Books.Make("海辺のカフカ", ["村上春樹"], editions: 61, id: "OL2625431W", altTitles: ["Kafka on the Shore"]);
+
+        var response = await Service(null, kafka).SearchAsync("kafka on the shore", default);
+
+        Assert.Equal("Kafka on the Shore", Assert.Single(response.Results).MatchedTitle);
+    }
+
+    [Fact]
+    public async Task Leaves_the_matched_title_empty_when_the_work_title_matched()
+    {
+        var response = await Service(null, Hobbit).SearchAsync("tolkien hobbit 1937", default);
+
+        Assert.Null(Assert.Single(response.Results).MatchedTitle);
+    }
+
+    [Fact]
     public async Task A_weak_best_match_adds_a_no_confident_match_message_and_keeps_the_results()
     {
         var closeTitle = Books.Make("The Hobbit and Other Stories", ["Someone Else"], id: "OL3W");

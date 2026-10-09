@@ -26,7 +26,7 @@ export function SearchProgress() {
   return (
     <div className="stage" role="status">
       <Scene step={step} count={STEPS.length} />
-      <h3 key={step} className="stage-title">{slow ? SLOW : STEPS[step].title}</h3>
+      <h2 key={step} className="stage-title">{slow ? SLOW : STEPS[step].title}</h2>
       <p key={`detail-${step}`} className="stage-detail">{slow ? SLOW_DETAIL : STEPS[step].detail}</p>
       <ol className="stage-steps" aria-hidden="true">
         {STEPS.map((s, i) => (

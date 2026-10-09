@@ -126,7 +126,7 @@ Observations from 2026-10-09 with one free routing gateway (they describe that g
 
 ## API
 
-`POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle }] }`. `matchTier` is 1 (strongest) to 5 and `exactTitle` is true when the title matched exactly. The query is trimmed and truncated to 200 characters. `message` is also set next to non-empty results when even the best match is weak ("No confident match").
+`POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle, matchedTitle }] }`. `matchTier` is 1 (strongest) to 5, `exactTitle` is true when the title matched exactly and `matchedTitle` is the edition title that matched when the work is titled differently (otherwise null). The query is trimmed and truncated to 200 characters. `message` is also set next to non-empty results when even the best match is weak ("No confident match").
 Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library cannot be searched, 500 for anything else.
 
 ### Health endpoints
