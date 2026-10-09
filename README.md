@@ -130,7 +130,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - **Probes:** Open Library runs a one-result search. Gemini reads the configured model's metadata and OpenAI-compatible calls `GET {baseUrl}/models`, so neither spends tokens. A server without a `/models` route still counts as reachable. Each probe times out after 5 seconds.
 - **Status:** `unready` means the configuration is invalid or Open Library is down. `degraded` means the AI provider is missing a key, rate limited or down, and searches use the non-AI fallback.
 - **Caching:** the readiness report is cached for 30 seconds, so polling does not use AI quota or trip Open Library throttling.
-- **Secrets:** `/api/health/config` masks API keys (first and last four characters stay visible, for example `free****...****654c`, and keys shorter than 12 characters are fully masked), shows `not set` for a missing key and removes credentials from URLs. The endpoint is open to any caller and shows internal URLs and the Open Library contact, so restrict it if the app is exposed publicly.
+- **Secrets:** `/api/health/config` masks API keys (first and last four characters stay visible, for example `free****...****654c`, and keys shorter than 12 characters are fully masked), shows `not set` for a missing key and removes credentials from URLs. The endpoint answers only callers on the same machine (loopback, or a remote address equal to the local one) and returns 404 to everyone else, because it shows internal URLs and the Open Library contact. Under Docker, requests through a published port come from the bridge gateway, so run `curl http://localhost:8080/api/health/config` inside the container instead.
 - **Controller:** the three endpoints live in `HealthController`. Settings come from the app's configuration, not from `.env`, which only Docker Compose reads.
 
 ## How it works
@@ -172,7 +172,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 ## Testing
 
-- 280 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 287 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
