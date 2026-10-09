@@ -9,6 +9,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - AI extraction and explanations with automatic fallback to a heuristic parser and template explanations. The app works with no AI key.
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
+- Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
 - UI: a "bookshelf" of covers with match badges (Best match, Exact title, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel, light/dark/system theme and example chips that promote your successful searches. See [web/README.md](web/README.md).
 
 ## Run it
@@ -64,11 +65,12 @@ Plain Docker works too:
 
 ```
 src/
-  FindThatBook.Api/             controller, problem details, static files, appsettings
+  FindThatBook.Api/             search and health controllers, problem details, static files, appsettings
   FindThatBook.Application/     models, interfaces, Normalizer, Matcher, heuristic parser,
                                 template explanations, fallback decorators, SearchService
   FindThatBook.Infrastructure/  Open Library client (+ request gate), AI seam (IAiClient),
-                                Gemini and OpenAI-compatible clients, DI registration
+                                Gemini and OpenAI-compatible clients, health probes and
+                                config check (Health/), DI registration
 tests/FindThatBook.Tests/       xUnit tests (stub HTTP handlers, fake AI client and catalog)
 web/                            React + Vite + TypeScript UI (see web/README.md)
 docs/superpowers/               design spec and implementation plan
@@ -115,7 +117,21 @@ The fallback keeps the app usable, but it hides the problem from users, so havin
 ## API
 
 `POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle }] }`. `matchTier` is 1 (strongest) to 5 and `exactTitle` is true when the title matched exactly. The query is trimmed and truncated to 200 characters.
-Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library cannot be searched, 500 for anything else. `GET /api/health` returns 200.
+Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library cannot be searched, 500 for anything else.
+
+### Health endpoints
+
+| Endpoint | Purpose | Response |
+| --- | --- | --- |
+| `GET /api/health` | Liveness for container and load balancer checks. No outside calls. | 200 `{ "status": "ok" }` |
+| `GET /api/health/ready` | Readiness. Validates the configuration and probes Open Library and the selected AI provider. | 200 with `ready` or `degraded`, 503 with `unready` |
+| `GET /api/health/config` | The effective configuration values, with masked API keys. | 200 with `ai`, `gemini`, `openAiCompatible` and `openLibrary` sections |
+
+- **Probes:** Open Library runs a one-result search. Gemini reads the configured model's metadata and OpenAI-compatible calls `GET {baseUrl}/models`, so neither spends tokens. A server without a `/models` route still counts as reachable. Each probe times out after 5 seconds.
+- **Status:** `unready` means the configuration is invalid or Open Library is down. `degraded` means the AI provider is missing a key, rate limited or down, and searches use the non-AI fallback.
+- **Caching:** the readiness report is cached for 30 seconds, so polling does not use AI quota or trip Open Library throttling.
+- **Secrets:** `/api/health/config` masks API keys (first and last four characters stay visible, for example `free****...****654c`, and keys shorter than 12 characters are fully masked), shows `not set` for a missing key and removes credentials from URLs. The endpoint is open to any caller and shows internal URLs and the Open Library contact, so restrict it if the app is exposed publicly.
+- **Controller:** the three endpoints live in `HealthController`. Settings come from the app's configuration, not from `.env`, which only Docker Compose reads.
 
 ## How it works
 
@@ -152,15 +168,17 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
 - The example chips and their order are not saved across page reloads.
 - The mobile layout was checked by hand in a narrow desktop Chrome window, not on real phones, and there are no automated layout tests.
+- The readiness probes were run live against Open Library and an OpenAI-compatible endpoint, but the Gemini probe was not run with a real key.
 - The Docker image has not been built in this environment (the Docker daemon was not available), although the same layout was run by hand and `docker compose config` accepts the compose file.
 
 ## Testing
 
-- 202 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 264 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
 - 32 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle, notices, empty and error states, stale responses, the progress panel, the theme toggle and the example list.
+- Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 
 ## Docs

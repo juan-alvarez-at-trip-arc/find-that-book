@@ -4,6 +4,7 @@ using FindThatBook.Application.Explanations;
 using FindThatBook.Application.Parsing;
 using FindThatBook.Application.Search;
 using FindThatBook.Infrastructure.Gemini;
+using FindThatBook.Infrastructure.Health;
 using FindThatBook.Infrastructure.OpenAi;
 using FindThatBook.Infrastructure.OpenLibrary;
 using Microsoft.Extensions.Configuration;
@@ -42,9 +43,11 @@ public static class ServiceCollectionExtensions
         {
             services.AddHttpClient<IAiClient, GeminiClient>(client =>
             {
-                client.BaseAddress = new Uri("https://generativelanguage.googleapis.com/");
+                client.BaseAddress = new Uri(GeminiOptions.ApiBaseUrl);
                 client.Timeout = TimeSpan.FromSeconds(30);
             });
+            services.AddSingleton(new AiProviderSelection(AiProviderSelection.Gemini));
+            services.AddSingleton<IHealthProbe, GeminiProbe>();
         }
         else if (provider.Equals("OpenAiCompatible", StringComparison.OrdinalIgnoreCase))
         {
@@ -53,11 +56,17 @@ public static class ServiceCollectionExtensions
                 client.BaseAddress = sp.GetRequiredService<IOptions<OpenAiCompatibleOptions>>().Value.BaseUri;
                 client.Timeout = TimeSpan.FromSeconds(30);
             });
+            services.AddSingleton(new AiProviderSelection(AiProviderSelection.OpenAiCompatible));
+            services.AddSingleton<IHealthProbe, OpenAiCompatibleProbe>();
         }
         else
         {
             throw new InvalidOperationException($"Unknown Ai:Provider '{provider}'. Use 'Gemini' or 'OpenAiCompatible'.");
         }
+
+        services.AddHttpClient(ProbeRunner.ClientName);
+        services.AddSingleton<IHealthProbe, OpenLibraryProbe>();
+        services.AddSingleton<HealthReportService>();
 
         services.AddTransient<IQueryParser>(sp => new FallbackQueryParser(
             new AiQueryParser(sp.GetRequiredService<IAiClient>()),
