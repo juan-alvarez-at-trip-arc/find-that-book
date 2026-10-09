@@ -68,7 +68,7 @@ Health endpoints, all in `HealthController`:
 
 - `GET /api/health` returns `{ "status": "ok" }` for deploy checks and makes no outside calls.
 - `GET /api/health/ready` validates configuration and probes Open Library and the selected AI provider, cached for 30 seconds. Open Library is critical: if it is down or the configuration is invalid the status is `unready` (503). A missing, rejected or failing AI provider gives `degraded` (200), because searches fall back to the heuristic parser. Probes cost no AI tokens (Gemini model lookup, OpenAI-compatible `GET /models`), time out after 5 seconds and skip the shared Open Library request gate, except that an active 429 cooldown counts as down.
-- `GET /api/health/config` returns the effective configuration. API keys are masked (the first and last four characters stay visible, keys shorter than 12 characters are fully masked, a missing key shows `not set`) and URL credentials are removed. It is open to any caller.
+- `GET /api/health/config` returns the effective configuration. API keys are masked (the first and last four characters stay visible, keys shorter than 12 characters are fully masked, a missing key shows `not set`) and URL credentials are removed. It answers only callers on the local machine (a missing, loopback or local-equal remote address) and returns 404 to all others.
 
 ## Pipeline
 
@@ -168,7 +168,7 @@ Single page with: a hero search box, example chips, a bookshelf of results, empt
 
 ## Testing
 
-- .NET (280 tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
+- .NET (287 tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
 - Frontend (45 tests, Vitest + Testing Library): results, badges and the reason toggle, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 

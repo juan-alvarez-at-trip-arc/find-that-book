@@ -5,7 +5,11 @@ using FindThatBook.Infrastructure.Gemini;
 using FindThatBook.Infrastructure.Health;
 using FindThatBook.Infrastructure.OpenAi;
 using FindThatBook.Infrastructure.OpenLibrary;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace FindThatBook.Tests;
 
@@ -141,5 +145,54 @@ public class HealthConfigDumpTests
         Assert.Equal("oai-******-456", body.GetProperty("openAiCompatible").GetProperty("apiKey").GetString());
         Assert.Equal("http://rpi-llm.local:3001/v1/", body.GetProperty("openAiCompatible").GetProperty("baseUrl").GetString());
         Assert.Equal(3, body.GetProperty("openLibrary").GetProperty("maxDetailLookups").GetInt32());
+    }
+
+    private sealed class RemoteIpFilter(string remote, string local) : IStartupFilter
+    {
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use((context, nextMiddleware) =>
+            {
+                context.Connection.RemoteIpAddress = IPAddress.Parse(remote);
+                context.Connection.LocalIpAddress = IPAddress.Parse(local);
+                return nextMiddleware(context);
+            });
+            next(app);
+        };
+    }
+
+    private static HttpClient ClientFrom(string remote, string local = "10.0.0.5")
+        => new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter(remote, local))))
+            .CreateClient();
+
+    [Theory]
+    [InlineData("203.0.113.9")]
+    [InlineData("172.17.0.1")]
+    [InlineData("2001:db8::1")]
+    public async Task Config_endpoint_hides_itself_from_non_local_callers(string remote)
+    {
+        var response = await ClientFrom(remote).GetAsync("/api/health/config");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("127.0.0.1", "10.0.0.5")]
+    [InlineData("::1", "10.0.0.5")]
+    [InlineData("10.0.0.5", "10.0.0.5")]
+    public async Task Config_endpoint_answers_local_callers(string remote, string local)
+    {
+        var response = await ClientFrom(remote, local).GetAsync("/api/health/config");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Liveness_stays_open_to_non_local_callers()
+    {
+        var response = await ClientFrom("203.0.113.9").GetAsync("/api/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 }
