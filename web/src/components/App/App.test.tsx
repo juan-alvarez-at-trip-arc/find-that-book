@@ -216,7 +216,7 @@ test("does not search for blank input", async () => {
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
-test("labels exact and close matches and toggles the reason", async () => {
+test("labels the best, exact and close matches", async () => {
   const close = { ...hobbit, workId: "OL2W", title: "Poems from The Hobbit", exactTitle: false, matchTier: 3 };
   const second = { ...hobbit, workId: "OL3W", title: "The Hobbit (1990)" };
   vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit, second, close] })));
@@ -227,10 +227,6 @@ test("labels exact and close matches and toggles the reason", async () => {
   await screen.findByText("Best match");
   expect(screen.getByText("Exact title")).toBeInTheDocument();
   expect(screen.getByText("Close title")).toBeInTheDocument();
-  const toggle = screen.getAllByRole("button", { name: /why this book/i })[0];
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-  await userEvent.click(toggle);
-  expect(toggle).toHaveAttribute("aria-expanded", "true");
 });
 
 test("shows the server notice next to the results when the best match is weak", async () => {
@@ -273,23 +269,6 @@ test("puts the searched text in the q parameter so the page can be shared", asyn
   await screen.findByText("The Hobbit");
 
   expect(new URLSearchParams(window.location.search).get("q")).toBe("tolkien hobbit");
-});
-
-test("Escape closes an open explanation and keeps the hover popover dismissed until the pointer leaves", async () => {
-  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
-  render(<App />);
-  await search("hobbit");
-  const toggle = await screen.findByRole("button", { name: /why this book/i });
-  const card = toggle.closest("li") as HTMLElement;
-
-  await userEvent.click(toggle);
-  expect(toggle).toHaveAttribute("aria-expanded", "true");
-  await userEvent.keyboard("{Escape}");
-
-  expect(toggle).toHaveAttribute("aria-expanded", "false");
-  expect(card).toHaveAttribute("data-dismissed", "true");
-  await userEvent.unhover(card);
-  expect(card).toHaveAttribute("data-dismissed", "false");
 });
 
 test("moves focus to a results heading that names the query and the book count", async () => {
@@ -346,7 +325,7 @@ test("the error banner has a try again button that repeats the search", async ()
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
-test("shows placeholder books on the shelf while searching and removes them with the results", async () => {
+test("shows a placeholder for the results while searching and removes it with the results", async () => {
   let finish: (response: Response) => void = () => {};
   vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => (finish = resolve))));
   render(<App />);
@@ -354,12 +333,12 @@ test("shows placeholder books on the shelf while searching and removes them with
   await search("tolkien hobbit");
 
   await screen.findByRole("status");
-  expect(document.querySelectorAll(".skeleton-book")).toHaveLength(4);
+  expect(document.querySelectorAll(".skeleton")).toHaveLength(1);
 
   finish(new Response(JSON.stringify({ aiUsed: true, message: null, results: [hobbit] }), { status: 200 }));
 
   expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
-  expect(document.querySelectorAll(".skeleton-book")).toHaveLength(0);
+  expect(document.querySelectorAll(".skeleton")).toHaveLength(0);
 });
 
 test("the hero shrinks after the first search", async () => {
@@ -372,16 +351,6 @@ test("the hero shrinks after the first search", async () => {
   await screen.findByText("The Hobbit");
 
   expect(hero).toHaveClass("compact");
-});
-
-test("each cover stands in a shelf slot that carries its ledge", async () => {
-  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
-  render(<App />);
-
-  await search("hobbit");
-  await screen.findByText("The Hobbit");
-
-  expect(document.querySelector(".book > .shelf-slot > .cover-wrap")).not.toBeNull();
 });
 
 test("saves the examples after a successful search and restores them on the next visit", async () => {

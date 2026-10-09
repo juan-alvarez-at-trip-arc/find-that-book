@@ -19,15 +19,14 @@ In production the build in `dist/` is served by the API itself (the Dockerfile c
 
 ## What it does
 
-- A hero search box with example chips. A search calls `POST /api/search` and shows the results as a bookshelf: covers standing on wooden ledges (4 columns, 2 up to 760px wide, 1 up to 340px), each with a match badge and, below the ledge, title, author and year. The cover links to Open Library. A book without a cover gets a generated cover with its title.
+- A hero search box with example chips. A search calls `POST /api/search` and shows the top match large (cover, badge, title, author, year, its reason and a "View on Open Library" link) and the other matches under "Other possible matches" as compact cards (2 columns, 1 up to 760px wide). Covers link to Open Library. A book without a cover gets a generated cover with its title.
 - Badges come from `matchTier` and `exactTitle` in the response (`lib/badge.ts`): "Best match" for the first result with an exact title, "Exact title", "Author match" (author-only matches) and "Close title".
-- The explanation shows in a popover on hover or keyboard focus. On narrow screens and touch devices the "Why this book?" button opens it inline under the card.
+- The top match always shows its explanation. The other cards have a native "Why this book?" disclosure (`<details>`), collapsed by default.
 - Mobile: `viewport-fit=cover` with safe-area padding, tap targets of 36 to 44px, example chips in one horizontally scrolling row, and a header that wraps at 420px.
 - While a search runs the previous results, notice and error are cleared and a progress panel shows a gradient bar, bouncing dots, four pips and a status line that advances every 2.5 seconds, then says the search is taking longer than usual. The steps are timed locally, because the API reports no progress. Animations stop under `prefers-reduced-motion`.
 - A yellow notice appears when `aiUsed` is false (the AI was unavailable, so results use basic parsing), and a blue information notice shows the server message above the results when the best match is weak. Both are `role="status"`. The empty state shows the server's message and a tip to try the author's last name or fewer words. Failures show a red banner with the API's problem-details title, or a generic message when the request itself failed, plus a "Try again" button that repeats the last search.
-- Results heading: when results arrive, focus moves to an `h2` ("N books for “query”"). Card titles are `h3`.
-- Escape closes an open explanation and keeps the hover popover hidden until the pointer or focus leaves the card.
-- While a search runs, four placeholder books appear on the shelf under the progress panel. After the first search the hero shrinks (smaller heading, no lead text, chips in one scrolling row).
+- Results heading: when results arrive, focus moves to an `h2` ("N books for “query”"). The top match title and the "Other possible matches" label are `h3`, and the titles of the other cards are `h4`.
+- While a search runs, a placeholder shaped like the featured match and two other matches appears under the progress panel. After the first search the hero shrinks (smaller heading, no lead text, chips in one scrolling row).
 - A late response from an older search is ignored, so results never show for the wrong query. The search box, the example chips and the Search button are disabled while a search runs, so pressing Enter during a search does nothing.
 - Shareable link: a search puts its text in the page URL as `?q=...` (without adding history entries), and opening a URL with `q` fills the search box and runs it once.
 - Example chips: five at start. A search that returns at least one result moves its text to the front of the list (an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches leave the list alone. The list is saved in `localStorage` under `ftb-examples` (guarded access, invalid data falls back to the defaults).
@@ -40,10 +39,10 @@ src/
   main.tsx                 entry point (loaded by index.html)
   setupTests.ts            Testing Library and jest-dom setup (referenced by vite.config.ts)
   components/
-    App/                   App.tsx, App.css (all styles, theme tokens, shelf and mobile rules), App.test.tsx
-    ResultCard/            ResultCard.tsx (one book on the shelf)
+    App/                   App.tsx, App.css (all styles, theme tokens, featured results and mobile rules), App.test.tsx
+    FeaturedResults/       FeaturedResults.tsx, FeaturedResults.test.tsx (top match and the other matches)
+    ResultsSkeleton/       ResultsSkeleton.tsx (placeholder results while searching)
     SearchProgress/        SearchProgress.tsx, SearchProgress.test.tsx
-    ShelfSkeleton/         ShelfSkeleton.tsx (placeholder books while searching)
     ThemeToggle/           ThemeToggle.tsx, ThemeToggle.test.tsx
   lib/
     api.ts                 fetch wrapper for POST /api/search, turns problem details into errors
@@ -58,9 +57,10 @@ Each component lives in its own folder with its tests. `lib/` holds plain TypeSc
 
 ## Tests
 
-55 tests, Vitest with jsdom and Testing Library, no network access (`fetch` is stubbed). The shelf layout and mobile styles are checked by hand, not by tests.
+58 tests, Vitest with jsdom and Testing Library, no network access (`fetch` is stubbed). The layout and mobile styles are checked by hand, not by tests.
 
-- `App`: results with explanations and badges, the "Why this book?" toggle and Escape, the focused results heading, notice roles and styles, the empty message and tip, problem-details errors, generic network errors, Try again, example chips (running a search, promotion, no change on failure or empty results), clearing old results during a search, the progress panel, the skeleton, the compact hero, the shelf slot, blank input.
+- `FeaturedResults`: the top match with its reason visible, the other matches with a badge and a collapsed reason, a single result, the placeholder cover and unknown author, the cover image.
+- `App`: results with explanations and badges, the focused results heading, notice roles and styles, the empty message and tip, problem-details errors, generic network errors, Try again, example chips (running a search, promotion, no change on failure or empty results), clearing old results during a search, the progress panel, the skeleton, the compact hero, blank input.
 - `SearchProgress`: step order with fake timers, the "longer than usual" message, pip states, timer cleanup.
 - `ThemeToggle`: default System mode, choosing and persisting a mode, restoring a saved mode, ignoring an invalid value, blocked storage, the accessible group label.
 - `examples`: the promotion rule (new query, existing query, case and spaces, stable length, blank input, no mutation) and saving and restoring the list (invalid data, blocked storage).

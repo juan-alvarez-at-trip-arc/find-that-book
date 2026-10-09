@@ -24,7 +24,7 @@ Submission for the InfoTrack "Find That Book" challenge. A messy text query goes
 | D10 | Titles are matched against the work title and the matching edition titles. Authors are matched against names, aliases and transliteration variants |
 | D11 | Open Library is treated gently: capped detail lookups, a shared request limit, a cooldown after HTTP 429, and an optional contact in the `User-Agent` |
 | D12 | UI extras: timed progress panel, light/dark/system theme, example chips that promote successful searches |
-| D13 | UI design: "Bookshelf" (cover-first results on shelves with match badges), chosen from three proposals kept in `docs/ui-proposals/`. The layout works on phones |
+| D13 | UI design: "Bookshelf" (cover-first results with match badges), chosen from three proposals kept in `docs/ui-proposals/`, then changed to a featured layout (top match large with its reason, other matches as compact cards, see UI spec D20). The layout works on phones |
 | D14 | The API returns `matchTier` and `exactTitle` per result so the UI can badge matches without parsing the explanation |
 
 ## API
@@ -117,8 +117,9 @@ Frontend (`web/src/`):
 
 | Path | Responsibility |
 |------|----------------|
-| `components/App/` | Page (hero search, example chips, banners, results count, shelf grid) and `App.css` with the theme tokens, shelf and mobile styles |
-| `components/ResultCard/` | One book on a shelf: cover linking to Open Library, match badge, title, author and year, and a "Why this book?" toggle for the explanation |
+| `components/App/` | Page (hero search, example chips, banners, results count) and `App.css` with the theme tokens, featured results and mobile styles |
+| `components/FeaturedResults/` | The top match large with its explanation, and the other matches as compact cards with a badge and a collapsible "Why this book?" |
+| `components/ResultsSkeleton/` | Placeholder shaped like the featured layout while a search runs |
 | `components/SearchProgress/` | Animated, timed progress panel |
 | `components/ThemeToggle/` | System, Light and Dark toggle |
 | `lib/` | `api.ts` (fetch), `types.ts`, `theme.ts` (storage and attribute), `examples.ts` (promotion rule), `badge.ts` (badge from tier, exact title and rank) |
@@ -143,13 +144,13 @@ Frontend (`web/src/`):
 
 ## Frontend
 
-Single page with: a hero search box (compact after the first search), example chips, a bookshelf of results with a focused results heading, empty state with a tip, error banner with a Try again button, a notice when `aiUsed` is false (information style for the weak-match message), a theme toggle, and a progress panel followed by placeholder books. Escape closes an open explanation. Details are in `docs/ui-proposals/ui-spec.md` (D13 to D18).
+Single page with: a hero search box (compact after the first search), example chips, featured results with a focused results heading, empty state with a tip, error banner with a Try again button, a notice when `aiUsed` is false (information style for the weak-match message), a theme toggle, and a progress panel followed by a placeholder for the results. Details are in `docs/ui-proposals/ui-spec.md` (D13 to D20).
 
-- Bookshelf: results are covers in a 4-column grid (2 on screens up to 760px wide, 1 up to 340px), each row standing on a continuous wooden ledge under the covers, with title and author below it. A book without a cover gets a generated blue cover showing its title.
+- Featured results: the top match is large (cover, badge, title, author and year, its explanation, a link to Open Library). The other matches are compact cards in 2 columns (1 up to 760px wide) under "Other possible matches". A book without a cover gets a generated blue cover showing its title.
 - Badges: `Best match` (first result with an exact title), `Exact title`, `Author match` (tier 4) and `Close title` (everything else), chosen by `lib/badge.ts`.
-- Explanation: shown in a popover on hover or keyboard focus on wide screens with a pointer. On narrow screens and touch devices the "Why this book?" button opens it inline under the card (`aria-expanded`). The cover links to the Open Library page.
+- Explanation: always visible for the top match. The other cards use a native `<details>` "Why this book?" disclosure, collapsed by default. Covers link to the Open Library page.
 - Mobile: `viewport-fit=cover` with safe-area padding, tap targets of at least 36 to 44px, example chips in one horizontally scrolling row, and a header that wraps at 420px so the theme toggle does not overflow.
-- Design: the three proposals (Reading Room, Bookshelf, Modern Catalog) are static mockups in `docs/ui-proposals/`. Bookshelf was implemented.
+- Design: the three proposals (Reading Room, Bookshelf, Modern Catalog) are static mockups in `docs/ui-proposals/`. Bookshelf was implemented first and then changed to the featured layout.
 
 - Starting a search clears the previous results, notice and error. A late response from an older search is ignored.
 - The search box, the example chips and the Search button are disabled while a search runs, so pressing Enter during a search does nothing.
@@ -169,7 +170,7 @@ Single page with: a hero search box (compact after the first search), example ch
 ## Testing
 
 - .NET (287 tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
-- Frontend (55 tests, Vitest + Testing Library): the disabled search box and example chips during a search, results, badges, the reason toggle and Escape, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
+- Frontend (58 tests, Vitest + Testing Library): the disabled search box and example chips during a search, results, badges, the featured results and their collapsed reasons, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 
 ## Known limitations

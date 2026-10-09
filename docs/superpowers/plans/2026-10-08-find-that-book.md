@@ -194,7 +194,7 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 
 - [x] Commit `a5bd389`.
 
-`web/src/components/<Name>/` for `App`, `ResultCard`, `SearchProgress` and `ThemeToggle` with their tests and `App.css`, and `web/src/lib/` for `api.ts`, `types.ts`, `theme.ts` and `examples.ts`. `main.tsx` and `setupTests.ts` stay at the root of `src/`.
+`web/src/components/<Name>/` for `App`, `ResultCard` (later `FeaturedResults`), `SearchProgress` and `ThemeToggle` with their tests and `App.css`, and `web/src/lib/` for `api.ts`, `types.ts`, `theme.ts` and `examples.ts`. `main.tsx` and `setupTests.ts` stay at the root of `src/`.
 
 ### Task 17: Bookshelf UI and mobile layout
 
@@ -264,6 +264,21 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 **Behavior:** the search box and every example chip get `disabled={loading}`, the same flag as the Search button, so they are enabled again when a search succeeds or fails. A disabled chip is dimmed like the Search button (`.chip:disabled`) and loses its hover highlight.
 
 **Tests:** 2 new frontend tests, each seen failing first (55 total). **Not done:** a check of the chip style in a browser (light, dark, 390px).
+
+### Task 22: Featured results layout
+
+- [x] Commit in this task's feature commit. Spec: `docs/ui-proposals/ui-spec.md` (D20). Test report: `docs/ui-tests/README.md`.
+
+**Process:** three layouts were prototyped on the real page behind `?variant=` (A shelf, B ranked list, C featured plus rest). C was chosen, the prototype code was removed and the winner was rewritten with tests.
+
+**Files:** new `web/src/components/FeaturedResults/` (component and tests) and `ResultsSkeleton/`. Deleted `ResultCard/` and `ShelfSkeleton/`. Changed `App.tsx`, `App.css` and `App.test.tsx`.
+
+**Behavior:**
+- The top match is an `article` with a large cover, badge, `h3` title, author and year, its explanation always visible and a "View on Open Library" link.
+- The other matches sit under an `h3` "Other possible matches" in 2 columns (1 up to 760px wide), each with a badge and a native `<details>` "Why this book?" collapsed by default.
+- The hover popover, `data-dismissed` and Escape handling were removed with the shelf. The placeholder is shaped like the new layout.
+
+**Tests:** 5 new `FeaturedResults` tests, written failing first. Two `App` tests for the shelf were removed and two were updated (58 total). **Verified by hand in headed Chrome:** 1440px dark, and 1024, 768, 390 and 320px in dark and light (iframes), no horizontal overflow. **Not done:** real touch, the skeleton, single-result, empty and error states. The prototype was not kept on a throwaway branch.
 
 ---
 
