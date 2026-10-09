@@ -51,14 +51,14 @@ h1 { margin: 0; font-family: var(--serif); font-size: clamp(1.9rem, 4vw, 2.7rem)
 .rest { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .mini { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 12px; padding: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
 .mini-title { margin: 6px 0 0; font-family: var(--serif); font-size: 0.95rem; line-height: 1.25; }
-.mini summary { margin-top: 6px; color: var(--accent); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+.mini summary { margin-top: 6px; padding: 4px 0; color: var(--accent); font-size: 0.8rem; font-weight: 600; cursor: pointer; }
 .mini summary:focus-visible, .featured-link:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
 .mini-why { margin: 6px 0 0; font-size: 0.85rem; }
 .pill { display: inline-block; align-self: flex-start; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; color: var(--on-accent); }
 .pill.best { background: var(--best); }
 .pill.exact { background: var(--exact); }
 .pill.close { background: var(--close); }
-.cover { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 3px 6px 6px 3px; background-color: var(--line); outline: 1px solid var(--cover-edge); outline-offset: -1px; box-shadow: -3px 0 0 #0002 inset, 3px 6px 12px #0004; }
+.cover { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 3px 6px 6px 3px; background: linear-gradient(135deg, var(--cover1), var(--cover2)); outline: 1px solid var(--cover-edge); outline-offset: -1px; box-shadow: -3px 0 0 #0002 inset, 3px 6px 12px #0004; }
 .cover-link { display: block; }
 .cover-link::after { content: ""; display: block; height: 7px; margin: 0 -8px; border-radius: 0 0 3px 3px; background: linear-gradient(var(--wood1), var(--wood2)); box-shadow: 0 5px 8px #0003; }
 .featured a:focus-visible, .mini a:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 3px 6px 6px 3px; }
