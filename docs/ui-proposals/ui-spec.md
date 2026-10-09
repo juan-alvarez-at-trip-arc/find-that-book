@@ -26,7 +26,7 @@ Status: Bookshelf (proposal 2) and the mobile layout are implemented and merged 
 | D16 | The error banner has a "Try again" button, and the empty state suggests a shorter query | Gives every dead end a next step |
 | D17 | Placeholder books on the shelf while searching, and the hero shrinks after the first search | No layout jump, and results start higher on small screens |
 | D18 | The ledge sits directly under the covers, with the title and author below it | Covers share one height, so every row gets a continuous ledge with no gap under shorter cards |
-| D19 | The search box and the example chips are disabled while a search runs, like the Search button | Input cannot change or start a second search mid-run. `.chip` has no `:disabled` style yet |
+| D19 | The search box and the example chips are disabled while a search runs, like the Search button | Input cannot change or start a second search mid-run. A disabled chip is dimmed (opacity 0.6, `progress` cursor, no hover highlight), like the Search button |
 
 ## 2. Proposals
 
