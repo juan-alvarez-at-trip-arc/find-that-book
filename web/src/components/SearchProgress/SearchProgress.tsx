@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
+import { Scene } from "./Scenes";
 
 const STEPS = [
-  "Understanding your query…",
-  "Searching Open Library…",
-  "Matching titles and authors…",
-  "Writing explanations…",
+  { title: "Understanding your query…", short: "Understand", detail: "Pulling the title, author and year out of your words." },
+  { title: "Searching Open Library…", short: "Search", detail: "Looking through millions of catalogued editions." },
+  { title: "Matching titles and authors…", short: "Match", detail: "Scoring every candidate against your clues." },
+  { title: "Writing explanations…", short: "Explain", detail: "Saying why each book made the list." },
 ];
 const SLOW = "Still working, this is taking longer than usual…";
+const SLOW_DETAIL = "Open Library or the AI gateway may be slow right now.";
 
 export const STEP_MS = 2500;
 
@@ -19,24 +21,19 @@ export function SearchProgress() {
     return () => clearInterval(id);
   }, []);
 
-  const text = step < STEPS.length ? STEPS[step] : SLOW;
+  const slow = step >= STEPS.length;
 
   return (
-    <div className="progress" role="status">
-      <div className="progress-bar" aria-hidden="true">
-        <span />
-      </div>
-      <div className="progress-row">
-        <span className="dots" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
-        <span key={step} className="progress-text">{text}</span>
-      </div>
-      <ol className="pips" aria-hidden="true">
-        {STEPS.map((label, i) => (
-          <li key={label} data-step-state={i < step ? "done" : i === step ? "active" : "pending"} />
+    <div className="stage" role="status">
+      <Scene step={step} count={STEPS.length} />
+      <h3 key={step} className="stage-title">{slow ? SLOW : STEPS[step].title}</h3>
+      <p key={`detail-${step}`} className="stage-detail">{slow ? SLOW_DETAIL : STEPS[step].detail}</p>
+      <ol className="stage-steps" aria-hidden="true">
+        {STEPS.map((s, i) => (
+          <li key={s.short} data-step-state={i < step ? "done" : i === step ? "active" : "pending"}>
+            <b>{i < step ? "✓" : i + 1}</b>
+            {s.short}
+          </li>
         ))}
       </ol>
     </div>
