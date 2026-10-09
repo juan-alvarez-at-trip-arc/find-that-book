@@ -10,7 +10,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
 - Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
-- UI: a "bookshelf" of covers with match badges (Best match, Exact title, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel, light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
+- UI: a "bookshelf" of covers with match badges (Best match, Exact title, Author match, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel, light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
 
 ## Run it
 
@@ -184,6 +184,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 - Design: [docs/superpowers/specs/2026-10-08-find-that-book-design.md](docs/superpowers/specs/2026-10-08-find-that-book-design.md)
 - Implementation plan (as built): [docs/superpowers/plans/2026-10-08-find-that-book.md](docs/superpowers/plans/2026-10-08-find-that-book.md)
+- Decision record (ideas set aside, changes from the first draft): [docs/decisions.md](docs/decisions.md)
 
 ## With more time
 

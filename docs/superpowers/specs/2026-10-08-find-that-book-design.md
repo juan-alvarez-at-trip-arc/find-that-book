@@ -2,7 +2,7 @@
 
 Source brief: `docs/2025_Developer_Project.md`.
 
-Status: this document describes the application as built and merged into `master` (last commit `5adc586`, from branch `feature/ui-design-improvements`). The first draft is summarized under "Changes from the first draft".
+Status: this document describes the application as built on `master`. The first draft is summarized under "Changes from the first draft". Ideas that were tried or set aside are in `docs/decisions.md`.
 
 ## Goal
 
@@ -187,7 +187,7 @@ LLM re-ranking, persistent cache, ISBN matching, authentication, a hosted live d
 
 ## Future improvements
 
-- Fail faster when Open Library does not answer (a time budget per lookup phase) and a Retry button on the error banner. Both were tried and set aside.
+- Fail faster when Open Library does not answer (a time budget per lookup phase) and a Retry button on the error banner. Both were tried and set aside (see `docs/decisions.md`).
 - Let a new search or Enter replace a running one.
 - Sort title-only searches by edition count so popular works come first.
 - Show an English display name for authors stored in another script.
@@ -201,3 +201,4 @@ LLM re-ranking, persistent cache, ISBN matching, authentication, a hosted live d
 - Detail lookups were 8 works in the draft and are 6 in the build, with an author cap, a request limit and a 429 cooldown that the draft did not have.
 - New in the build: edition-title and author-alias matching, transliteration-tolerant author names, the year-aware AI explanation facts, the timed progress panel, the theme toggle, example promotion, Docker Compose, and XML documentation.
 - New after that: the free-text supplement for thin searches, the Bookshelf UI with `matchTier` and `exactTitle` in the API, and the mobile layout.
+- New after that: the health endpoints (the config dump is local-only), the study-aid filter, the "No confident match" message, shareable `?q=` links and saved example chips.
