@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** merged into `master`, last commit `5adc586` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at that commit: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264.
+**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, and Task 20 to 53 frontend tests.
 
 ## Global Constraints
 
@@ -240,9 +240,26 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 
 ---
 
+### Task 20: UI accessibility and flow pass
+
+- [x] Commit `659cc63`, merged into `master`. Spec: `docs/ui-proposals/ui-spec.md` (D13 to D18).
+
+**Files:** `web/src/components/App/App.tsx`, `App.css`, `App.test.tsx`, `ResultCard/ResultCard.tsx`, new `ShelfSkeleton/ShelfSkeleton.tsx`.
+
+**Behavior:**
+- Escape closes an open explanation and keeps the hover popover hidden until the pointer or focus leaves the card (`data-dismissed`).
+- After a search with results, focus moves to an `h2` ("N books for “query”"). Card titles are `h3`. The AI notice, weak-match notice and empty state are `role="status"`, and the weak-match notice uses a separate `info` style.
+- The error banner has a "Try again" button that repeats the last search. The empty state suggests a shorter query.
+- Four placeholder books show on the shelf under the progress panel. After the first search the hero shrinks (`compact`).
+- The ledge moved from each card to a `.shelf-slot` under the cover, so every row has a continuous ledge and no gap under shorter cards.
+
+**Tests:** 8 new frontend tests, each seen failing first (53 total). **Verified by hand in Chrome:** desktop dark and light and a 375px iframe in light mode. **Not tried by hand:** Escape and Try again, the 1-column layout, real touch.
+
+---
+
 ## Not done or deferred
 
 - A hosted live demo (needs a hosting account).
 - Building the Docker image (the daemon was not available).
-- Ideas tried and set aside: a time budget per Open Library lookup phase (fail faster), and a Retry button on the error banner.
+- Ideas tried and set aside: a time budget per Open Library lookup phase (fail faster). The Retry button was set aside earlier and built in Task 20.
 - Open items are listed in the spec under "Known limitations" and "Future improvements".

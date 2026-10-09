@@ -180,6 +180,7 @@ Single page with: a hero search box (compact after the first search), example ch
 - Author names and titles are shown as Open Library stores them, so they can be in another script.
 - Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
 - Open Library rate-limits heavy use. The mitigations above reduce the load but cannot prevent a block.
+- The AI readiness probes only list models (Gemini model lookup, OpenAI-compatible `GET /models`), so a provider that stalls on real completions still reports ready. A routing model name such as `auto` makes this worse because the upstream model changes per call (see the README).
 
 ## Out of scope
 

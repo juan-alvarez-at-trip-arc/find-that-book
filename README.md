@@ -114,6 +114,14 @@ We built the OpenAI-compatible option because Gemini's free tier was unreliable 
 
 The fallback keeps the app usable, but it hides the problem from users, so having a second, selectable provider is the practical fix. Switching is configuration only, with no code change.
 
+### Choosing a model on a routing gateway
+
+Observations from 2026-10-09 with one free routing gateway (they describe that gateway and day, not the models in general):
+
+- With `OpenAiCompatible__Model=auto` the gateway picks a different upstream model per call. A one-line extraction took 6.6 to 12.2 seconds over three runs, and the log showed `AI provider timed out` (the 30 second limit) on some searches, so searches fell back with `aiUsed: false` while `/api/health/ready` still said `ready`.
+- 20 models were timed once each on the explanation step (5 books, JSON mode). 11 returned the exact 5-item JSON the app needs, 6 returned output it cannot use (wrong shape or count), and 3 returned HTTP errors (429, 400, 502). The fastest valid ones took under 4 seconds (`command-a` 1.9 s, `nemotron-3-super-120b` 3.7 s, `gpt-oss-20b` 3.9 s). Some valid ones took 20 to 28 seconds, close to the timeout.
+- Each model ran once, so repeat the test before relying on the numbers. The project owner runs with `command-a`.
+
 ## API
 
 `POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle }] }`. `matchTier` is 1 (strongest) to 5 and `exactTitle` is true when the title matched exactly. The query is trimmed and truncated to 200 characters. `message` is also set next to non-empty results when even the best match is weak ("No confident match").
@@ -168,6 +176,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
 - The mobile layout was checked by hand in a narrow desktop Chrome window, not on real phones, and there are no automated layout tests.
 - The readiness probes were run live against Open Library and an OpenAI-compatible endpoint, but the Gemini probe was not run with a real key.
+- The AI readiness probes only list models. A gateway that is slow or stalls on chat completions still reports `ready`, and its searches fall back after the 30 second timeout.
 - The Docker image has not been built in this environment (the Docker daemon was not available), although the same layout was run by hand and `docker compose config` accepts the compose file.
 
 ## Testing
