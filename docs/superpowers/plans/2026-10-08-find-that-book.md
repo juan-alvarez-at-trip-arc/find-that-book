@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, and Task 20 to 53 frontend tests.
+**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, and Task 21 to 55.
 
 ## Global Constraints
 
@@ -254,6 +254,16 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 - The ledge moved from each card to a `.shelf-slot` under the cover, so every row has a continuous ledge and no gap under shorter cards.
 
 **Tests:** 8 new frontend tests, each seen failing first (53 total). **Verified by hand in Chrome:** desktop dark and light and a 375px iframe in light mode. **Not tried by hand:** Escape and Try again, the 1-column layout, real touch.
+
+### Task 21: Disable the search box and example chips while searching
+
+- [x] Commit in this task's feature commit. Spec: `docs/ui-proposals/ui-spec.md` (D19).
+
+**Files:** `web/src/components/App/App.tsx`, `App.test.tsx`.
+
+**Behavior:** the search box and every example chip get `disabled={loading}`, the same flag as the Search button, so they are enabled again when a search succeeds or fails.
+
+**Tests:** 2 new frontend tests, each seen failing first (55 total). **Not done:** a `:disabled` style for `.chip`, and a check in a browser.
 
 ---
 
