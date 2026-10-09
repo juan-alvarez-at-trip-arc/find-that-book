@@ -6,9 +6,9 @@ Arrows point from the dependent project to the project it uses.
 flowchart TB
     subgraph web["web/ (React, Vite, TypeScript)"]
         App --> lib_api["lib/api.ts"]
-        App --> ResultCard
+        App --> FeaturedResults
+        App --> ResultsSkeleton
         App --> SearchProgress
-        App --> ShelfSkeleton
         App --> ThemeToggle
     end
 
