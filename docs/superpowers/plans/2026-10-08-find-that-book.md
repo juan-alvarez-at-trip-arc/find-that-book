@@ -259,11 +259,11 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 
 - [x] Commit in this task's feature commit. Spec: `docs/ui-proposals/ui-spec.md` (D19).
 
-**Files:** `web/src/components/App/App.tsx`, `App.test.tsx`.
+**Files:** `web/src/components/App/App.tsx`, `App.css`, `App.test.tsx`.
 
-**Behavior:** the search box and every example chip get `disabled={loading}`, the same flag as the Search button, so they are enabled again when a search succeeds or fails.
+**Behavior:** the search box and every example chip get `disabled={loading}`, the same flag as the Search button, so they are enabled again when a search succeeds or fails. A disabled chip is dimmed like the Search button (`.chip:disabled`) and loses its hover highlight.
 
-**Tests:** 2 new frontend tests, each seen failing first (55 total). **Not done:** a `:disabled` style for `.chip`, and a check in a browser.
+**Tests:** 2 new frontend tests, each seen failing first (55 total). **Not done:** a check of the chip style in a browser (light, dark, 390px).
 
 ---
 
