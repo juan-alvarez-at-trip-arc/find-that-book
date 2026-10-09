@@ -28,7 +28,7 @@
 - No test calls a live API. Add a test that fails first for each fix.
 - The API field `first_publish_year` is the only snake_case field, matching the brief.
 - Keep colors in the CSS variables in `App.css`, and check light, dark and a 390px width after UI changes.
-- Messages to the user (errors, notices, the weak-match message, the empty state) are `Toast`s from `web/src/components/Toast/`, rendered in the `.toasts` container in `App.tsx`. Do not add inline banners. Toast colors are `--danger`, `--warn` and `--accent`. While a toast shows, `.page:has(.toast)` reserves bottom padding, so after adding one check that nothing is covered at the end of the page.
+- Messages to the user (errors, notices, the weak-match message, the empty state) are `Toast`s from `web/src/components/Toast/`, rendered in the `.toasts` container in `App.tsx`. Do not add inline banners. A search with no results also shows the `EmptyShelf` picture (`web/src/components/EmptyShelf/`), which carries no text. Toast colors are `--danger`, `--warn` and `--accent`. While a toast shows, `.page:has(.toast)` reserves bottom padding, so after adding one check that nothing is covered at the end of the page.
 
 ## Working agreements
 

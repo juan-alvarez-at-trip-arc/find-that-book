@@ -119,8 +119,8 @@ Frontend (`web/src/`):
 |------|----------------|
 | `components/App/` | Page (hero search, example chips, the toast container, results count) and `App.css` with the theme tokens, featured results and mobile styles |
 | `components/FeaturedResults/` | The top match large with its explanation, and the other matches as compact cards with a badge and a collapsible "Why this book?" |
-| `components/ResultsSkeleton/` | Placeholder shaped like the featured layout while a search runs |
-| `components/SearchProgress/` | Animated, timed progress panel |
+| `components/EmptyShelf/` | Empty bookshelf picture shown when a search finds no books |
+| `components/SearchProgress/` | Timed progress stage with an animated scene per step (`Scenes.tsx`) |
 | `components/ThemeToggle/` | System, Light and Dark toggle |
 | `components/Toast/` | Dismissable message (error, notice, info) shown in a fixed stack |
 | `lib/` | `api.ts` (fetch), `types.ts`, `theme.ts` (storage and attribute), `examples.ts` (promotion rule), `badge.ts` (badge from tier, exact title and rank) |
@@ -145,7 +145,7 @@ Frontend (`web/src/`):
 
 ## Frontend
 
-Single page with: a hero search box (compact after the first search), example chips, featured results with a focused results heading, a theme toggle, and a progress panel followed by a placeholder for the results. Messages are dismissable toasts: an error toast with a Try again button, a notice toast when `aiUsed` is false, an information toast for the weak-match message and an information toast for the empty state with a tip. Details are in `docs/ui-proposals/ui-spec.md` (D13 to D21).
+Single page with: a hero search box (compact after the first search), example chips, featured results with a focused results heading, a theme toggle, and a progress stage while searching. Messages are dismissable toasts: an error toast with a Try again button, a notice toast when `aiUsed` is false, an information toast for the weak-match message and an information toast for the empty state with a tip, next to an empty bookshelf picture. Details are in `docs/ui-proposals/ui-spec.md` (D13 to D23).
 
 - Featured results: the top match is large (cover, badge, title, author and year, its explanation, a link to Open Library). The other matches are compact cards in 2 columns (1 up to 760px wide) under "Other possible matches". A book without a cover gets a generated blue cover showing its title.
 - Badges: `Best match` (first result with an exact title), `Exact title`, `Author match` (tier 4) and `Close title` (everything else), chosen by `lib/badge.ts`.
@@ -155,7 +155,7 @@ Single page with: a hero search box (compact after the first search), example ch
 
 - Starting a search clears the previous results, notice and error. A late response from an older search is ignored.
 - The search box, the example chips and the Search button are disabled while a search runs, so pressing Enter during a search does nothing.
-- Progress panel: gradient bar, bouncing dots and four pips, with a status line that advances every 2.5 seconds through four steps and then says the search is taking longer than usual. The steps are timed, not driven by the server. Animations stop under `prefers-reduced-motion`.
+- Progress stage: an animated scene, a title, a detail line and four step chips, advancing every 2.5 seconds through four steps and then saying the search is taking longer than usual. The steps are timed, not driven by the server. The scenes are static under `prefers-reduced-motion`.
 - Examples: five chips at start. A search with at least one result moves its text to the front (case-insensitive, an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches do not change the list. The list is saved in `localStorage` under `ftb-examples`.
 - Shareable searches: every search puts its text in the `q` parameter of the page URL (`history.replaceState`), and opening a page with `?q=...` fills the box (up to 200 characters) and runs that search once.
 - Theme: System (default), Light or Dark through `data-theme` on `<html>` plus `color-scheme`, with colors defined as CSS variables for each mode. The choice is stored under `ftb-theme` with every storage access guarded, and a small inline script in `index.html` applies it before first paint.
@@ -171,7 +171,7 @@ Single page with: a hero search box (compact after the first search), example ch
 ## Testing
 
 - .NET (287 tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
-- Frontend (58 tests, Vitest + Testing Library): the disabled search box and example chips during a search, results, badges, the featured results and their collapsed reasons, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
+- Frontend (58 tests, Vitest + Testing Library): the disabled search box and example chips during a search, results, badges, the featured results and their collapsed reasons, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress stage, empty bookshelf, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 
 ## Known limitations
