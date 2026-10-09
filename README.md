@@ -9,7 +9,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - AI extraction and explanations with automatic fallback to a heuristic parser and template explanations. The app works with no AI key.
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
-- UI: result cards with covers, a timed progress panel, light/dark/system theme and example chips that promote your successful searches. See [web/README.md](web/README.md).
+- UI: a "bookshelf" of covers with match badges (Best match, Exact title, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel, light/dark/system theme and example chips that promote your successful searches. See [web/README.md](web/README.md).
 
 ## Run it
 
@@ -72,6 +72,7 @@ src/
 tests/FindThatBook.Tests/       xUnit tests (stub HTTP handlers, fake AI client and catalog)
 web/                            React + Vite + TypeScript UI (see web/README.md)
 docs/superpowers/               design spec and implementation plan
+docs/ui-proposals/              three static UI mockups (Bookshelf was implemented)
 Dockerfile, docker-compose.yml  one image with UI and API
 ```
 
@@ -113,7 +114,7 @@ The fallback keeps the app usable, but it hides the problem from users, so havin
 
 ## API
 
-`POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation }] }`. The query is trimmed and truncated to 200 characters.
+`POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle }] }`. `matchTier` is 1 (strongest) to 5 and `exactTitle` is true when the title matched exactly. The query is trimmed and truncated to 200 characters.
 Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library cannot be searched, 500 for anything else. `GET /api/health` returns 200.
 
 ## How it works
@@ -150,6 +151,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - In fallback mode the guessed hypotheses can still produce odd results, and summaries or study guides can appear among results.
 - Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
 - The example chips and their order are not saved across page reloads.
+- The mobile layout was checked by hand in a narrow desktop Chrome window, not on real phones, and there are no automated layout tests.
 - The Docker image has not been built in this environment (the Docker daemon was not available), although the same layout was run by hand and `docker compose config` accepts the compose file.
 
 ## Testing
@@ -158,7 +160,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
-- 31 frontend tests (Vitest + Testing Library) cover results, notices, empty and error states, stale responses, the progress panel, the theme toggle and the example list.
+- 32 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle, notices, empty and error states, stale responses, the progress panel, the theme toggle and the example list.
 - No test calls a live API.
 
 ## Docs

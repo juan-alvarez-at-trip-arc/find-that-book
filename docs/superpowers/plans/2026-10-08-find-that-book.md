@@ -10,14 +10,14 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** `feature/find-that-book`, last commit `4393dfe`. Final test counts: 202 .NET tests, 31 frontend tests, all passing.
+**Branch:** merged into `master`, last commit `5adc586` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Final test counts: 202 .NET tests, 32 frontend tests, all passing.
 
 ## Global Constraints
 
 - Target `net8.0` only. `global.json` pins SDK `8.0.100` with `rollForward: latestFeature`.
 - Layout: `src/FindThatBook.Application`, `src/FindThatBook.Infrastructure`, `src/FindThatBook.Api`, `tests/FindThatBook.Tests`, `web/` (frontend source in `web/src/components/<Name>/` and `web/src/lib/`).
 - Endpoint: `POST /api/search` with `{ "query": string }`. `GET /api/health` returns 200.
-- Response fields: `aiUsed`, `message`, `results[]` with `title`, `author`, `authors`, `first_publish_year`, `workId`, `url`, `coverUrl`, `explanation`. Only `first_publish_year` is snake_case.
+- Response fields: `aiUsed`, `message`, `results[]` with `title`, `author`, `authors`, `first_publish_year`, `workId`, `url`, `coverUrl`, `explanation`, `matchTier`, `exactTitle`. Only `first_publish_year` is snake_case.
 - Max 5 results. Queries are trimmed and truncated to 200 characters. A blank query returns 400.
 - Errors use RFC 7807 problem details: 400, 502 (Open Library cannot be searched), 500. No stack traces.
 - Open Library: 10 s per attempt, 2 retries on 5xx and timeouts, 1 hour in-memory cache (size-limited), 6 detail lookups per search, 3 authors per work, 2 concurrent requests, HTTP 429 never retried and followed by a cooldown, optional contact in the `User-Agent`.
@@ -78,7 +78,7 @@ Failure modes the feature tasks would not otherwise exercise. All have tests.
 - `ParsedQuery(Title?, Author?, Keywords, Guessed = false)`.
 - `CatalogCandidate(WorkId, Title, PrimaryAuthors, Contributors, FirstPublishYear?, EditionCount, CoverId?, Enriched, AlternativeTitles, PrimaryAuthorAliases)`.
 - `MatchTier` 1-5, `AuthorMatchKind`, `MatchedBook(Book, Tier, ExactTitle, AuthorMatch, MatchedAuthor?, YearMatches, FromGuess, MatchedTitle?)`.
-- `ParseOutcome`, `ExplanationOutcome`, `SearchRequest`, `BookResult`, `SearchResponse`.
+- `ParseOutcome`, `ExplanationOutcome`, `SearchRequest`, `BookResult` (includes `MatchTier` and `ExactTitle`, added in Task 17), `SearchResponse`.
 - `IQueryParser`, `IBookCatalog`, `IExplanationWriter`, `ISearchService`, `AiUnavailableException`, `CatalogUnavailableException`.
 - `Matcher.Rank(hypotheses, candidates, max = 5)`.
 
@@ -193,6 +193,24 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 - [x] Commit `a5bd389`.
 
 `web/src/components/<Name>/` for `App`, `ResultCard`, `SearchProgress` and `ThemeToggle` with their tests and `App.css`, and `web/src/lib/` for `api.ts`, `types.ts`, `theme.ts` and `examples.ts`. `main.tsx` and `setupTests.ts` stay at the root of `src/`.
+
+### Task 17: Bookshelf UI and mobile layout
+
+- [x] Commits `fc9615b` (Bookshelf), `2eb23df` (mobile), `5adc586` (proposal mockups). Work was done on `feature/ui-design-improvements` and merged into `master`.
+
+**Proposals:** three static mockups in `docs/ui-proposals/` (`1-reading-room.html`, `2-bookshelf.html`, `3-modern-catalog.html`) with the same sample data and a light/dark toggle. Proposal 2 was chosen.
+
+**Backend:** `BookResult` gained `MatchTier` (int 1-5) and `ExactTitle`. `SearchService.ToResult` now takes the `MatchedBook` instead of the candidate. The existing 202 tests still pass.
+
+**Frontend:**
+- `lib/badge.ts` (`badgeFor`): `Best match` for the first result with an exact title, `Exact title` for other exact titles, `Author match` for tier 4, `Close title` otherwise.
+- `ResultCard`: cover (links to Open Library) with badge, title, author and year, and a "Why this book?" button (`aria-expanded`) that reveals the explanation. A book without a cover gets a generated cover whose title comes from a `data-title` attribute so the text is not duplicated in the DOM.
+- `App`: hero heading and search, example chips inside the hero, a "N books" count, the results as a list.
+- `App.css`: theme tokens for light, dark and system, shelf grid and ledges (4, 2 and 1 columns), popover on hover or focus, and the mobile rules: inline explanation at 760px and below or on touch devices, safe-area padding, 36 to 44px tap targets, one scrolling row of chips, and a wrapping header at 420px. `index.html` uses `viewport-fit=cover`.
+
+**Tests:** `App.test.tsx` was updated and gained a test for the badges and the toggle (32 frontend tests).
+
+**Verified:** by hand in headed Chrome (dark mode, desktop width and a window about 250px wide): covers load, hover popover, inline toggle, and no horizontal scroll after the header fix. Not verified: light mode of the new layout, widths of 360 to 430px, real touch devices.
 
 ---
 
