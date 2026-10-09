@@ -10,7 +10,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
 - Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
-- UI: the top match shown large with its reason, the other matches as compact cards with match badges (Best match, Exact title, Author match, Close title) and a collapsible reason, a layout that works on phones, a timed progress panel with a placeholder for the results, a Try again button on errors, keyboard and screen reader support (Escape, focused results heading, status notices), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
+- UI: the top match shown large with its reason, the other matches as compact cards with match badges (Best match, Exact title, Author match, Close title) and a collapsible reason, a layout that works on phones, a timed progress panel with a placeholder for the results, dismissable toast messages for errors (with a Try again button), the AI fallback, weak matches and empty results, keyboard and screen reader support (Escape, focused results heading, announced toasts), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
 
 ## Run it
 
@@ -178,6 +178,8 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - The mobile layout was checked by hand in a narrow desktop Chrome window, not on real phones, and there are no automated layout tests.
 - The readiness probes were run live against Open Library and an OpenAI-compatible endpoint, but the Gemini probe was not run with a real key.
 - The AI readiness probes only list models. A gateway that is slow or stalls on chat completions still reports `ready`, and its searches fall back after the 30 second timeout.
+- With no results the only message is a toast, so dismissing it leaves the page blank for that search.
+- The toasts were checked by hand in headed Chrome with stubbed responses (see `docs/ui-tests/README.md`), not with a screen reader or on a real phone. The extra bottom padding that keeps the last result clear of the toasts uses `:has()`, so a browser without it can show a toast over the last result.
 - The Docker image has not been built in this environment (the Docker daemon was not available), although the same layout was run by hand and `docker compose config` accepts the compose file.
 
 ## Testing
@@ -186,7 +188,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
-- 55 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, notices, the no-confident-match notice, empty and error states, Try again, stale responses, the progress panel, the disabled search box and example chips during a search, the skeleton, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
+- 67 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress panel, the disabled search box and example chips during a search, the skeleton, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
 - Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 

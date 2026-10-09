@@ -10,6 +10,7 @@ flowchart TB
         App --> ResultsSkeleton
         App --> SearchProgress
         App --> ThemeToggle
+        App --> Toast
     end
 
     subgraph Api["FindThatBook.Api"]
