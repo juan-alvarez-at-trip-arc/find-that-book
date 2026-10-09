@@ -61,7 +61,7 @@ Response 200:
 - `first_publish_year` is the only snake_case field, matching the brief's example.
 - `coverUrl` is null when unavailable.
 - The query is trimmed and truncated to 200 characters.
-- No results: 200 with `results: []` and a `message`.
+- No results: 200 with `results: []` and a `message`. A weak best match returns the results with a `message` saying there is no confident match.
 - Errors use RFC 7807 problem details: 400 for a blank query ("Query is required."), 502 when Open Library cannot be searched ("Open Library is unavailable. Please try again shortly."), 500 for anything else.
 
 Health endpoints, all in `HealthController`:
@@ -86,7 +86,8 @@ Health endpoints, all in `HealthController`:
    - Author match: every query token equals, or (3+ characters) prefixes, a name token. Primary authors are checked first, then their aliases, then contributors.
    - Tiers: 1 exact title + primary author, 2 exact title + contributor-only author, 3 near title + author, 4 author only (no title in the hypothesis), 5 title match with no matching author.
    - Sort order (lower is stronger): tier 1, tier 2, tier 3 from an AI hypothesis, tier 4, tier 5 with an exact title, tier 3 from a guessed hypothesis, tier 5 with a near title. Ties break on exact title, then a year keyword matching the first publish year, then edition count, then title.
-   - Candidates are deduplicated by full title (subtitle kept) and first primary author, keeping the one with the most editions. The top 5 are kept.
+   - Candidates are deduplicated by full title (subtitle kept) and first primary author, keeping the one with the most editions. Candidates whose title contains a study-aid phrase (`summary`, `study guide`, `sparknotes`, `cliffsnotes`, `cliffs notes`) are dropped unless the query contains that phrase. The top 5 are kept.
+   - `Matcher.IsConfident` is false when the best match has strength 60 or more (tier 3 from a guessed hypothesis, or tier 5 with a near title). `SearchService` then adds the "No confident match" message to the results.
 5. **ExplanationWriter** writes one sentence per result from fetched facts only.
    - AI writer facts: index, title, primary authors, contributors, match kind, exact-title flag, matched author and its role, whether author details are available. `firstPublishYear` and `yearMatchesQuery` are sent only when the year matched the query, so the model cannot misstate it. `matchedEditionTitle` is sent when the match came through an edition title.
    - Template writer: deterministic wording from the same facts.
@@ -153,7 +154,8 @@ Single page with: a hero search box, example chips, a bookshelf of results, empt
 - Starting a search clears the previous results, notice and error. A late response from an older search is ignored.
 - The Search button is disabled while a search runs, so pressing Enter during a search does nothing.
 - Progress panel: gradient bar, bouncing dots and four pips, with a status line that advances every 2.5 seconds through four steps and then says the search is taking longer than usual. The steps are timed, not driven by the server. Animations stop under `prefers-reduced-motion`.
-- Examples: five chips at start. A search with at least one result moves its text to the front (case-insensitive, an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches do not change the list. The list is not persisted.
+- Examples: five chips at start. A search with at least one result moves its text to the front (case-insensitive, an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches do not change the list. The list is saved in `localStorage` under `ftb-examples`.
+- Shareable searches: every search puts its text in the `q` parameter of the page URL (`history.replaceState`), and opening a page with `?q=...` fills the box (up to 200 characters) and runs that search once.
 - Theme: System (default), Light or Dark through `data-theme` on `<html>` plus `color-scheme`, with colors defined as CSS variables for each mode. The choice is stored under `ftb-theme` with every storage access guarded, and a small inline script in `index.html` applies it before first paint.
 
 ## Config and run
@@ -166,15 +168,15 @@ Single page with: a hero search box, example chips, a bookshelf of results, empt
 
 ## Testing
 
-- .NET (264 tests): `Matcher` (tiers, ranking, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
-- Frontend (32 tests, Vitest + Testing Library): results, badges and the reason toggle, notices, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
+- .NET (280 tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
+- Frontend (45 tests, Vitest + Testing Library): results, badges and the reason toggle, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 
 ## Known limitations
 
 - Pressing Enter while a search runs is ignored (the button is disabled).
 - When the AI provider hangs, a search can wait up to about 40 seconds before falling back (two AI steps at a 30 second timeout each).
-- In fallback mode the guessed hypotheses can still surface odd results, and summaries or study guides can appear among results.
+- In fallback mode the guessed hypotheses can still surface odd results. The study-aid filter matches title phrases only (summary, study guide, SparkNotes, CliffsNotes).
 - Author names and titles are shown as Open Library stores them, so they can be in another script.
 - Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
 - Open Library rate-limits heavy use. The mitigations above reduce the load but cannot prevent a block.
@@ -188,7 +190,7 @@ LLM re-ranking, persistent cache, ISBN matching, authentication, a hosted live d
 - Fail faster when Open Library does not answer (a time budget per lookup phase) and a Retry button on the error banner. Both were tried and set aside.
 - Let a new search or Enter replace a running one.
 - Sort title-only searches by edition count so popular works come first.
-- Persist the example list and the theme choice together, and show an English display name for authors stored in another script.
+- Show an English display name for authors stored in another script.
 - LLM re-ranking behind a flag, a persistent cache, query logging for tuning.
 
 ## Changes from the first draft

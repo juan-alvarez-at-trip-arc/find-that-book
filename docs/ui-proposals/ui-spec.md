@@ -12,7 +12,7 @@ Status: Bookshelf (proposal 2) and the mobile layout are implemented and merged 
 | D2 | Source split into `web/src/components/<Name>/` and `web/src/lib/` | Each component has its own folder and tests |
 | D3 | Theme: System (default), Light, Dark through `data-theme` on `<html>`, stored under `ftb-theme`, applied by an inline script before first paint | No flash of the wrong theme, follows the OS |
 | D4 | A timed progress panel while searching (the API reports no progress) | Searches take several seconds |
-| D5 | Example chips promote successful searches (not persisted) | Shows what works, no storage needed |
+| D5 | Example chips promote successful searches and are saved in `localStorage` | Shows what works and keeps it between visits |
 | D6 | A late response from an older search is ignored | Results never show for the wrong query |
 | D7 | Design direction: Bookshelf (proposal 2) | The task is "is this the book I remember?", and large covers answer that fastest |
 | D8 | The API returns `matchTier` and `exactTitle` per result | Badges need the match tier, and parsing the explanation text would be fragile |
@@ -97,7 +97,7 @@ Three static HTML mockups with the same sample data (the "tolkien hobbit illustr
 
 ## 4. Verification
 
-Automated: 32 frontend tests pass (Vitest and Testing Library), including a test that checks the three badge labels and that the toggle flips `aria-expanded`. 202 backend tests passed at that point (264 after the health endpoints were added in `2344f97`).
+Automated: 32 frontend tests passed at that point (45 after the shareable link, saved examples and weak-match notice) (Vitest and Testing Library), including a test that checks the three badge labels and that the toggle flips `aria-expanded`. 202 backend tests passed at that point (264 after the health endpoints were added in `2344f97`).
 
 By hand in headed Chrome:
 

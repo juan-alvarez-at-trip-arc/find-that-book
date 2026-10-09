@@ -10,7 +10,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
 - Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
-- UI: a "bookshelf" of covers with match badges (Best match, Exact title, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel, light/dark/system theme and example chips that promote your successful searches. See [web/README.md](web/README.md).
+- UI: a "bookshelf" of covers with match badges (Best match, Exact title, Close title), a reason for each book on hover, focus or tap, a layout that works on phones, a timed progress panel, light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
 
 ## Run it
 
@@ -116,7 +116,7 @@ The fallback keeps the app usable, but it hides the problem from users, so havin
 
 ## API
 
-`POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle }] }`. `matchTier` is 1 (strongest) to 5 and `exactTitle` is true when the title matched exactly. The query is trimmed and truncated to 200 characters.
+`POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle }] }`. `matchTier` is 1 (strongest) to 5 and `exactTitle` is true when the title matched exactly. The query is trimmed and truncated to 200 characters. `message` is also set next to non-empty results when even the best match is weak ("No confident match").
 Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library cannot be searched, 500 for anything else.
 
 ### Health endpoints
@@ -144,7 +144,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
    4. author only (top works by editions)
    5. title match without a matching author
 
-   Results sort by strength: tiers 1 and 2, tier 3 from an AI-extracted author, tier 4, an exact title alone, tier 3 from a guessed author, then a near title alone. Ties break on a matching year keyword, then edition count. Works are deduplicated by full title and first primary author, and the top 5 are kept.
+   Results sort by strength: tiers 1 and 2, tier 3 from an AI-extracted author, tier 4, an exact title alone, tier 3 from a guessed author, then a near title alone. Ties break on a matching year keyword, then edition count. Works are deduplicated by full title and first primary author, summaries and study guides are dropped (unless the query asks for one), and the top 5 are kept. When the best result is a guessed author split with a near title, or a near title with no author, the response carries a "No confident match" message.
 4. **Explain.** The AI provider writes one sentence per result from fetched facts only (the publication year is given only when it matched the query, so it cannot be misstated). Template explanations are the fallback.
 
 ## Decisions and assumptions
@@ -164,20 +164,19 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 - Pressing Enter while a search is running does nothing, because the Search button is disabled during a search.
 - When the AI provider hangs, a search can wait up to about 40 seconds before falling back (two AI steps at 30 seconds each).
-- In fallback mode the guessed hypotheses can still produce odd results, and summaries or study guides can appear among results.
+- In fallback mode the guessed hypotheses can still produce odd results. Summaries and study guides are filtered by title phrase (summary, study guide, SparkNotes, CliffsNotes), so ones with other wording can still appear.
 - Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
-- The example chips and their order are not saved across page reloads.
 - The mobile layout was checked by hand in a narrow desktop Chrome window, not on real phones, and there are no automated layout tests.
 - The readiness probes were run live against Open Library and an OpenAI-compatible endpoint, but the Gemini probe was not run with a real key.
 - The Docker image has not been built in this environment (the Docker daemon was not available), although the same layout was run by hand and `docker compose config` accepts the compose file.
 
 ## Testing
 
-- 264 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 280 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
-- 32 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle, notices, empty and error states, stale responses, the progress panel, the theme toggle and the example list.
+- 45 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle, notices, the no-confident-match notice, empty and error states, stale responses, the progress panel, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
 - Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 
@@ -188,4 +187,4 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 ## With more time
 
-Fail faster when Open Library does not answer and add a Retry button on the error banner, let a new search replace a running one, sort title-only searches by edition count, persist the example chips, show an English display name for authors stored in another script, LLM re-ranking behind a flag, a persistent cache, ISBN matching, query logging for tuning, and a hosted live demo.
+Fail faster when Open Library does not answer and add a Retry button on the error banner, let a new search replace a running one, sort title-only searches by edition count, show an English display name for authors stored in another script, LLM re-ranking behind a flag, a persistent cache, ISBN matching, query logging for tuning, and a hosted live demo.

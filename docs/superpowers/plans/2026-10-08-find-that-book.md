@@ -228,6 +228,18 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 
 ---
 
+### Task 19: Study-aid filter, weak-match notice, shareable link and saved examples
+
+- [x] Commit in this task's feature commit.
+
+**Backend:** `Matcher.Rank` drops candidates whose title contains `summary`, `study guide`, `sparknotes`, `cliffsnotes` or `cliffs notes` unless the query contains that phrase (`analysis of` was left out because real titles use it). `Matcher.IsConfident(best)` is false for strength 60 or more (tier 3 from a guessed hypothesis, tier 5 with a near title). `SearchService` then sets `message` to `NoConfidentMatchMessage` and still returns the results.
+
+**Frontend:** `App` shows the server message above non-empty results, writes `?q=` after each search and runs the search from `?q=` on open (once, also under StrictMode), and reads and writes the examples through `lib/examples.ts` (`readStoredExamples`, `storeExamples`, key `ftb-examples`, guarded storage, invalid data falls back to the defaults).
+
+**Tests:** 16 new .NET tests (280 total) and 13 new frontend tests (45 total), each written before the code and seen failing first.
+
+---
+
 ## Not done or deferred
 
 - A hosted live demo (needs a hosting account).

@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
 
 const reply = (body: unknown, status = 200, type = "application/json") =>
@@ -23,6 +23,11 @@ async function search(text: string) {
   await userEvent.type(screen.getByRole("searchbox"), text);
   await userEvent.click(screen.getByRole("button", { name: /search/i }));
 }
+
+beforeEach(() => {
+  localStorage.clear();
+  window.history.replaceState(null, "", "/");
+});
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -193,4 +198,62 @@ test("labels exact and close matches and toggles the reason", async () => {
   expect(toggle).toHaveAttribute("aria-expanded", "false");
   await userEvent.click(toggle);
   expect(toggle).toHaveAttribute("aria-expanded", "true");
+});
+
+test("shows the server notice next to the results when the best match is weak", async () => {
+  const message = "No confident match. These are the closest results.";
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message, results: [hobbit] })));
+  render(<App />);
+
+  await search("hobbit");
+
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+  expect(screen.getByText(message)).toBeInTheDocument();
+});
+
+test("runs the search from the q parameter when the page opens", async () => {
+  window.history.replaceState(null, "", "/?q=tolkien%20hobbit");
+  const fetchMock = vi.fn((_url: string, _init: RequestInit) => reply({ aiUsed: true, message: null, results: [hobbit] }));
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(await screen.findByText("The Hobbit")).toBeInTheDocument();
+  expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({ query: "tolkien hobbit" });
+  expect(screen.getByRole("searchbox")).toHaveValue("tolkien hobbit");
+});
+
+test("does not search on open when there is no q parameter", () => {
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+
+  render(<App />);
+
+  expect(fetchMock).not.toHaveBeenCalled();
+});
+
+test("puts the searched text in the q parameter so the page can be shared", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+
+  await search("tolkien hobbit");
+  await screen.findByText("The Hobbit");
+
+  expect(new URLSearchParams(window.location.search).get("q")).toBe("tolkien hobbit");
+});
+
+test("saves the examples after a successful search and restores them on the next visit", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  const first = render(<App />);
+
+  await search("moby dick");
+  await screen.findByText("The Hobbit");
+  const saved = chips();
+  first.unmount();
+  window.history.replaceState(null, "", "/");
+
+  render(<App />);
+
+  expect(saved[0]).toBe("moby dick");
+  expect(chips()).toEqual(saved);
 });

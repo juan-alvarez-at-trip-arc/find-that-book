@@ -1,5 +1,5 @@
-import { expect, test } from "vitest";
-import { promoteExample } from "./examples";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { promoteExample, readStoredExamples, storeExamples } from "./examples";
 
 const base = ["a", "b", "c", "d", "e"];
 
@@ -30,4 +30,43 @@ test("does not mutate its input", () => {
   promoteExample(base, "new");
 
   expect(base).toEqual(copy);
+});
+
+describe("stored examples", () => {
+  beforeEach(() => localStorage.clear());
+
+  test("returns the defaults when nothing is stored", () => {
+    expect(readStoredExamples(base)).toEqual(base);
+  });
+
+  test("returns what was stored", () => {
+    storeExamples(["z", "y", "x", "w", "v"]);
+    expect(readStoredExamples(base)).toEqual(["z", "y", "x", "w", "v"]);
+  });
+
+  test.each([
+    ["not json", "{"],
+    ["not an array", '"a"'],
+    ["wrong length", '["a","b"]'],
+    ["a non-string item", '["a","b","c","d",5]'],
+    ["a blank item", '["a","b","c","d"," "]'],
+  ])("falls back to the defaults for %s", (_name, raw) => {
+    localStorage.setItem("ftb-examples", raw);
+    expect(readStoredExamples(base)).toEqual(base);
+  });
+
+  test("works when storage is blocked", () => {
+    const blocked = vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    const blockedSet = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+
+    expect(readStoredExamples(base)).toEqual(base);
+    expect(() => storeExamples(base)).not.toThrow();
+
+    blocked.mockRestore();
+    blockedSet.mockRestore();
+  });
 });

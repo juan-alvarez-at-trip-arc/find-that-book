@@ -14,8 +14,10 @@ public sealed class SearchService(IQueryParser parser, IBookCatalog catalog, IEx
     public const int MaxQueryLength = 200;
     /// <summary>The maximum number of results returned for a search.</summary>
     public const int MaxResults = 5;
+    /// <summary>The notice returned with results when even the best match is weak.</summary>
+    public const string NoConfidentMatchMessage = "No confident match. These are the closest results. Try adding an author or more of the title.";
 
-    /// <summary>Trims and truncates the query, then parses, searches, ranks and explains. Returns a hint message instead of results when nothing matches.</summary>
+    /// <summary>Trims and truncates the query, then parses, searches, ranks and explains. Returns a hint message instead of results when nothing matches, and a notice next to the results when the best match is weak.</summary>
     /// <param name="query">The raw search text typed by the reader.</param>
     /// <param name="ct">Token that cancels the operation.</param>
     /// <returns>The response with up to <see cref="MaxResults"/> results, where <c>AiUsed</c> is true only if both parsing and explanations used the AI.</returns>
@@ -36,7 +38,8 @@ public sealed class SearchService(IQueryParser parser, IBookCatalog catalog, IEx
 
         var explanations = await writer.WriteAsync(matches, ct);
         var results = matches.Select((m, i) => ToResult(m, explanations.Explanations[i])).ToList();
-        return new SearchResponse(parsed.AiUsed && explanations.AiUsed, null, results);
+        var message = Matcher.IsConfident(matches[0]) ? null : NoConfidentMatchMessage;
+        return new SearchResponse(parsed.AiUsed && explanations.AiUsed, message, results);
     }
 
     /// <summary>Converts a matched candidate into the client result, using the first contributor as the author when the work has no primary authors.</summary>

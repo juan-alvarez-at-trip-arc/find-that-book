@@ -24,9 +24,10 @@ In production the build in `dist/` is served by the API itself (the Dockerfile c
 - The explanation shows in a popover on hover or keyboard focus. On narrow screens and touch devices the "Why this book?" button opens it inline under the card.
 - Mobile: `viewport-fit=cover` with safe-area padding, tap targets of 36 to 44px, example chips in one horizontally scrolling row, and a header that wraps at 420px.
 - While a search runs the previous results, notice and error are cleared and a progress panel shows a gradient bar, bouncing dots, four pips and a status line that advances every 2.5 seconds, then says the search is taking longer than usual. The steps are timed locally, because the API reports no progress. Animations stop under `prefers-reduced-motion`.
-- A yellow notice appears when `aiUsed` is false (the AI was unavailable, so results use basic parsing). The empty state shows the server's message. Failures show a red banner with the API's problem-details title, or a generic message when the request itself failed.
+- A yellow notice appears when `aiUsed` is false (the AI was unavailable, so results use basic parsing), and another one shows the server message above the results when the best match is weak. The empty state shows the server's message. Failures show a red banner with the API's problem-details title, or a generic message when the request itself failed.
 - A late response from an older search is ignored, so results never show for the wrong query. The Search button is disabled while a search runs, so pressing Enter during a search does nothing.
-- Example chips: five at start. A search that returns at least one result moves its text to the front of the list (an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches leave the list alone. The list is not persisted across reloads.
+- Shareable link: a search puts its text in the page URL as `?q=...` (without adding history entries), and opening a URL with `q` fills the search box and runs it once.
+- Example chips: five at start. A search that returns at least one result moves its text to the front of the list (an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches leave the list alone. The list is saved in `localStorage` under `ftb-examples` (guarded access, invalid data falls back to the defaults).
 - Theme toggle: System (default), Light or Dark. System follows the operating system live. The choice is stored in `localStorage` under `ftb-theme`, every storage access is guarded, and a small inline script in `index.html` applies a saved Light or Dark choice before the first paint to avoid a flash. The theme is applied through a `data-theme` attribute on `<html>` and `color-scheme` in CSS, and the colors are CSS variables defined for each mode in `App.css`.
 
 ## Project layout
@@ -53,12 +54,12 @@ Each component lives in its own folder with its tests. `lib/` holds plain TypeSc
 
 ## Tests
 
-32 tests, Vitest with jsdom and Testing Library, no network access (`fetch` is stubbed). The shelf layout and mobile styles are checked by hand, not by tests.
+45 tests, Vitest with jsdom and Testing Library, no network access (`fetch` is stubbed). The shelf layout and mobile styles are checked by hand, not by tests.
 
 - `App`: results with explanations and badges, the "Why this book?" toggle, the no-AI notice, the empty message, problem-details errors, generic network errors, example chips (running a search, promotion, no change on failure or empty results), clearing old results during a search, the progress panel, blank input.
 - `SearchProgress`: step order with fake timers, the "longer than usual" message, pip states, timer cleanup.
 - `ThemeToggle`: default System mode, choosing and persisting a mode, restoring a saved mode, ignoring an invalid value, blocked storage, the accessible group label.
-- `examples`: the promotion rule (new query, existing query, case and spaces, stable length, blank input, no mutation).
+- `examples`: the promotion rule (new query, existing query, case and spaces, stable length, blank input, no mutation) and saving and restoring the list (invalid data, blocked storage).
 
 ## Notes
 
