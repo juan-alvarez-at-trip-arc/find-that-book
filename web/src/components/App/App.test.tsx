@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import App from "./App";
@@ -62,7 +62,7 @@ test("shows the server message when there are no results", async () => {
   expect(await screen.findByText("No matching books found.")).toBeInTheDocument();
 });
 
-test("shows an error banner from problem details", async () => {
+test("shows an error toast from problem details", async () => {
   vi.stubGlobal("fetch", vi.fn(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json")));
   render(<App />);
 
@@ -292,10 +292,43 @@ test("announces the AI notice as a status and styles the weak-match notice as in
   await screen.findByText("The Hobbit");
   const ai = screen.getByText(/basic parsing/i);
   const weak = screen.getByText(message);
-  expect(ai).toHaveAttribute("role", "status");
-  expect(ai).not.toHaveClass("info");
-  expect(weak).toHaveAttribute("role", "status");
-  expect(weak).toHaveClass("info");
+  expect(ai.closest('[role="status"]')).toHaveClass("toast", "notice");
+  expect(ai.closest('[role="status"]')).not.toHaveClass("info");
+  expect(weak.closest('[role="status"]')).toHaveClass("toast", "info");
+});
+
+test("the weak-match toast can be dismissed without hiding the AI notice, and returns after the next search", async () => {
+  const message = "No confident match. These are the closest results.";
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: false, message, results: [hobbit] })));
+  render(<App />);
+  await search("hobbit");
+  expect(await screen.findByText(message)).toBeInTheDocument();
+  expect(screen.getByText("Closest results")).toBeInTheDocument();
+
+  await userEvent.click(within(screen.getByText("Closest results").closest(".toast") as HTMLElement).getByRole("button", { name: "Dismiss" }));
+  expect(screen.queryByText(message)).not.toBeInTheDocument();
+  expect(screen.getByText("Basic search mode")).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /search/i }));
+  expect(await screen.findByText(message)).toBeInTheDocument();
+});
+
+test("the empty state is an info toast that can be dismissed and returns after the next search", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: "No matching books found.", results: [] })));
+  const { container } = render(<App />);
+  await search("zzzz");
+
+  const toast = (await screen.findByText("No matching books found.")).closest(".toast") as HTMLElement;
+  expect(toast).toHaveClass("info");
+  expect(toast).toHaveAttribute("role", "status");
+  expect(toast).toHaveTextContent("Try just the author's last name, or fewer words.");
+  expect(container.querySelector(".empty")).toBeNull();
+
+  await userEvent.click(within(toast).getByRole("button", { name: "Dismiss" }));
+  expect(screen.queryByText("No matching books found.")).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /search/i }));
+  expect(await screen.findByText("No matching books found.")).toBeInTheDocument();
 });
 
 test("the empty state suggests how to search again", async () => {
@@ -307,7 +340,31 @@ test("the empty state suggests how to search again", async () => {
   expect(await screen.findByText(/try just the author/i)).toBeInTheDocument();
 });
 
-test("the error banner has a try again button that repeats the search", async () => {
+test("the error toast can be dismissed", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json")));
+  render(<App />);
+  await search("hobbit");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Search failed");
+
+  await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("the basic search notice can be dismissed and returns after the next search", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: false, message: null, results: [hobbit] })));
+  render(<App />);
+  await search("hobbit");
+  expect(await screen.findByText("Basic search mode")).toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  expect(screen.queryByText("Basic search mode")).not.toBeInTheDocument();
+
+  await userEvent.click(screen.getByRole("button", { name: /search/i }));
+  expect(await screen.findByText("Basic search mode")).toBeInTheDocument();
+});
+
+test("the error toast has a try again button that repeats the search", async () => {
   const fetchMock = vi
     .fn((_url: string, _init: RequestInit) => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json"))
     .mockImplementationOnce(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json"))

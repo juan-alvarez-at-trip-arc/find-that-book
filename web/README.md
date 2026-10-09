@@ -23,8 +23,8 @@ In production the build in `dist/` is served by the API itself (the Dockerfile c
 - Badges come from `matchTier` and `exactTitle` in the response (`lib/badge.ts`): "Best match" for the first result with an exact title, "Exact title", "Author match" (author-only matches) and "Close title".
 - The top match always shows its explanation. The other cards have a native "Why this book?" disclosure (`<details>`), collapsed by default.
 - Mobile: `viewport-fit=cover` with safe-area padding, tap targets of 36 to 44px, example chips in one horizontally scrolling row, and a header that wraps at 420px.
-- While a search runs the previous results, notice and error are cleared and a progress panel shows a gradient bar, bouncing dots, four pips and a status line that advances every 2.5 seconds, then says the search is taking longer than usual. The steps are timed locally, because the API reports no progress. Animations stop under `prefers-reduced-motion`.
-- A yellow notice appears when `aiUsed` is false (the AI was unavailable, so results use basic parsing), and a blue information notice shows the server message above the results when the best match is weak. Both are `role="status"`. The empty state shows the server's message and a tip to try the author's last name or fewer words. Failures show a red banner with the API's problem-details title, or a generic message when the request itself failed, plus a "Try again" button that repeats the last search.
+- While a search runs the previous results and toasts are cleared and a progress panel shows a gradient bar, bouncing dots, four pips and a status line that advances every 2.5 seconds, then says the search is taking longer than usual. The steps are timed locally, because the API reports no progress. Animations stop under `prefers-reduced-motion`.
+- Messages are toasts (`components/Toast/`), stacked in a fixed container at the bottom right (across the bottom on phones, up to 600px wide). Each has a title, a message and a × button. A dismissed toast comes back after the next search. A failure shows a red "Search failed" toast (`role="alert"`) with the API's problem-details title, or a generic message when the request itself failed, plus a "Try again" button that repeats the last search. A yellow "Basic search mode" toast appears when `aiUsed` is false (the AI was unavailable, so results use basic parsing). A blue "Closest results" toast shows the server message next to the results when the best match is weak. With no results a blue toast shows the server's message and a tip to try the author's last name or fewer words. The yellow and blue toasts are `role="status"`. While any toast shows, the page gets extra bottom padding (`.page:has(.toast)`) so the last result is not hidden behind the stack.
 - Results heading: when results arrive, focus moves to an `h2` ("N books for “query”"). The top match title and the "Other possible matches" label are `h3`, and the titles of the other cards are `h4`.
 - While a search runs, a placeholder shaped like the featured match and two other matches appears under the progress panel. After the first search the hero shrinks (smaller heading, no lead text, chips in one scrolling row).
 - A late response from an older search is ignored, so results never show for the wrong query. The search box, the example chips and the Search button are disabled while a search runs, so pressing Enter during a search does nothing.
@@ -44,6 +44,7 @@ src/
     ResultsSkeleton/       ResultsSkeleton.tsx (placeholder results while searching)
     SearchProgress/        SearchProgress.tsx, SearchProgress.test.tsx
     ThemeToggle/           ThemeToggle.tsx, ThemeToggle.test.tsx
+    Toast/                 Toast.tsx, Toast.css, Toast.test.tsx (error, notice and info messages)
   lib/
     api.ts                 fetch wrapper for POST /api/search, turns problem details into errors
     types.ts               response types (the API uses first_publish_year in snake_case)
@@ -57,10 +58,11 @@ Each component lives in its own folder with its tests. `lib/` holds plain TypeSc
 
 ## Tests
 
-58 tests, Vitest with jsdom and Testing Library, no network access (`fetch` is stubbed). The layout and mobile styles are checked by hand, not by tests.
+67 tests, Vitest with jsdom and Testing Library, no network access (`fetch` is stubbed). The layout and mobile styles are checked by hand, not by tests.
 
 - `FeaturedResults`: the top match with its reason visible, the other matches with a badge and a collapsed reason, a single result, the placeholder cover and unknown author, the cover image.
-- `App`: results with explanations and badges, the focused results heading, notice roles and styles, the empty message and tip, problem-details errors, generic network errors, Try again, example chips (running a search, promotion, no change on failure or empty results), clearing old results during a search, the progress panel, the skeleton, the compact hero, blank input.
+- `App`: results with explanations and badges, the focused results heading, the toasts (roles, styles, dismissing each one and its return after a new search, the weak-match and empty-state messages), problem-details errors, generic network errors, Try again, example chips (running a search, promotion, no change on failure or empty results), clearing old results during a search, the progress panel, the skeleton, the compact hero, blank input.
+- `Toast`: role by kind (alert for errors, status for notice and info), the title and message, the dismiss button and an optional action.
 - `SearchProgress`: step order with fake timers, the "longer than usual" message, pip states, timer cleanup.
 - `ThemeToggle`: default System mode, choosing and persisting a mode, restoring a saved mode, ignoring an invalid value, blocked storage, the accessible group label.
 - `examples`: the promotion rule (new query, existing query, case and spaces, stable length, blank input, no mutation) and saving and restoring the list (invalid data, blocked storage).

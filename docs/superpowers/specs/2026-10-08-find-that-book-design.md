@@ -117,11 +117,12 @@ Frontend (`web/src/`):
 
 | Path | Responsibility |
 |------|----------------|
-| `components/App/` | Page (hero search, example chips, banners, results count) and `App.css` with the theme tokens, featured results and mobile styles |
+| `components/App/` | Page (hero search, example chips, the toast container, results count) and `App.css` with the theme tokens, featured results and mobile styles |
 | `components/FeaturedResults/` | The top match large with its explanation, and the other matches as compact cards with a badge and a collapsible "Why this book?" |
 | `components/ResultsSkeleton/` | Placeholder shaped like the featured layout while a search runs |
 | `components/SearchProgress/` | Animated, timed progress panel |
 | `components/ThemeToggle/` | System, Light and Dark toggle |
+| `components/Toast/` | Dismissable message (error, notice, info) shown in a fixed stack |
 | `lib/` | `api.ts` (fetch), `types.ts`, `theme.ts` (storage and attribute), `examples.ts` (promotion rule), `badge.ts` (badge from tier, exact title and rank) |
 
 ## AI providers
@@ -144,7 +145,7 @@ Frontend (`web/src/`):
 
 ## Frontend
 
-Single page with: a hero search box (compact after the first search), example chips, featured results with a focused results heading, empty state with a tip, error banner with a Try again button, a notice when `aiUsed` is false (information style for the weak-match message), a theme toggle, and a progress panel followed by a placeholder for the results. Details are in `docs/ui-proposals/ui-spec.md` (D13 to D20).
+Single page with: a hero search box (compact after the first search), example chips, featured results with a focused results heading, a theme toggle, and a progress panel followed by a placeholder for the results. Messages are dismissable toasts: an error toast with a Try again button, a notice toast when `aiUsed` is false, an information toast for the weak-match message and an information toast for the empty state with a tip. Details are in `docs/ui-proposals/ui-spec.md` (D13 to D21).
 
 - Featured results: the top match is large (cover, badge, title, author and year, its explanation, a link to Open Library). The other matches are compact cards in 2 columns (1 up to 760px wide) under "Other possible matches". A book without a cover gets a generated blue cover showing its title.
 - Badges: `Best match` (first result with an exact title), `Exact title`, `Author match` (tier 4) and `Close title` (everything else), chosen by `lib/badge.ts`.

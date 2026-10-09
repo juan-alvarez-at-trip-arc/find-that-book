@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, and Task 21 to 55.
+**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. The .NET count is 287.
 
 ## Global Constraints
 
@@ -279,6 +279,21 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 - The hover popover, `data-dismissed` and Escape handling were removed with the shelf. The placeholder is shaped like the new layout.
 
 **Tests:** 5 new `FeaturedResults` tests, written failing first. Two `App` tests for the shelf were removed and two were updated (58 total). **Verified by hand in headed Chrome:** 1440px dark, and 1024, 768, 390 and 320px in dark and light (iframes), no horizontal overflow. **Not done:** real touch, the skeleton, single-result, empty and error states. The prototype was not kept on a throwaway branch.
+
+### Task 23: Toast messages
+
+- [x] Not committed when this entry was written. Spec: `docs/ui-proposals/ui-spec.md` (D21). Test report: `docs/ui-tests/README.md`.
+
+**Process:** four styles for the messages were prototyped on the real page behind `?variant=` (the existing banners, a toast, a balloon under the search box with a popover pill, a modal with a header chip). The toast was chosen, the prototype code was removed and the winner was rewritten with tests. The messages were then moved over one at a time: first the error and the AI notice, then the weak-match message, then the empty state.
+
+**Files:** new `web/src/components/Toast/` (`Toast.tsx`, `Toast.css`, `Toast.test.tsx`). Changed `App.tsx` (the `.toasts` container and a list of dismissed toasts, cleared at the start of each search), `App.css` and `App.test.tsx`. In `App.css`: new `--danger` and `--warn` tokens for light and dark, the `.banner`, `.retry` and `.empty` styles removed, and `.page:has(.toast)` added.
+
+**Behavior:**
+- Kinds: `error` (red, `role="alert"`), `notice` (yellow, the AI-unavailable message) and `info` (accent, the weak-match message and the empty state), the last two `role="status"`. Each has a title, a message, a × button and an optional action (Try again on the error toast).
+- The container is fixed at the bottom right, and across the bottom on phones (600px and below). A dismissed toast returns after the next search.
+- While a toast shows, the page gets 260px of bottom padding so the last result is not hidden behind the stack.
+
+**Tests:** 5 new `Toast` tests and 4 new `App` tests (dismissing the error, AI, weak-match and empty-state toasts), plus 3 existing `App` tests renamed or adjusted for the toast markup (67 total, 58 before). New `App` behavior was written failing first. **Verified by hand in headed Chrome** (three runs, stubbed responses for the error, weak-match and empty states): every toast kind at 1024, 768, 390 and 320px in dark and light, dismiss and Try again, 24 stacked combinations with nothing covered at the end of the page. The first run found the toast covering the header on phones, fixed by moving it to the bottom. **Not done:** real touch, a screen reader, a real failed search, a browser without `:has()`. The prototype was not kept on a throwaway branch.
 
 ---
 

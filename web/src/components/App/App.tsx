@@ -5,6 +5,7 @@ import { FeaturedResults } from "../FeaturedResults/FeaturedResults";
 import { ResultsSkeleton } from "../ResultsSkeleton/ResultsSkeleton";
 import { SearchProgress } from "../SearchProgress/SearchProgress";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
+import { Toast } from "../Toast/Toast";
 import type { SearchResponse } from "../../lib/types";
 import "./App.css";
 
@@ -27,6 +28,7 @@ export default function App() {
   const [data, setData] = useState<SearchResponse | null>(null);
   const [examples, setExamples] = useState(() => readStoredExamples(INITIAL_EXAMPLES));
   const [searched, setSearched] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<string[]>([]);
   const latest = useRef(0);
   const opened = useRef(false);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
@@ -47,6 +49,7 @@ export default function App() {
     setSearched(text.trim());
     const id = ++latest.current;
     setLoading(true);
+    setDismissed([]);
     setError(null);
     setData(null);
     try {
@@ -117,32 +120,41 @@ export default function App() {
         </div>
       </section>
 
-      {error && (
-        <div role="alert" className="banner error">
-          {error}
-          {searched && (
-            <button type="button" className="retry" onClick={() => void run(searched)}>Try again</button>
-          )}
-        </div>
-      )}
-      {data && !data.aiUsed && (
-        <div role="status" className="banner notice">AI is unavailable, so results use basic parsing and may be less precise.</div>
-      )}
+      <div className="toasts">
+        {error && !dismissed.includes("error") && (
+          <Toast
+            kind="error"
+            title="Search failed"
+            onDismiss={() => setDismissed((current) => [...current, "error"])}
+            action={searched && <button type="button" className="toast-action" onClick={() => void run(searched)}>Try again</button>}
+          >
+            {error}
+          </Toast>
+        )}
+        {data && !data.aiUsed && !dismissed.includes("notice") && (
+          <Toast kind="notice" title="Basic search mode" onDismiss={() => setDismissed((current) => [...current, "notice"])}>
+            AI is unavailable, so results use basic parsing and may be less precise.
+          </Toast>
+        )}
+        {data && data.results.length > 0 && data.message && !dismissed.includes("info") && (
+          <Toast kind="info" title="Closest results" onDismiss={() => setDismissed((current) => [...current, "info"])}>
+            {data.message}
+          </Toast>
+        )}
+        {data && data.results.length === 0 && !dismissed.includes("empty") && (
+          <Toast kind="info" title={data.message ?? "No matching books found."} onDismiss={() => setDismissed((current) => [...current, "empty"])}>
+            Try just the author's last name, or fewer words.
+          </Toast>
+        )}
+      </div>
       {loading && (
         <>
           <SearchProgress />
           <ResultsSkeleton />
         </>
       )}
-      {data && data.results.length === 0 && (
-        <div className="empty" role="status">
-          <p>{data.message ?? "No matching books found."}</p>
-          <p className="tip">Try just the author's last name, or fewer words.</p>
-        </div>
-      )}
       {data && data.results.length > 0 && (
         <>
-          {data.message && <div role="status" className="banner info">{data.message}</div>}
           <h2 ref={resultsHeading} tabIndex={-1} className="count">
             {data.results.length} {data.results.length === 1 ? "book" : "books"} for “{searched}”
           </h2>
