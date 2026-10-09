@@ -99,7 +99,7 @@ Backend (`src/`):
 
 | Component | Layer | Responsibility |
 |-----------|-------|----------------|
-| `SearchController`, `ApiExceptionHandler`, `Program` | Api | HTTP, validation, problem details, static files |
+| `SearchController`, `HealthController`, `ApiExceptionHandler`, `Program` | Api | HTTP, validation, problem details, static files, health endpoints |
 | `SearchService` | Application | Orchestrates the pipeline, truncates the query, builds the response |
 | `IQueryParser`, `IBookCatalog`, `IExplanationWriter`, `ISearchService` | Application | Interfaces; `AiUnavailableException` and `CatalogUnavailableException` |
 | `Normalizer`, `Matcher` | Application | Pure logic, steps 3 and 4 |
@@ -109,6 +109,7 @@ Backend (`src/`):
 | `GeminiClient`, `GeminiSchema`, `GeminiOptions` | Infrastructure | Gemini `generateContent`; converts the neutral schema to Gemini's dialect |
 | `OpenAiCompatibleClient`, `OpenAiCompatibleOptions` | Infrastructure | Any `/chat/completions` endpoint in JSON mode |
 | `OpenLibraryCatalog`, `OpenLibraryGate`, `OpenLibraryOptions` | Infrastructure | Open Library HTTP, retry, cache, request limit and 429 cooldown |
+| `HealthReportService`, `HealthConfigCheck`, `ConfigDump`, `OpenLibraryProbe`, `GeminiProbe`, `OpenAiCompatibleProbe`, `ProbeRunner` | Infrastructure | Readiness report (cached 30 s), configuration validation, masked configuration dump, provider probes |
 | `ServiceCollectionExtensions` | Infrastructure | Registration; selects the AI client from `Ai:Provider` |
 
 Frontend (`web/src/`):
@@ -165,7 +166,7 @@ Single page with: a hero search box, example chips, a bookshelf of results, empt
 
 ## Testing
 
-- .NET (202 tests): `Matcher` (tiers, ranking, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, and `WebApplicationFactory` integration tests with a fake catalog.
+- .NET (264 tests): `Matcher` (tiers, ranking, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
 - Frontend (32 tests, Vitest + Testing Library): results, badges and the reason toggle, notices, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 

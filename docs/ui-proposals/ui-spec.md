@@ -97,7 +97,7 @@ Three static HTML mockups with the same sample data (the "tolkien hobbit illustr
 
 ## 4. Verification
 
-Automated: 32 frontend tests pass (Vitest and Testing Library), including a test that checks the three badge labels and that the toggle flips `aria-expanded`. 202 backend tests pass.
+Automated: 32 frontend tests pass (Vitest and Testing Library), including a test that checks the three badge labels and that the toggle flips `aria-expanded`. 202 backend tests passed at that point (264 after the health endpoints were added in `2344f97`).
 
 By hand in headed Chrome:
 
