@@ -155,7 +155,7 @@ Single page with: a hero search box (compact after the first search), example ch
 
 - Starting a search clears the previous results, notice and error. A late response from an older search is ignored.
 - The search box, the example chips and the Search button are disabled while a search runs, so pressing Enter during a search does nothing.
-- Progress stage: an animated scene, a title, a detail line and four step chips, advancing every 2.5 seconds through four steps and then saying the search is taking longer than usual. The steps are timed, not driven by the server. The scenes are static under `prefers-reduced-motion`.
+- Progress stage: an animated scene, a title, a detail line and four step chips, advancing through four steps (understand 10 s, search 2 s, match 1 s, explain 30 s) and then saying the search is taking longer than usual. The steps are timed, not driven by the server. The scenes are static under `prefers-reduced-motion`.
 - Examples: five chips at start. A search with at least one result moves its text to the front (case-insensitive, an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches do not change the list. The list is saved in `localStorage` under `ftb-examples`.
 - Shareable searches: every search puts its text in the `q` parameter of the page URL (`history.replaceState`), and opening a page with `?q=...` fills the box (up to 200 characters) and runs that search once.
 - Theme: System (default), Light or Dark through `data-theme` on `<html>` plus `color-scheme`, with colors defined as CSS variables for each mode. The choice is stored under `ftb-theme` with every storage access guarded, and a small inline script in `index.html` applies it before first paint.

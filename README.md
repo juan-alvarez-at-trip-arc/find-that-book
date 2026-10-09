@@ -76,6 +76,7 @@ web/                            React + Vite + TypeScript UI (see web/README.md)
 docs/superpowers/               design spec and implementation plan
 docs/ui-proposals/              three static UI mockups (a featured-result layout based on Bookshelf was implemented)
 docs/ui-tests/                  by-hand UI test results, screenshots and pending checks
+docs/architecture/              Mermaid diagrams: system context, layers, search flow, matching and fallback, infrastructure, Open Library protection
 Dockerfile, docker-compose.yml  one image with UI and API
 ```
 
@@ -188,7 +189,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
-- 69 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress stage, the disabled search box and example chips during a search, the empty bookshelf, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
+- 71 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress stage (each step with its own duration), the disabled search box and example chips during a search, the empty bookshelf, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
 - Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 
@@ -197,6 +198,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - Design: [docs/superpowers/specs/2026-10-08-find-that-book-design.md](docs/superpowers/specs/2026-10-08-find-that-book-design.md)
 - Implementation plan (as built): [docs/superpowers/plans/2026-10-08-find-that-book.md](docs/superpowers/plans/2026-10-08-find-that-book.md)
 - Decision record (ideas set aside, changes from the first draft): [docs/decisions.md](docs/decisions.md)
+- Architecture diagrams (one file per diagram): [docs/architecture/](docs/architecture/)
 
 ## With more time
 

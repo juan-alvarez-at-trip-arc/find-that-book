@@ -1,12 +1,12 @@
 # UI Tests
 
-Scope: the by-hand tests run on the featured results layout (UI spec D20), the toast messages and the search progress stage, what they showed, and what is still open. Decisions are in `docs/ui-proposals/ui-spec.md`. Date of the by-hand run: 2026-10-09 (sixth run, with the browser's reduced-motion setting off, so the stage scenes moved in the screenshots).
+Scope: the by-hand tests run on the featured results layout (UI spec D20), the toast messages and the search progress stage, what they showed, and what is still open. Decisions are in `docs/ui-proposals/ui-spec.md`. Date of the by-hand run: 2026-10-09 (seventh run, after the progress stage got its own time per step: understand 10 s, search 2 s, match 1 s, explain 30 s).
 
 ## 1. By-hand tests
 
 Environment: headed Chrome driven through the Claude in Chrome extension. The UI was the Vite dev server (`npm run dev` in `web/`, port 5173, proxying `/api` to the API on port 5080). The API ran with no AI settings, so every real search used basic parsing and showed the "Basic search mode" toast on its own. Real query: `tolkien hobbit`, 5 books. The layout under test does not depend on that. The error, loading, single-result, weak-match and empty scenarios used a stubbed `fetch` inside the page, because those states cannot be triggered on demand with a healthy backend.
 
-The browser window resize does not change the page viewport, so every width below the desktop shot was tested in a same-origin iframe of that width (the iframes were scaled down only for the screenshot). Media queries react to the iframe width, so this matches a real window of that width, but it does not test touch. Give each iframe `flex: none`, or a flex row shrinks it below its set width. In this run the browser reported `prefers-reduced-motion: no-preference`, so the stage scenes moved and each screenshot caught them mid-animation. In the previous run of the same day the setting was on and the scenes were static. For the reduced-motion check (T20) the `@media (prefers-reduced-motion: reduce)` rules were forced on inside the iframe by setting each rule's `media.mediaText` to `all`. The theme was set with the `data-theme` attribute on the iframe's `<html>`, so the System, Light and Dark toggle inside those frames does not highlight the active theme. That is a test harness effect, not a product bug.
+The browser window resize does not change the page viewport, so every width below the desktop shot was tested in a same-origin iframe of that width (the iframes were scaled down only for the screenshot). Media queries react to the iframe width, so this matches a real window of that width, but it does not test touch. Give each iframe `flex: none`, or a flex row shrinks it below its set width. In this run the browser reported `prefers-reduced-motion: no-preference`. The Chrome tab also reported `document.visibilityState` as `hidden`, and the window could not be brought to the front from the driver. Chrome throttles timers in a hidden tab and advances CSS animations only when a frame is rendered, so real time could not be used for the stage checks. Three workarounds were used. The step durations were checked by reading the timers the component queued (`setTimeout` in the iframe was wrapped to record the 10000, 2000, 1000 and 30000 ms timers and to fire them on demand), and by the unit tests. The stage stills were taken by firing those timers to move each frame to its step. Motion was checked by pausing every scene animation and stepping its `currentTime`. A real-time run was also logged, but the hidden tab delayed each later step by about 1 s (T21). For the reduced-motion check (T20) the `@media (prefers-reduced-motion: reduce)` rules were forced on inside the iframe by setting each rule's `media.mediaText` to `all`. The theme was set with the `data-theme` attribute on the iframe's `<html>`, so the System, Light and Dark toggle inside those frames does not highlight the active theme. That is a test harness effect, not a product bug.
 
 ### 1.1 Matrix
 
@@ -29,9 +29,10 @@ The browser window resize does not change the page viewport, so every width belo
 | T14 | 1024, 390px | Dark | Weak-match message ("No confident match…") is an info toast titled "Closest results" next to the results | Pass |
 | T15 | 1024, 768, 390, 320px | Dark, light | AI notice alone, info toast alone and both stacked: nothing covered at the end of the page, no horizontal overflow (24 combinations) | Pass |
 | T16 | 390px | Dark | The four steps show in order, each with its own animated scene (magnifier over the query, library with radar rings, clues linked to book spines, quill writing lines), a title, a detail line and four chips that go from pending to active to done | Pass |
-| T18 | 390px | Dark | Motion: the lens, rings, flying books, link lines, check, growing lines, quill and the active chip all change value from sample to sample (42 samples over 10.5 seconds: 7 lens, 10 ring, 10 flying book, 7 link, 5 check, 7 growing line, 14 quill and 36 chip values). Four frames started 0.7 seconds apart show the lens, the highlighted text line, the sparkles and the chip pulse at different moments, and one catches the cross-fade into the next scene | Pass |
-| T19 | 390px | Dark | Slow state: after 10 seconds all four chips are done, the title reads "Still working, this is taking longer than usual…", the detail reads "Open Library or the AI gateway may be slow right now.", and the last scene stays | Pass |
-| T20 | 390px | Dark | Reduced motion (emulated by forcing the reduced-motion rules on in a frame): all eight sampled values stay constant (one value each, the lens sits at 70px, 56px for the whole run) while the text, chips and step changes still work. Seen live in the previous run, when the browser itself had reduced motion on | Pass |
+| T18 | 390px | Dark | Motion: every scene animation changes value when stepped through 3 seconds in 125ms samples (24 samples): 10 of 10 on the Understand scene, 9 of 9 on Search, 11 of 11 on Match, 8 of 8 on Explain. Four frames with their animations set to 0.3, 1.0, 1.7 and 2.4 seconds show the lens, the highlighted text lines, the sparkles and the chip pulse at different moments. Not watched in real time (see P6) | Pass |
+| T19 | 390px | Dark | Slow state: after the last step all four chips are done, the title reads "Still working, this is taking longer than usual…", the detail reads "Open Library or the AI gateway may be slow right now.", and the last scene stays. In the real-time run it appeared 46 s after the first step, 3 s after the 43 s the steps add up to (hidden tab, see T21) | Pass |
+| T20 | 390px | Dark | Reduced motion (emulated by forcing the reduced-motion rules on in a frame): the 10 scene animations running with motion on drop to 0, and the text, chips and step changes still work | Pass |
+| T21 | 390px | Dark | Step durations: the four frames, each on its own step, had queued timers of 10000 ms (Understand), 2000 ms (Search), 1000 ms (Match) and 30000 ms (Explain). A real-time run, started with a search that never resolves, changed step at 10 s, 13 s, 15 s and 46 s (3 s, 2 s and 31 s after the previous change instead of 2, 1 and 30) | Pass for the values. The real-time run is skewed by about 1 s per step because the tab was hidden. Open (P11) |
 
 Measured values (`getComputedStyle`, `scrollWidth` and `clientWidth`), dark theme, iframes 900px tall:
 
@@ -62,11 +63,11 @@ The error toast at 1024, 390 and 320px, dark (T8, T9). On phones it spans the bo
 
 ![Error toast, dark](images/04-error-toast-widths-dark.png)
 
-The four steps of the search progress stage at 390px, dark, left to right (T16). Each frame was started 2.5 seconds after the previous one, and the shot was taken about 1.5 seconds after the scenes changed, so every scene is mid-animation (the lines are half drawn, the quill is partway across):
+The four steps of the search progress stage at 390px, dark, left to right (T16). Each frame was moved to its step by firing its step timer, and the shot was taken about 1.5 seconds after the last change, so each scene is mid-animation (the lens is over the text, the library is scanning, the clues are linked, the quill is partway across):
 
 ![Progress stage, four steps](images/05-progress-stage-steps.png)
 
-The stage while a search runs at 1024px (dark), and at 768, 390 and 320px (light) (T11). The results area is the stage itself, no skeleton is shown:
+The stage on the Search step while a search runs at 1024px (dark), and at 768, 390 and 320px (light) (T11). The results area is the stage itself, no skeleton is shown:
 
 ![Progress stage, widths](images/06-progress-stage-widths.png)
 
@@ -78,15 +79,15 @@ Left to right: weak-match results with the AI notice stacked above the info toas
 
 ![Weak-match and empty-state toasts](images/08-weak-match-and-empty-toasts.png)
 
-The stage with motion on at 390px, dark, step 1 (T18). Four frames started 0.7 seconds apart, so they show four moments: the lens is at a different place each time, the sparkles and the chip pulse, and the right frame is cross-fading into the next scene:
+The stage with motion on at 390px, dark, step 1 (T18). Four frames with their animations paused at 0.3, 1.0, 1.7 and 2.4 seconds, so they show four moments: the lens is at a different place each time, and the highlighted lines, the sparkles and the chip pulse differ:
 
 ![Progress stage, motion](images/10-progress-stage-motion.png)
 
-The slow state after 10 seconds at 390px, dark (T19). The quill is still writing:
+The slow state after the last step at 390px, dark (T19). The quill is still writing:
 
 ![Progress stage, slow](images/11-progress-stage-slow.png)
 
-The empty state with the bookshelf picture at 1024px (dark), 390px (dark), 1024px (light), 390px and 320px (light) (T17, F4):
+The empty state with the bookshelf picture at 1024px (dark), 390px (dark), 1024px (light), 390px and 320px (light) (T17, F4). All five frames ran a real search (`qzxwvkj plmnb`, no stub) at the same time. Three had finished after 9 seconds and the other two after 15 seconds:
 
 ![Empty bookshelf](images/09-empty-bookshelf.png)
 
@@ -108,11 +109,12 @@ The empty state with the bookshelf picture at 1024px (dark), 390px (dark), 1024p
 | P3 | Widths below 320px, and landscape phones | The old layout had a 340px breakpoint, the new one has only 760px |
 | P4 | Screen reader behavior of the heading order (`h2` count, `h3` featured title, stage title and "Other possible matches", `h4` card titles), of the `<details>` disclosure, of the stage status region and of the toast announcements | Checked by reading the markup and by unit tests, not with a screen reader |
 | P5 | Keyboard walk through the page (Tab order, focus ring on the covers, links, `summary` and the toast buttons) | Only focusing Try again from script was tried, not a real Tab walk |
-| P6 | Progress stage motion quality: motion was checked by sampling computed values every 250ms and by stills, not by watching or recording it | Sampling proves the scenes move, it does not show smoothness, frame rate or flicker |
+| P6 | Progress stage motion quality: motion was checked by stepping each animation's `currentTime` and by stills, not by watching or recording it. In this run the tab was hidden, so the browser did not play the animations in real time | Stepping proves the scenes move, it does not show smoothness, frame rate or flicker |
 | P7 | The earlier shelf, ranked list and featured plus rest layout prototypes and the four message styles (banners, toast, balloon, modal) were not kept on a throwaway branch. The progress variants (current panel, stage, floating dock, shelf) are on the branch `prototype/search-progress-variants`, switch with `?variant=A` to `D` | The older comparisons cannot be repeated without rebuilding them |
 | P8 | A real failed search, without a stubbed `fetch`, and a real weak-match search | These states were only seen with a stubbed response. A real empty search was only checked against the API (HTTP 200, no results, message "No matching books found. Try adding an author or a different part of the title."), not in the UI |
 | P9 | `.page:has(.toast)` in a browser without `:has()` support | Without it the page keeps its normal bottom padding and the last result can sit behind the toasts at the end of the page |
 | P10 | The production build served by the API (and the Docker image) | This run used the Vite dev server |
+| P11 | The step timing in real time in a visible window | The hidden tab delayed each step by about 1 s (T21). With the window in front the steps should change at 10, 12, 13 and 43 seconds |
 
 ## 4. How to repeat the by-hand run
 
@@ -123,7 +125,7 @@ The empty state with the bookshelf picture at 1024px (dark), 390px (dark), 1024p
 5. Open every `<details>` and scroll to the results.
 6. For the toast, loading, single-result, weak-match and empty scenarios, replace `fetch` on the iframe's window before submitting the form (set the input with the native value setter and dispatch an `input` event, because React ignores a plain assignment):
    - error toast: a 502 problem-details response (`application/problem+json`) with a `title`
-   - loading stage: a promise that never resolves. To see all four steps at once, start four iframes 2.5 seconds apart, last step first. Wait 10 seconds to see the slow state. If the browser has reduced motion on, switch the reduced-motion media rules off in the iframe (`media.mediaText = "not all"`) to see the animations, and force them on (`"all"`) to check the reduced state
+   - loading stage: a promise that never resolves. The steps last 10, 2, 1 and 30 seconds, and the slow state shows after 43 seconds. To see all four steps at once with the window in front, start four iframes so that each one is on a different step (for example 1, 11, 12.5 and 20 seconds before the shot), or wrap `setTimeout` in the iframe so it records the timers with 10000, 2000, 1000 and 30000 ms and fire them by hand. In a hidden tab timers are throttled and animations stop advancing, so bring the window to the front first. If the browser has reduced motion on, switch the reduced-motion media rules off in the iframe (`media.mediaText = "not all"`) to see the animations, and force them on (`"all"`) to check the reduced state
    - single result: a response with one result
    - weak match: a response with `message` set to the "No confident match…" text and several results
    - empty state: a response with `message` "No matching books found." and `results: []`

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { STEP_MS } from "../../lib/progress";
 import { Scene } from "./Scenes";
 
 const STEPS = [
@@ -10,16 +11,15 @@ const STEPS = [
 const SLOW = "Still working, this is taking longer than usual…";
 const SLOW_DETAIL = "Open Library or the AI gateway may be slow right now.";
 
-export const STEP_MS = 2500;
-
 /** Time-based feedback only: the API reports no progress, so the steps mirror the pipeline order, not live state. */
 export function SearchProgress() {
   const [step, setStep] = useState(0);
 
   useEffect(() => {
-    const id = setInterval(() => setStep((s) => Math.min(s + 1, STEPS.length)), STEP_MS);
-    return () => clearInterval(id);
-  }, []);
+    if (step >= STEPS.length) return;
+    const id = setTimeout(() => setStep(step + 1), STEP_MS[step]);
+    return () => clearTimeout(id);
+  }, [step]);
 
   const slow = step >= STEPS.length;
 

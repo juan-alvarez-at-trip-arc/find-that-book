@@ -1,6 +1,6 @@
 # Find That Book
 
-.NET 8 Web API plus React UI. A messy text query becomes up to 5 ranked Open Library matches, each with a one-sentence explanation. The AI (Gemini or any OpenAI-compatible endpoint) only extracts the query and writes explanations. Ranking is deterministic code. Docs: `README.md`, `web/README.md`, `docs/superpowers/specs/` (backend design), `docs/ui-proposals/ui-spec.md` (UI).
+.NET 8 Web API plus React UI. A messy text query becomes up to 5 ranked Open Library matches, each with a one-sentence explanation. The AI (Gemini or any OpenAI-compatible endpoint) only extracts the query and writes explanations. Ranking is deterministic code. Docs: `README.md`, `web/README.md`, `docs/superpowers/specs/` (backend design), `docs/ui-proposals/ui-spec.md` (UI), `docs/architecture/` (diagrams), `docs/ui-tests/README.md` (by-hand UI test results).
 
 ## Commands
 
