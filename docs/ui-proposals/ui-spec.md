@@ -91,7 +91,7 @@ Three static HTML mockups with the same sample data (the "tolkien hobbit illustr
 
 - **Badges** (`lib/badge.ts`): "Best match" for the first result when its title is exact. "Exact title" for other exact titles. "Author match" for tier 4. "Close title" for everything else.
 - **Cover:** links to the Open Library page (`aria-label` is the title plus "view on Open Library"). A missing cover renders a generated cover whose text comes from a `data-title` attribute through CSS `::before`, so the title is not duplicated in the DOM.
-- **Featured match:** the first result is an `article` with a large cover, badge, `h3` title, author and year, its explanation (always visible) and a "View on Open Library" link. The cover also links to Open Library.
+- **Featured match:** the first result is an `article` with a large cover, badge, `h3` title (the matched edition title when the work is titled differently, with the stored title beneath it), author and year, its explanation (always visible) and a "View on Open Library" link. The cover also links to Open Library.
 - **Other matches:** under an `h3` "Other possible matches", a 2-column list of cards (cover, badge, `h4` title, author and year). The reason is a native `<details>` "Why this book?", collapsed by default, so it works the same with mouse, touch and keyboard.
 - **Results heading:** an `h2` ("N books for “query”") that receives focus when results arrive. The featured title is `h3`.
 - **Toasts** (D21): `Toast` takes `kind` (`error`, `notice`, `info`), a title, a message, `onDismiss` and an optional action. The error toast is `role="alert"`, the others `role="status"`. `App` keeps a list of dismissed toasts and clears it at the start of every search. The weak-match toast shows only next to results.

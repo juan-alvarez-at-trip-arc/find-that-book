@@ -35,7 +35,7 @@ h1 { margin: 0; font-family: var(--serif); font-size: clamp(1.9rem, 4vw, 2.7rem)
 .chip { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 0.85rem; }
 .chip:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
 .chip:disabled { opacity: 0.6; cursor: progress; }
-.count { margin: 26px 4px 14px; color: var(--muted); font-size: 0.9rem; font-weight: 700; }
+.count { max-width: 860px; margin: 26px auto 14px; padding: 0 4px; color: var(--muted); font-size: 1rem; font-weight: 700; }
 .count:focus { outline: none; }
 
 /* Featured results */

@@ -404,6 +404,16 @@ test("the basic search notice stays dismissed for later searches", async () => {
   expect(screen.queryByText("Basic search mode")).not.toBeInTheDocument();
 });
 
+test("does not show the basic search notice next to an empty result", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: false, message: "No matching books found.", results: [] })));
+  render(<App />);
+
+  await search("zzzz");
+
+  await screen.findByText("No matching books found.");
+  expect(screen.queryByText("Basic search mode")).not.toBeInTheDocument();
+});
+
 test("the empty state gives its advice once, even when the server message already carries advice", async () => {
   const serverMessage = "No matching books found. Try adding an author or a different part of the title.";
   vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: serverMessage, results: [] })));

@@ -146,7 +146,7 @@ export default function App() {
             {error}
           </Toast>
         )}
-        {data && !data.aiUsed && !noticeDismissed && (
+        {data && data.results.length > 0 && !data.aiUsed && !noticeDismissed && (
           <Toast kind="notice" title="Basic search mode" onDismiss={() => setNoticeDismissed(true)}>
             AI is unavailable, so results use basic parsing and may be less precise.
           </Toast>
