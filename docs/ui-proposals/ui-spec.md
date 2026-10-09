@@ -43,7 +43,7 @@ Three static HTML mockups with the same sample data (the "tolkien hobbit illustr
 
 ### P2: Bookshelf (chosen)
 
-- A clean hero search and a grid of large covers standing on wooden ledges, with badges (Best match, Exact title, Close title). Title and author sit under each cover.
+- A clean hero search and a grid of large covers standing on wooden ledges, with badges (Best match, Exact title, Author match, Close title). Title and author sit under each cover.
 - The explanation appears on hover or keyboard focus. A generated blue cover with the title replaces a missing cover.
 - Risk: hover does not work on touch, so a tap alternative was required (see D10).
 
