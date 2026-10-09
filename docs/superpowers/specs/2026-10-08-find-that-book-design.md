@@ -143,9 +143,9 @@ Frontend (`web/src/`):
 
 ## Frontend
 
-Single page with: a hero search box, example chips, a bookshelf of results, empty state, error banner, a notice when `aiUsed` is false, a theme toggle, and a progress panel.
+Single page with: a hero search box (compact after the first search), example chips, a bookshelf of results with a focused results heading, empty state with a tip, error banner with a Try again button, a notice when `aiUsed` is false (information style for the weak-match message), a theme toggle, and a progress panel followed by placeholder books. Escape closes an open explanation. Details are in `docs/ui-proposals/ui-spec.md` (D13 to D18).
 
-- Bookshelf: results are covers in a 4-column grid (2 on screens up to 760px wide, 1 up to 340px), each row standing on a wooden ledge. A book without a cover gets a generated blue cover showing its title.
+- Bookshelf: results are covers in a 4-column grid (2 on screens up to 760px wide, 1 up to 340px), each row standing on a continuous wooden ledge under the covers, with title and author below it. A book without a cover gets a generated blue cover showing its title.
 - Badges: `Best match` (first result with an exact title), `Exact title`, `Author match` (tier 4) and `Close title` (everything else), chosen by `lib/badge.ts`.
 - Explanation: shown in a popover on hover or keyboard focus on wide screens with a pointer. On narrow screens and touch devices the "Why this book?" button opens it inline under the card (`aria-expanded`). The cover links to the Open Library page.
 - Mobile: `viewport-fit=cover` with safe-area padding, tap targets of at least 36 to 44px, example chips in one horizontally scrolling row, and a header that wraps at 420px so the theme toggle does not overflow.
@@ -169,7 +169,7 @@ Single page with: a hero search box, example chips, a bookshelf of results, empt
 ## Testing
 
 - .NET (287 tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
-- Frontend (45 tests, Vitest + Testing Library): results, badges and the reason toggle, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
+- Frontend (53 tests, Vitest + Testing Library): results, badges, the reason toggle and Escape, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress panel, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 
 ## Known limitations
@@ -187,7 +187,7 @@ LLM re-ranking, persistent cache, ISBN matching, authentication, a hosted live d
 
 ## Future improvements
 
-- Fail faster when Open Library does not answer (a time budget per lookup phase) and a Retry button on the error banner. Both were tried and set aside (see `docs/decisions.md`).
+- Fail faster when Open Library does not answer (a time budget per lookup phase). Tried and set aside (see `docs/decisions.md`).
 - Let a new search or Enter replace a running one.
 - Sort title-only searches by edition count so popular works come first.
 - Show an English display name for authors stored in another script.

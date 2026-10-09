@@ -3,6 +3,7 @@ import { searchBooks } from "../../lib/api";
 import { promoteExample, readStoredExamples, storeExamples } from "../../lib/examples";
 import { ResultCard } from "../ResultCard/ResultCard";
 import { SearchProgress } from "../SearchProgress/SearchProgress";
+import { ShelfSkeleton } from "../ShelfSkeleton/ShelfSkeleton";
 import { ThemeToggle } from "../ThemeToggle/ThemeToggle";
 import type { SearchResponse } from "../../lib/types";
 import "./App.css";
@@ -25,8 +26,10 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<SearchResponse | null>(null);
   const [examples, setExamples] = useState(() => readStoredExamples(INITIAL_EXAMPLES));
+  const [searched, setSearched] = useState<string | null>(null);
   const latest = useRef(0);
   const opened = useRef(false);
+  const resultsHeading = useRef<HTMLHeadingElement>(null);
 
   useEffect(() => {
     if (opened.current) return;
@@ -34,9 +37,14 @@ export default function App() {
     if (query.trim()) void run(query);
   });
 
+  useEffect(() => {
+    if (data && data.results.length > 0) resultsHeading.current?.focus();
+  }, [data]);
+
   async function run(text: string) {
     if (!text.trim()) return;
     window.history.replaceState(null, "", `?${new URLSearchParams({ q: text.trim() })}`);
+    setSearched(text.trim());
     const id = ++latest.current;
     setLoading(true);
     setError(null);
@@ -74,7 +82,7 @@ export default function App() {
         <ThemeToggle />
       </header>
 
-      <section className="hero">
+      <section className={searched ? "hero compact" : "hero"}>
         <h1>What was that book?</h1>
         <p className="lead">Type a title, an author, or whatever you remember.</p>
 
@@ -107,16 +115,35 @@ export default function App() {
         </div>
       </section>
 
-      {error && <div role="alert" className="banner error">{error}</div>}
-      {data && !data.aiUsed && (
-        <div className="banner notice">AI is unavailable, so results use basic parsing and may be less precise.</div>
+      {error && (
+        <div role="alert" className="banner error">
+          {error}
+          {searched && (
+            <button type="button" className="retry" onClick={() => void run(searched)}>Try again</button>
+          )}
+        </div>
       )}
-      {loading && <SearchProgress />}
-      {data && data.results.length === 0 && <p className="empty">{data.message ?? "No matching books found."}</p>}
+      {data && !data.aiUsed && (
+        <div role="status" className="banner notice">AI is unavailable, so results use basic parsing and may be less precise.</div>
+      )}
+      {loading && (
+        <>
+          <SearchProgress />
+          <ShelfSkeleton />
+        </>
+      )}
+      {data && data.results.length === 0 && (
+        <div className="empty" role="status">
+          <p>{data.message ?? "No matching books found."}</p>
+          <p className="tip">Try just the author's last name, or fewer words.</p>
+        </div>
+      )}
       {data && data.results.length > 0 && (
         <>
-          {data.message && <div className="banner notice">{data.message}</div>}
-          <p className="count"><strong>{data.results.length} {data.results.length === 1 ? "book" : "books"}</strong></p>
+          {data.message && <div role="status" className="banner info">{data.message}</div>}
+          <h2 ref={resultsHeading} tabIndex={-1} className="count">
+            {data.results.length} {data.results.length === 1 ? "book" : "books"} for “{searched}”
+          </h2>
           <ol className="results">
             {data.results.map((book, i) => <ResultCard key={book.workId} book={book} rank={i + 1} />)}
           </ol>

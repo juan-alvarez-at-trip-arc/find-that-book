@@ -20,6 +20,12 @@ Status: Bookshelf (proposal 2) and the mobile layout are implemented and merged 
 | D10 | On narrow screens and touch devices the explanation opens inline, not as a popover | A popover overlapped neighbouring cards and was too narrow in 2 columns |
 | D11 | Colors are CSS variables defined per theme in `App.css` | One place to change the palette, used by the shelf, progress panel and toggle |
 | D12 | The three proposals stay in the repo as static mockups | They document the alternatives |
+| D13 | Escape closes the explanation and keeps the hover popover dismissed until the pointer or focus leaves the card | WCAG 1.4.13: hover content must be dismissable and hoverable |
+| D14 | After a search with results, focus moves to a heading ("N books for “query”") and the notices and empty state are `role="status"` | Screen readers get told that results arrived |
+| D15 | Notices have two styles: yellow for "AI unavailable", accent-colored information for the weak-match message | They mean different things |
+| D16 | The error banner has a "Try again" button, and the empty state suggests a shorter query | Gives every dead end a next step |
+| D17 | Placeholder books on the shelf while searching, and the hero shrinks after the first search | No layout jump, and results start higher on small screens |
+| D18 | The ledge sits directly under the covers, with the title and author below it | Covers share one height, so every row gets a continuous ledge with no gap under shorter cards |
 
 ## 2. Proposals
 
@@ -65,8 +71,9 @@ Three static HTML mockups with the same sample data (the "tolkien hobbit illustr
 
 | File | Role |
 |------|------|
-| `web/src/components/App/App.tsx` | Page: header (logo, theme toggle), hero (heading, search, example chips), banners, progress panel, "N books" count, results list |
-| `web/src/components/App/App.css` | All styles: theme tokens, hero, shelf, badges, popover, mobile rules, progress panel, theme toggle |
+| `web/src/components/App/App.tsx` | Page: header (logo, theme toggle), hero (heading, search, example chips), banners (with Try again), progress panel, shelf skeleton, results heading, results list |
+| `web/src/components/ShelfSkeleton/ShelfSkeleton.tsx` | Four placeholder books shown while a search runs |
+| `web/src/components/App/App.css` | All styles: theme tokens, hero (and its compact state), shelf, badges, popover, mobile rules, skeleton, progress panel, theme toggle |
 | `web/src/components/ResultCard/ResultCard.tsx` | One book: cover linking to Open Library, badge, title, author and year, "Why this book?" toggle, explanation |
 | `web/src/lib/badge.ts` | `badgeFor(book, rank)` returns the badge kind and label |
 | `web/src/lib/types.ts` | `BookResult` and `SearchResponse` including `matchTier` and `exactTitle` |
@@ -78,7 +85,13 @@ Three static HTML mockups with the same sample data (the "tolkien hobbit illustr
 - **Badges** (`lib/badge.ts`): "Best match" for the first result when its title is exact. "Exact title" for other exact titles. "Author match" for tier 4. "Close title" for everything else.
 - **Cover:** links to the Open Library page (`aria-label` is the title plus "view on Open Library"). A missing cover renders a generated cover whose text comes from a `data-title` attribute through CSS `::before`, so the title is not duplicated in the DOM.
 - **Explanation:** always in the DOM, hidden with `visibility` and `opacity`. Wide screens with a pointer show it on hover or keyboard focus (`:focus-within`). The "Why this book?" button toggles `data-open` and `aria-expanded` and is the only way to open it on touch.
-- **Shelf:** a 4-column grid. Each book draws its ledge with a `::after` pseudo-element, so a ledge runs under every row. Cover hover lifts and tilts slightly, disabled under `prefers-reduced-motion`.
+- **Shelf:** a 4-column grid. Each cover sits in a `.shelf-slot` that draws its ledge with a `::before` pseudo-element, extended by the card padding so the ledge is continuous across a row. Title, author and the toggle sit below the ledge. Cover hover lifts and tilts slightly, disabled under `prefers-reduced-motion`.
+- **Dismiss:** Escape inside a card closes the explanation and sets `data-dismissed`, which hides the popover until the pointer leaves or focus moves out of the card.
+- **Results heading:** an `h2` ("N books for “query”") that receives focus when results arrive. Card titles are `h3`.
+- **Notices:** "AI unavailable" is yellow, the weak-match message uses the `info` style. Both and the empty state are `role="status"`.
+- **Recovery:** the error banner shows "Try again", which repeats the last search. The empty state adds the tip "Try just the author's last name, or fewer words."
+- **While searching:** the progress panel is followed by four skeleton books. Their shimmer stops under `prefers-reduced-motion`.
+- **Compact hero:** after the first search the hero gets the `compact` class: smaller heading, no lead text, and the example chips in one scrolling row with long chips truncated.
 - **Theme tokens:** `--bg`, `--surface`, `--ink`, `--muted`, `--line`, `--accent`, `--on-accent`, `--wood1`, `--wood2`, `--best`, `--exact`, `--close`, `--glow`. Dark values apply for `data-theme="dark"` and for System mode when the OS prefers dark. In dark mode the accent is light blue, so `--on-accent` is dark for readable button text.
 - **Hero:** heading "What was that book?", a pill-shaped search input with the Search button inside, example chips below. The AI-unavailable notice is a centered yellow banner.
 
@@ -105,12 +118,14 @@ By hand in headed Chrome:
 - **About 250px window:** after the header fix there was no horizontal scroll, and the inline explanation opened.
 - **390px (a 390x800 iframe on the page):** 2 columns, no horizontal scroll, chips scroll, the inline explanation opens, light mode renders correctly.
 
-Not verified: light mode of the desktop layout, widths between 360 and 430px on a real device, the 1-column layout below 340px, real touch behavior (the iframe does not trigger `hover: none`), landscape orientation, and screen reader behavior of the toggle.
+After the accessibility and flow pass (D13 to D18): 53 frontend tests pass. By hand in Chrome: desktop dark and light (ledge under the covers, compact hero, focused results heading, skeleton while searching) and a 375px iframe in light mode (2 columns, no horizontal scroll). Escape and Try again are covered by tests only, not tried by hand.
+
+Not verified: widths between 360 and 430px on a real device, the 1-column layout below 340px, the compact hero and skeleton in dark mode at 390px, real touch behavior (the iframe does not trigger `hover: none`), landscape orientation, and screen reader behavior of the toggle and the results heading.
 
 ## 5. Known issues and open items
 
 - F1: the "Why this book?" link sits about 2px to the right of the title.
-- F2: in a 2-column row the ledge sits under the taller card, leaving a gap under the shorter one.
+- F2 (fixed, see D18): the ledge used to sit under the taller card, leaving a gap under the shorter one.
 - Enter does nothing while a search runs, because the Search button is disabled.
 - Proposal 3's filters and P1's theme are not implemented. A hybrid (the shelf with P3's reason chips) would reuse `matchTier` and `exactTitle`, but needs the author match kind and year match in the API.
 - Authors and titles are shown as Open Library stores them, so they can be in another script.

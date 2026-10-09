@@ -6,7 +6,7 @@
 
 - Backend tests: `dotnet test` (287 tests). Stop the running API first, it locks the DLLs.
 - Run the API: `dotnet run --project src/FindThatBook.Api` (http://localhost:5080). Pass settings as env vars (`Ai__Provider`, `Gemini__ApiKey`, `OpenAiCompatible__*`, `OpenLibrary__Contact`). `dotnet run` does not read `.env`, only `docker compose` does.
-- Frontend (from `web/`): `npm test` (45 tests), `npm run lint` (Oxlint), `npm run build` (`tsc -b` and Vite), `npm run dev` (http://localhost:5173, proxies `/api` to 5080).
+- Frontend (from `web/`): `npm test` (53 tests), `npm run lint` (Oxlint), `npm run build` (`tsc -b` and Vite), `npm run dev` (http://localhost:5173, proxies `/api` to 5080).
 - Serve the built UI from the API: `npx vite build --outDir ../src/FindThatBook.Api/wwwroot --emptyOutDir` from `web/`. `wwwroot` is git-ignored.
 - Docker: `docker compose up --build` (http://localhost:8080). The image has never been built in this environment.
 
