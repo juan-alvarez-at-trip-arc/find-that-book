@@ -7,7 +7,7 @@ flowchart TB
     subgraph web["web/ (React, Vite, TypeScript)"]
         App --> lib_api["lib/api.ts"]
         App --> FeaturedResults
-        App --> ResultsSkeleton
+        App --> EmptyShelf
         App --> SearchProgress
         App --> ThemeToggle
         App --> Toast
