@@ -224,7 +224,7 @@ Pills for controls (999px): search bar, button, chips, badges, theme toggle. Car
 A header row with the wordmark "FindThatBook" (the middle word in Library Blue) and a three-option theme toggle (System, Light, Dark) as a pill group. Pressed state is Library Blue with its on-color. The header wraps below 420px.
 
 ### Featured Card (signature)
-The answer. Cover on its ledge at left, a badge, the serif title, the byline, an optional "Matched on edition title" line in bold, the always-visible reason sentence and a "View on Open Library" link pinned to the bottom.
+The answer. Cover on its ledge at left, a badge, the serif title, the byline, an optional bold "Catalogued as" line with the stored work title (the headline is the matched edition title when there is one), the always-visible reason sentence and a "View on Open Library" link pinned to the bottom.
 
 ### Toast (signature)
 Messages float at the bottom right: an icon, a bold title, a muted message and a close button. Kinds: error (Alert Red), notice (Warn Amber), info (Library Blue). Errors carry a Try again button.
