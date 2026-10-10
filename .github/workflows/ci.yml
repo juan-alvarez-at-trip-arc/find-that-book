@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -26,7 +26,7 @@ jobs:
       - run: dotnet test --no-build -c Release
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: web
@@ -45,7 +45,7 @@ jobs:
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: [backend, frontend]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write
@@ -57,6 +57,26 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build image for smoke test
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: find-that-book:smoke
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Smoke test
+        run: |
+          docker run -d --name smoke -p 8080:8080 find-that-book:smoke
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/api/health; then
+              curl -fsS http://localhost:8080/ | grep -q '<div id="root"'
+              exit 0
+            fi
+            sleep 2
+          done
+          docker logs smoke
+          exit 1
       - uses: docker/build-push-action@v6
         with:
           context: .
