@@ -221,13 +221,13 @@ Pills for controls (999px): search bar, button, chips, badges, theme toggle. Car
 - **Error / Disabled:** the field is disabled while a search runs. Errors appear as toasts, never inline.
 
 ### Navigation
-A header row with the wordmark "FindThatBook" (the middle word in Library Blue) and a three-option theme toggle (System, Light, Dark) as a pill group. Pressed state is Library Blue with its on-color. The header wraps below 420px.
+A header row with the wordmark "FindThatBook" (the middle word in Library Blue), which links to `/` and reloads the page with no query and an empty search box (a visible focus ring for keyboard users) and a three-option theme toggle (System, Light, Dark) as a pill group. Pressed state is Library Blue with its on-color. The header wraps below 420px.
 
 ### Featured Card (signature)
-The answer. Cover on its ledge at left, a badge, the serif title, the byline, an optional bold "Catalogued as" line with the stored work title (the headline is the matched edition title when there is one), the always-visible reason sentence and a "View on Open Library" link pinned to the bottom.
+The answer. Cover on its ledge at left, a badge, the serif title, the byline, an optional bold "Catalogued as" line with the stored work title (the headline is the matched edition title when there is one), the always-visible reason sentence and a "View on Open Library" link pinned to the bottom. The cover link is hidden from assistive tech and the tab order, so that text link is the one link, and it says it opens a new tab.
 
 ### Toast (signature)
-Messages float at the bottom right: an icon, a bold title, a muted message and a close button. Kinds: error (Alert Red), notice (Warn Amber), info (Library Blue). Errors carry a Try again button.
+Messages float at the bottom right: an icon, a bold title, a muted message and a close button. Kinds: error (Alert Red), notice (Warn Amber), info (Library Blue). Errors carry a Try again button. The icon mark (the "!" or "i") is drawn in the on-accent color so it reads on the kind color in both themes.
 
 ### Progress Stage (signature)
 While searching, one illustrated scene per step (a magnifier, a library with radar rings, clues linked to spines, a quill) with a step title, a detail line and four step chips. Scenes use the theme variables and stand still under reduced motion.

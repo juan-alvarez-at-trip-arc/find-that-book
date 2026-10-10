@@ -8,9 +8,10 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - Ranks by a deterministic matching hierarchy (primary authors above contributors), so the order is testable and explanations cannot contradict it.
 - AI extraction and explanations with automatic fallback to a heuristic parser and template explanations. The app works with no AI key.
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
+- Static files and API responses are gzip-compressed for clients that ask for it (the script goes from about 234 KB to 85 KB).
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
 - Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
-- UI: the top match shown large with its reason (the headline is the matched edition title when the work is titled differently), covers standing on a wooden ledge on warm paper with serif titles, the other matches as compact cards with match badges (Best match, Exact title, Author match, Close title) and a collapsible reason, a layout that works on phones, an illustrated progress stage while a search runs (one animated scene per step), dismissable toast messages for errors (with a Try again button), the AI fallback, weak matches and empty results (with an empty bookshelf picture), keyboard and screen reader support (Escape, focused results heading, announced toasts), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
+- UI: the top match shown large with its reason (the headline is the matched edition title when the work is titled differently), covers standing on a wooden ledge on warm paper with serif titles, a logo that links home, the other matches as compact cards with match badges (Best match, Exact title, Author match, Close title) and a collapsible reason, a layout that works on phones, an illustrated progress stage while a search runs (one animated scene per step), dismissable toast messages for errors (with a Try again button), the AI fallback, weak matches and empty results (with an empty bookshelf picture), keyboard and screen reader support (Escape, focused results heading, announced toasts), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
 
 ## Run it
 
@@ -187,11 +188,11 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 ## Testing
 
-- 289 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 291 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
-- 80 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress stage (each step with its own duration), the disabled search box and example chips during a search, the empty bookshelf, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
+- 88 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress stage (each step with its own duration), the disabled search box and example chips during a search, the empty bookshelf, the compact hero, the theme toggle, the example list (including saving it), the shareable `?q=` link, the logo link, focus returning to the search box, the edition title headline, the cover fallback, the single featured link with its new-tab cue, the toast icon marks and a check that the `theme-color` metas match the page backgrounds.
 - Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 
