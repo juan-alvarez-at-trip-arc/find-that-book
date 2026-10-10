@@ -2,10 +2,10 @@ import { useState } from "react";
 import { badgeFor } from "../../lib/badge";
 import type { BookResult } from "../../lib/types";
 
-function Cover({ book, className, priority = false }: { book: BookResult; className: string; priority?: boolean }) {
+function Cover({ book, className, priority = false, decorative = false }: { book: BookResult; className: string; priority?: boolean; decorative?: boolean }) {
   const [failed, setFailed] = useState(false);
   return (
-    <a className="cover-link" href={book.url} target="_blank" rel="noreferrer" aria-label={`${shownTitle(book)}, view on Open Library`}>
+    <a className="cover-link" href={book.url} target="_blank" rel="noreferrer" aria-label={`${shownTitle(book)}, view on Open Library (opens in a new tab)`} {...(decorative ? { "aria-hidden": true, tabIndex: -1 } : {})}>
       {book.coverUrl && !failed ? (
         <img className={className} src={book.coverUrl} alt={`Cover of ${shownTitle(book)}`} loading={priority ? "eager" : "lazy"} fetchPriority={priority ? "high" : "auto"} decoding="async" onError={() => setFailed(true)} />
       ) : (
@@ -40,14 +40,14 @@ export function FeaturedResults({ results }: { results: BookResult[] }) {
   return (
     <div className="featured-wrap">
       <article className="featured">
-        <Cover book={top} className="cover featured-cover" priority />
+        <Cover book={top} className="cover featured-cover" priority decorative />
         <div className="featured-body">
           <span className={`pill ${topBadge.kind}`}>{topBadge.label}</span>
           <h3 className="featured-title">{shownTitle(top)}</h3>
           <Catalogued book={top} />
           <Byline book={top} />
           <p className="featured-why">{top.explanation}</p>
-          <a className="featured-link" href={top.url} target="_blank" rel="noreferrer">View on Open Library</a>
+          <a className="featured-link" href={top.url} target="_blank" rel="noreferrer">View on Open Library{" "}<span className="sr-only">(opens in a new tab)</span></a>
         </div>
       </article>
       {rest.length > 0 && (

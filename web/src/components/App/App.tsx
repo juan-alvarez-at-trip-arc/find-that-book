@@ -97,7 +97,7 @@ export default function App() {
   return (
     <div className="page">
       <header className="top">
-        <div className="logo">Find<span>That</span>Book</div>
+        <a className="logo" href="/" aria-label="Find That Book, home">Find<span>That</span>Book</a>
         <ThemeToggle />
       </header>
 

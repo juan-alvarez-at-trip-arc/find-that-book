@@ -29,7 +29,7 @@ test("shows the top match large with its reason always visible", () => {
   expect(within(featured).getByText("Best match")).toBeInTheDocument();
   expect(within(featured).getByText("J.R.R. Tolkien · 1937")).toBeInTheDocument();
   expect(within(featured).getByText(/Exact title match/)).toBeVisible();
-  expect(within(featured).getByRole("link", { name: "View on Open Library" })).toHaveAttribute("href", "https://openlibrary.org/works/OL1W");
+  expect(within(featured).getByRole("link", { name: /^View on Open Library/ })).toHaveAttribute("href", "https://openlibrary.org/works/OL1W");
 });
 
 test("lists the other matches with a badge and a collapsed reason", async () => {
@@ -63,7 +63,7 @@ test("falls back to a placeholder cover and an unknown author", () => {
 test("uses the cover image when there is one", () => {
   render(<FeaturedResults results={[book({ coverUrl: "https://covers.openlibrary.org/b/id/1-M.jpg" })]} />);
 
-  expect(screen.getByRole("img", { name: "Cover of The Hobbit" })).toHaveAttribute("src", "https://covers.openlibrary.org/b/id/1-M.jpg");
+  expect(screen.getByRole("img", { name: "Cover of The Hobbit", hidden: true })).toHaveAttribute("src", "https://covers.openlibrary.org/b/id/1-M.jpg");
 });
 
 test("uses the matched edition title as the headline and names the catalogued title beneath it", () => {
@@ -88,8 +88,25 @@ test("keeps the work title as the headline when the work title matched", () => {
 test("falls back to the generated cover when the cover image fails to load", () => {
   const { container } = render(<FeaturedResults results={[book({ coverUrl: "https://covers.openlibrary.org/b/id/1-M.jpg" })]} />);
 
-  fireEvent.error(screen.getByRole("img", { name: "Cover of The Hobbit" }));
+  fireEvent.error(screen.getByRole("img", { name: "Cover of The Hobbit", hidden: true }));
 
   expect(screen.queryByRole("img")).not.toBeInTheDocument();
   expect(container.querySelector(".cover.placeholder")).toHaveAttribute("data-title", "The Hobbit");
+});
+
+test("the featured card has one link to Open Library, and it says it opens a new tab", () => {
+  const { container } = render(<FeaturedResults results={[book({})]} />);
+
+  const links = within(screen.getByRole("article")).getAllByRole("link");
+  expect(links).toHaveLength(1);
+  expect(links[0]).toHaveAccessibleName("View on Open Library (opens in a new tab)");
+  const cover = container.querySelector(".featured .cover-link");
+  expect(cover).toHaveAttribute("aria-hidden", "true");
+  expect(cover).toHaveAttribute("tabindex", "-1");
+});
+
+test("a runner-up cover link says it opens a new tab", () => {
+  render(<FeaturedResults results={[book({}), second]} />);
+
+  expect(within(screen.getByRole("listitem")).getByRole("link")).toHaveAccessibleName("The Hobbit (1990), view on Open Library (opens in a new tab)");
 });

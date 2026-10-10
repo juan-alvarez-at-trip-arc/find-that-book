@@ -289,6 +289,14 @@ test("does not search on open when there is no q parameter", () => {
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
+test("the logo is a link to the home page, so it reloads without a query string", () => {
+  render(<App />);
+
+  const logo = screen.getByRole("link", { name: "Find That Book, home" });
+
+  expect(logo).toHaveAttribute("href", "/");
+});
+
 test("puts the searched text in the q parameter so the page can be shared", async () => {
   vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
   render(<App />);
