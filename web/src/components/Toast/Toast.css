@@ -9,7 +9,7 @@
 .toast-body span { color: var(--muted); }
 .toast-action { margin-top: 8px; padding: 4px 14px; border: 1px solid var(--toast-color); border-radius: 999px; background: transparent; color: var(--toast-color); font: inherit; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
 .toast-action:hover { background: color-mix(in srgb, var(--toast-color) 14%, transparent); }
-.toast-close { border: 0; background: transparent; color: var(--muted); font-size: 1.3rem; line-height: 1; padding: 0 4px; cursor: pointer; }
+.toast-close { border: 0; background: transparent; color: var(--muted); font-size: 1.3rem; line-height: 1; padding: 0 4px; min-width: 24px; min-height: 24px; cursor: pointer; }
 .toast-close:hover { color: var(--ink); }
 .toast-action:focus-visible, .toast-close:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
