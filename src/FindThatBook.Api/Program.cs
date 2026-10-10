@@ -1,5 +1,6 @@
 using FindThatBook.Api;
 using FindThatBook.Infrastructure;
+using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,10 +8,13 @@ builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddFindThatBook(builder.Configuration);
+builder.Services.AddResponseCompression(options =>
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["image/svg+xml"]));
 
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseResponseCompression();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 app.MapControllers();
