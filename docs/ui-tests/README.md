@@ -1,6 +1,6 @@
 # UI Tests
 
-Scope: the by-hand tests run on the featured results layout (UI spec D20), the toast messages, the search progress stage and the polish rounds after them (warm palette, ledge under every cover, edition title headline, focus return, 24px tap targets), what they showed, and what is still open. Decisions are in `docs/ui-proposals/ui-spec.md`. Date of the by-hand run: 2026-10-10 (eighth run, on the production build in Docker, after the critique rounds that followed the progress stage run).
+Scope: the by-hand tests run on the featured results layout (UI spec D20), the toast messages, the search progress stage and the polish rounds after them (warm palette, ledge under every cover, edition title headline, focus return, 24px tap targets), what they showed, and what is still open. Decisions are in `docs/ui-proposals/ui-spec.md`. Date of the by-hand run: 2026-10-10 (ninth run, on the production build in Docker, after the logo link, response compression and the accessibility fixes from the seventh critique).
 
 ## 1. By-hand tests
 
@@ -25,7 +25,7 @@ The step durations were checked two ways: by reading the timers the component qu
 | T5 | 320px | Dark, light | Same as T4, title and reason wrap, no horizontal overflow | Pass |
 | T6 | 1024, 768, 390, 320px | Light | Every "Why this book?" opened (4 of 4): reasons show inside the cards and do not break the layout | Pass |
 | T7 | 1024, 768, 390, 320px | Dark, light | Badges, text and card borders readable | Pass |
-| T8 | 1024, 390, 320px | Dark | Error toast (forced 502): `role="alert"`, shows title, message, Try again and Dismiss, overlaps none of the logo, heading, search box or chips | Pass |
+| T8 | 1024, 390, 320px | Dark | Error toast (forced 502): `role="alert"`, shows title, message, Try again and Dismiss, overlaps none of the logo, heading, search box or chips, and the icon mark is dark on the toast color in the dark theme (stroke rgb(11, 18, 32)) | Pass |
 | T9 | 1024, 768, 390, 320px | Dark, light | Toasts sit at the bottom of the screen and clear the last result at the end of the page (0px covered, see T15) | Pass |
 | T10 | 1024, 390px | Dark | Dismiss removes the toast. Try again is focusable, repeats the search, removes the error toast and shows the result (here the empty-state toast and the bookshelf), and focus ends on the search box | Pass |
 | T11 | 1024 (dark), 768, 390, 320px (light) | Dark, light | Search progress stage while a search runs: it replaces the results, no skeleton, nothing overlaps, no horizontal overflow | Pass |
@@ -39,11 +39,14 @@ The step durations were checked two ways: by reading the timers the component qu
 | T19 | 390px | Dark | Slow state: after the last step all four chips are done, the title reads "Still working, this is taking longer than usual…", the detail reads "Open Library or the AI gateway may be slow right now.", and the last scene stays. In real time it appeared 43.1 s after the search started | Pass |
 | T20 | 390px | Dark | Reduced motion (emulated by forcing the 3 reduced-motion rules on in a frame): the 6 scene animations running with motion on drop to 0, and the text, chips and step changes still work | Pass |
 | T21 | 390px | Dark | Step durations: the four frames, each on its own step, had queued timers of 10000 ms (Understand), 2000 ms (Search), 1000 ms (Match) and 30000 ms (Explain). In real time the steps changed at 10.1, 12.1, 13.1 and 43.1 s | Pass |
-| T22 | 1024, 390px | Light, dark | Edition title headline: the real query `kafka on the shore murakami` shows the matched edition title "Kafka on the Shore" as the headline, a bold "Catalogued as “海辺のカフカ”" line under it, the reason, and the cover. The page title reads "1 book for “kafka on the shore murakami” · Find That Book". No overflow | Pass |
+| T22 | 1024, 390px | Light, dark | Edition title headline: the real query `kafka on the shore murakami` shows the matched edition title "Kafka on the Shore" as the headline, a bold "Catalogued as “海辺のカフカ”" line under it, the reason, and the cover. The page title reads "1 book for “kafka on the shore murakami” · Find That Book". The featured card has one tab stop to Open Library: the cover link is hidden from assistive tech with `tabindex="-1"` and the text link reads "View on Open Library (opens in a new tab)". No overflow | Pass |
 | T23 | 1024, 390px | Dark | After a search ends with an error or no results, focus returns to the search box (measured after the Try again retry in T10) | Pass |
 | T24 | 1024, 390px | Dark | Tap targets (`getBoundingClientRect`). At 1024px: Search 105×42, chips 25 high, theme buttons 25, "Why this book?" 298×25, toast close 24×24, runner-up covers 88×132. At 390px: Search 89×44, chips 36, theme buttons 32, "Why this book?" 221×44, toast close 24×24, featured cover 110×165 | Pass |
 | T25 | 1024px | Dark | The "Basic search mode" notice shows with results, and after it is dismissed it does not return on the next search | Pass |
 | T26 | 390px | Dark | A cover image that fails to load (a missing URL) is replaced by the generated cover with the book's title | Pass |
+| T27 | 1718px window, real click | Dark | The logo is a link (`a`, `href="/"`, label "Find That Book, home"). Clicking it from a results page (`?q=tolkien hobbit`) reloads the page at `http://localhost:8080/` with an empty search box (the placeholder shows), no results, the page title "Find That Book" and the full hero | Pass |
+| T28 | Not applicable | Not applicable | Response compression: with `Accept-Encoding: gzip` the script is 85,311 bytes (234,314 plain) and the stylesheet 4,977 bytes (15,612 plain), both with `Content-Encoding: gzip`. `/api/health` is gzipped too | Pass |
+| T29 | 1024px | Dark | The two `theme-color` metas are `#f4efe7` (light) and `#16140f` (dark), the same as the page backgrounds | Pass |
 
 Measured values (`getComputedStyle`, `scrollWidth` and `clientWidth`), dark theme, iframes 1060px tall, unchanged from the previous run:
 
@@ -70,7 +73,7 @@ The same widths in light mode, scrolled to the results, with every reason opened
 
 ![Widths, light, reasons open](images/03-widths-light-reasons-open.png)
 
-The error toast at 1024, 390 and 320px, dark (T8, T9). On phones it spans the bottom of the screen and leaves the header, heading, search box and chips visible. In the 320px frame the search box has the focus ring because focus returned to it (T23):
+The error toast at 1024, 390 and 320px, dark (T8, T9). On phones it spans the bottom of the screen and leaves the header, heading, search box and chips visible, and the icon mark is dark on the red. In the 320px frame the search box has the focus ring because focus returned to it (T23):
 
 ![Error toast, dark](images/04-error-toast-widths-dark.png)
 
