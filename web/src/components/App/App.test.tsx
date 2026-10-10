@@ -426,6 +426,35 @@ test("the empty state gives its advice once, even when the server message alread
   expect(toast).not.toHaveTextContent("Try adding an author");
 });
 
+test("returns focus to the search box when a search fails", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json")));
+  render(<App />);
+
+  await search("hobbit");
+  await screen.findByRole("alert");
+
+  expect(screen.getByRole("searchbox", { name: "Search for a book" })).toHaveFocus();
+});
+
+test("returns focus to the search box when a search finds nothing", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: "No matching books found.", results: [] })));
+  render(<App />);
+
+  await search("zzzz");
+  await screen.findByText("No matching books found.");
+
+  expect(screen.getByRole("searchbox", { name: "Search for a book" })).toHaveFocus();
+});
+
+test("keeps focus on the results heading when a search finds books", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+
+  await search("tolkien hobbit");
+
+  expect(await screen.findByRole("heading", { level: 2, name: "1 book for “tolkien hobbit”" })).toHaveFocus();
+});
+
 test("the error toast has a try again button that repeats the search", async () => {
   const fetchMock = vi
     .fn((_url: string, _init: RequestInit) => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json"))
