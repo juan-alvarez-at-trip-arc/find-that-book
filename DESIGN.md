@@ -153,7 +153,7 @@ Dark theme: warm near-black ground (#16140f), card (#201d17), ink (#f1ede4), mut
 
 **The One Accent Rule.** Library Blue is the only color that asks for an action. Wood tones are scenery, never interactive.
 
-**The Variables Only Rule.** No color literal appears in a component. Every color is a variable defined per theme in `App.css`.
+**The Variables Only Rule.** No color literal appears in a component, apart from the translucent black used in shadows and thin strokes. Every other color is a variable in `App.css`.
 
 ## Typography
 
