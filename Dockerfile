@@ -16,6 +16,7 @@ LABEL org.opencontainers.image.source="https://github.com/juan-carlos-alvarez-ru
 WORKDIR /app
 COPY --from=build /out ./
 COPY --from=web /web/dist ./wwwroot
+USER app
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 ENTRYPOINT ["dotnet", "FindThatBook.Api.dll"]
