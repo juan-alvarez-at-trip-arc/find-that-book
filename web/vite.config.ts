@@ -5,5 +5,5 @@ import react from "@vitejs/plugin-react";
 export default defineConfig({
   plugins: [react()],
   server: { proxy: { "/api": "http://localhost:5080" } },
-  test: { environment: "jsdom", setupFiles: "./src/setupTests.ts" },
+  test: { environment: "jsdom", setupFiles: "./src/setupTests.ts", css: { include: [/App\.css/] } },
 });

@@ -4,6 +4,7 @@
 .toast.notice { --toast-color: var(--warn); }
 .toast.info { --toast-color: var(--accent); }
 .toast-icon { width: 20px; height: 20px; flex: none; color: var(--toast-color); }
+.toast-mark { stroke: var(--on-accent); }
 .toast-body { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; font-size: 0.9rem; }
 .toast-body strong { font-size: 0.95rem; }
 .toast-body span { color: var(--muted); }
