@@ -33,6 +33,7 @@ export default function App() {
   const latest = useRef(0);
   const opened = useRef(false);
   const resultsHeading = useRef<HTMLHeadingElement>(null);
+  const searchBox = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (opened.current) return;
@@ -43,6 +44,10 @@ export default function App() {
   useEffect(() => {
     if (data && data.results.length > 0) resultsHeading.current?.focus();
   }, [data]);
+
+  useEffect(() => {
+    if (!loading && (error || (data && data.results.length === 0))) searchBox.current?.focus();
+  }, [loading, error, data]);
 
   useEffect(() => {
     const base = "Find That Book";
@@ -103,6 +108,7 @@ export default function App() {
 
         <form onSubmit={onSubmit} className="search" role="search">
           <input
+            ref={searchBox}
             type="search"
             name="q"
             autoComplete="off"

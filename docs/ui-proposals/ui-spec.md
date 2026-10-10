@@ -21,7 +21,7 @@ Status: Bookshelf (proposal 2) and the mobile layout are implemented and merged 
 | D11 | Colors are CSS variables defined per theme in `App.css` | One place to change the palette, used by the shelf, progress stage and toggle |
 | D12 | The three proposals stay in the repo as static mockups | They document the alternatives |
 | D13 | Escape closes the explanation and keeps the hover popover dismissed until the pointer or focus leaves the card | WCAG 1.4.13: hover content must be dismissable and hoverable |
-| D14 | After a search with results, focus moves to a heading ("N books for “query”") and the messages are announced: `role="alert"` for the error toast, `role="status"` for the others | Screen readers get told that results arrived |
+| D14 | After a search with results, focus moves to a heading ("N books for “query”") and the messages are announced: `role="alert"` for the error toast, `role="status"` for the others | Screen readers get told that results arrived. After an error or an empty result, focus returns to the search box |
 | D15 | Messages have three styles: red (`--danger`) for errors, yellow (`--warn`) for "AI unavailable", accent-colored information (`--accent`) for the weak-match message and the empty state | They mean different things |
 | D16 | The error toast has a "Try again" button, and the empty-state toast suggests a shorter query | Gives every dead end a next step |
 | D17 | Placeholder books on the shelf while searching (replaced by the progress stage, D22), and the hero shrinks after the first search | No layout jump, and results start higher on small screens |

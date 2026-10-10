@@ -180,4 +180,4 @@ h1 { margin: 0; font-family: var(--serif); font-size: clamp(1.9rem, 4vw, 2.7rem)
   .sc-lens { transform: translate(70px, 56px); }
   .sc-quill { transform: translate(100px, 56px); }
 }
-
+@media (max-width: 420px) { .stage-steps { display: grid; grid-template-columns: repeat(2, max-content); justify-content: center; } }
