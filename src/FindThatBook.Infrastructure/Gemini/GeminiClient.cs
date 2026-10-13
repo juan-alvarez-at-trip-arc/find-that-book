@@ -17,13 +17,13 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
     /// <returns>The first element, or <c>null</c> when the node is not an array or is empty.</returns>
     private static JsonNode? First(JsonNode? node) => node is JsonArray { Count: > 0 } array ? array[0] : null;
 
-    /// <summary>Calls Gemini with JSON response mode and the schema converted to Gemini's dialect, at temperature 0.</summary>
-    /// <param name="prompt">The full prompt text to send.</param>
+    /// <summary>Calls Gemini with JSON response mode and the schema converted to Gemini's dialect, at temperature 0. The instructions go in <c>systemInstruction</c> and the data in the user content.</summary>
+    /// <param name="prompt">The instructions and the untrusted data to send.</param>
     /// <param name="schema">The expected output shape as standard JSON Schema.</param>
     /// <param name="ct">Token used to cancel the request.</param>
     /// <returns>The JSON text of the first candidate's first part.</returns>
     /// <exception cref="AiUnavailableException">The API key is missing, the request fails or times out, the status is not a success, or the response has no text or an unexpected shape.</exception>
-    public async Task<string> GenerateJsonAsync(string prompt, JsonNode schema, CancellationToken ct)
+    public async Task<string> GenerateJsonAsync(AiPrompt prompt, JsonNode schema, CancellationToken ct)
     {
         var settings = options.Value;
         if (string.IsNullOrWhiteSpace(settings.ApiKey))
@@ -31,9 +31,13 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
 
         var body = new JsonObject
         {
+            ["systemInstruction"] = new JsonObject
+            {
+                ["parts"] = new JsonArray(new JsonObject { ["text"] = prompt.Instructions }),
+            },
             ["contents"] = new JsonArray(new JsonObject
             {
-                ["parts"] = new JsonArray(new JsonObject { ["text"] = prompt }),
+                ["parts"] = new JsonArray(new JsonObject { ["text"] = prompt.Data }),
             }),
             ["generationConfig"] = new JsonObject
             {

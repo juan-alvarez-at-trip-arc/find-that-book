@@ -37,7 +37,7 @@ public class OpenAiCompatibleClientTests
             return StubHandler.Json(Completion("""{"a":"x"}"""));
         });
 
-        var text = await Client(handler).GenerateJsonAsync("find a book", ObjectSchema, default);
+        var text = await Client(handler).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "find a book"), ObjectSchema, default);
 
         Assert.Equal("""{"a":"x"}""", text);
         Assert.Equal("/openai/v1/chat/completions", seen!.RequestUri!.AbsolutePath);
@@ -64,10 +64,10 @@ public class OpenAiCompatibleClientTests
             return StubHandler.Json(Completion("{}"));
         });
 
-        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "k", Model = "llama-x" }).GenerateJsonAsync("p", ObjectSchema, default);
+        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "k", Model = "llama-x" }).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default);
         Assert.Equal("llama-x", model);
 
-        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "k", Model = "  " }).GenerateJsonAsync("p", ObjectSchema, default);
+        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "k", Model = "  " }).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default);
         Assert.Equal(OpenAiCompatibleOptions.DefaultModel, model);
     }
 
@@ -81,7 +81,7 @@ public class OpenAiCompatibleClientTests
             return StubHandler.Json(Completion("{}"));
         });
 
-        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "" }).GenerateJsonAsync("p", ObjectSchema, default);
+        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "" }).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default);
 
         Assert.Null(seen!.Headers.Authorization);
     }
@@ -97,7 +97,7 @@ public class OpenAiCompatibleClientTests
             return StubHandler.Json(Completion("""{"result":["a","b"]}"""));
         });
 
-        var text = await Client(handler).GenerateJsonAsync("p", ArraySchema, default);
+        var text = await Client(handler).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ArraySchema, default);
 
         Assert.Equal("""["a","b"]""", text);
         Assert.Contains("\"result\"", system);
@@ -111,7 +111,7 @@ public class OpenAiCompatibleClientTests
     {
         var handler = new StubHandler(_ => StubHandler.Json(Completion(content)));
 
-        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync("p", ArraySchema, default));
+        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ArraySchema, default));
     }
 
     [Theory]
@@ -124,7 +124,7 @@ public class OpenAiCompatibleClientTests
     {
         var handler = new StubHandler(_ => new HttpResponseMessage(status));
 
-        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync("p", ObjectSchema, default));
+        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default));
     }
 
     [Theory]
@@ -138,7 +138,7 @@ public class OpenAiCompatibleClientTests
     {
         var handler = new StubHandler(_ => StubHandler.Json(reply));
 
-        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync("p", ObjectSchema, default));
+        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default));
     }
 
     [Fact]
@@ -146,7 +146,7 @@ public class OpenAiCompatibleClientTests
     {
         var handler = new StubHandler(_ => throw new HttpRequestException("connection refused"));
 
-        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync("p", ObjectSchema, default));
+        await Assert.ThrowsAsync<AiUnavailableException>(() => Client(handler).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default));
     }
 
     [Theory]

@@ -45,8 +45,8 @@ public static class Books
 
 public sealed class FakeAiClient(Func<string, string> respond) : IAiClient
 {
-    public Task<string> GenerateJsonAsync(string prompt, JsonNode schema, CancellationToken ct)
-        => Task.FromResult(respond(prompt));
+    public Task<string> GenerateJsonAsync(AiPrompt prompt, JsonNode schema, CancellationToken ct)
+        => Task.FromResult(respond(prompt.Instructions + "\n" + prompt.Data));
 }
 
 public sealed class AsyncStubHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> respond) : HttpMessageHandler
@@ -67,4 +67,10 @@ public static class Q
 
     /// <summary>A hypothesis the heuristic parser produced by guessing, as opposed to one the AI extracted.</summary>
     public static ParsedQuery Guess(string? title, string? author, params string[] keywords) => new(title, author, keywords, Guessed: true);
+}
+
+public sealed class PromptAiClient(Func<AiPrompt, string> respond) : IAiClient
+{
+    public Task<string> GenerateJsonAsync(AiPrompt prompt, JsonNode schema, CancellationToken ct)
+        => Task.FromResult(respond(prompt));
 }

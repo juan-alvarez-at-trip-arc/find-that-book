@@ -14,12 +14,12 @@ namespace FindThatBook.Infrastructure.OpenAi;
 public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompatibleOptions> options) : IAiClient
 {
     /// <summary>Posts a <c>chat/completions</c> request with <c>response_format</c> set to <c>json_object</c> at temperature 0, wrapping array-shaped schemas in an object because JSON mode needs an object at the root.</summary>
-    /// <param name="prompt">The full prompt text, sent as the user message.</param>
+    /// <param name="prompt">The instructions, sent in the system message with the schema, and the untrusted data, sent alone as the user message.</param>
     /// <param name="schema">The expected output shape as standard JSON Schema. It is cloned, never mutated.</param>
     /// <param name="ct">Token used to cancel the request.</param>
     /// <returns>The JSON text of the first choice's message, unwrapped when the schema was wrapped.</returns>
     /// <exception cref="AiUnavailableException">The request fails or times out, the status is not a success, the reply has no content or an unexpected shape, or a wrapped reply lacks the <c>result</c> property.</exception>
-    public async Task<string> GenerateJsonAsync(string prompt, JsonNode schema, CancellationToken ct)
+    public async Task<string> GenerateJsonAsync(AiPrompt prompt, JsonNode schema, CancellationToken ct)
     {
         var settings = options.Value;
 
@@ -42,9 +42,10 @@ public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompa
                 {
                     ["role"] = "system",
                     ["content"] = "You are a JSON API. Reply with exactly one JSON object and nothing else: no prose, no markdown. "
-                        + "The object must conform to this JSON Schema:\n" + effectiveSchema.ToJsonString(),
+                        + "The object must conform to this JSON Schema:\n" + effectiveSchema.ToJsonString()
+                        + "\n\n" + prompt.Instructions,
                 },
-                new JsonObject { ["role"] = "user", ["content"] = prompt }),
+                new JsonObject { ["role"] = "user", ["content"] = prompt.Data }),
             ["response_format"] = new JsonObject { ["type"] = "json_object" },
             ["temperature"] = 0,
             ["stream"] = false, // some gateways stream by default, which this client cannot parse

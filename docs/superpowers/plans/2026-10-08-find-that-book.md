@@ -149,7 +149,7 @@ Fixes from the whole-branch review, each with a test that failed first: apostrop
 **Files:** `Ai/IAiClient.cs`, `Ai/AiSchemas.cs`, `Ai/AiQueryParser.cs`, `Ai/AiExplanationWriter.cs`, `Gemini/GeminiClient.cs`, `GeminiSchema.cs`, `GeminiOptions.cs`, `OpenAi/OpenAiCompatibleClient.cs`, `OpenAiCompatibleOptions.cs`, tests `GeminiSchemaTests`, `OpenAiCompatibleClientTests`, `AiProviderSelectionTests`.
 
 **Behavior:**
-- `IAiClient.GenerateJsonAsync(prompt, schema, ct)` is the single seam. Schemas are standard JSON Schema. `GeminiSchema.FromJsonSchema` converts them to Gemini's dialect (a test asserts the result equals the original Gemini schemas).
+- `IAiClient.GenerateJsonAsync(prompt, schema, ct)` is the single seam, where `prompt` is an `AiPrompt(Instructions, Data)` so instructions and untrusted data go in separate roles. Schemas are standard JSON Schema. `GeminiSchema.FromJsonSchema` converts them to Gemini's dialect (a test asserts the result equals the original Gemini schemas).
 - `Ai:Provider` selects the client at registration (blank or `Gemini` default, `OpenAiCompatible`, anything else throws a clear error).
 - The OpenAI-compatible client uses JSON mode, `stream: false` (some gateways stream by default), temperature 0, an optional Bearer key, and wraps non-object schemas as `{"result": ...}`.
 - Gemini default model `gemini-3.8-flash`, a blank model uses the default, timeouts 30 s.
