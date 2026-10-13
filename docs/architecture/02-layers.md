@@ -18,6 +18,7 @@ flowchart TB
         HealthController
         ApiExceptionHandler
         Program["Program.cs (static files, DI)"]
+        TelemetryExt["TelemetryExtensions (OpenTelemetry)"]
     end
 
     subgraph Infra["FindThatBook.Infrastructure"]
@@ -29,6 +30,7 @@ flowchart TB
         GeminiClient
         OpenAiCompatibleClient
         Health["Health probes and report"]
+        HttpLog["HttpLoggingHandler, SensitiveDataMasker"]
         DI["ServiceCollectionExtensions"]
     end
 
@@ -41,12 +43,19 @@ flowchart TB
         FallbackQueryParser
         FallbackExplanationWriter
         Abstractions{{IQueryParser, IBookCatalog, IExplanationWriter, ISearchService}}
+        FindThatBookTelemetry["FindThatBookTelemetry (ActivitySource, Meter)"]
     end
 
     lib_api -- "HTTP" --> SearchController
     SearchController --> SearchService
     HealthController --> Health
     Program --> DI
+    Program --> TelemetryExt
+    TelemetryExt --> HttpLog
+    SearchService --> FindThatBookTelemetry
+    FallbackQueryParser --> FindThatBookTelemetry
+    FallbackExplanationWriter --> FindThatBookTelemetry
+    OpenLibraryCatalog --> FindThatBookTelemetry
     Infra --> App_
     Api --> Infra
     Api --> App_

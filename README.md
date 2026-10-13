@@ -68,12 +68,15 @@ Plain Docker works too:
 
 ```
 src/
-  FindThatBook.Api/             search and health controllers, problem details, static files, appsettings
+  FindThatBook.Api/             search and health controllers, problem details, static files, appsettings,
+                                OpenTelemetry setup (TelemetryExtensions)
   FindThatBook.Application/     models, interfaces, Normalizer, Matcher, heuristic parser,
-                                template explanations, fallback decorators, SearchService
+                                template explanations, fallback decorators, SearchService,
+                                trace source and metrics (Telemetry/)
   FindThatBook.Infrastructure/  Open Library client (+ request gate), AI seam (IAiClient),
                                 Gemini and OpenAI-compatible clients, health probes and
-                                config check (Health/), DI registration
+                                config check (Health/), HTTP logging and masking (Telemetry/),
+                                DI registration
 tests/FindThatBook.Tests/       xUnit tests (stub HTTP handlers, fake AI client and catalog)
 web/                            React + Vite + TypeScript UI (see web/README.md)
 docs/superpowers/               design spec and implementation plan
@@ -147,6 +150,15 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - **Secrets:** `/api/health/config` masks API keys (first and last four characters stay visible, for example `free****...****654c`, and keys shorter than 12 characters are fully masked), shows `not set` for a missing key and removes credentials from URLs. The endpoint answers only callers on the same machine (loopback, or a remote address equal to the local one) and returns 404 to everyone else, because it shows internal URLs and the Open Library contact. Under Docker, requests through a published port come from the bridge gateway, so run `curl http://localhost:8080/api/health/config` inside the container instead.
 - **Controller:** the three endpoints live in `HealthController`. Settings come from the app's configuration, not from `.env`, which only Docker Compose reads.
 
+## Telemetry
+
+The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry__Enabled=true` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set (`TELEMETRY_ENABLED` and `OTEL_*` for Docker Compose). `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME` are read by the OpenTelemetry SDK.
+
+- Traces: ASP.NET Core, outgoing HTTP, and a `search` span with `parse`, `catalog`, `rank` and `explain` children.
+- Metrics: ASP.NET Core, HTTP client, runtime, plus `ftb.ai.fallback` (tag `step`), `ftb.openlibrary.cooldown` and `ftb.search.results`.
+- Logs: every `ILogger` entry, plus each outgoing HTTP request and response with headers and bodies (cut at 8 KB). Set `Telemetry__LogHttpBodies=false` to turn the HTTP bodies off.
+- Masking: `Authorization`, `x-goog-api-key` and cookie headers, credential query parameters and JSON fields, bearer tokens, the configured API keys and the Open Library contact are replaced with `***`. The reader's search text is logged as typed.
+
 ## How it works
 
 1. **Parse.** The AI provider turns the text into `{ title?, author?, keywords[] }`, one hypothesis. Without AI, a heuristic parser strips noise words and years into keywords and emits up to six guessed hypotheses (whole text as title, as author, first or last word as author, first or last two words as author).
@@ -190,11 +202,12 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 
 ## Testing
 
-- 291 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 311 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
-- 88 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress stage (each step with its own duration), the disabled search box and example chips during a search, the empty bookshelf, the compact hero, the theme toggle, the example list (including saving it), the shareable `?q=` link, the logo link, focus returning to the search box, the edition title headline, the cover fallback, the single featured link with its new-tab cue, the toast icon marks and a check that the `theme-color` metas match the page backgrounds.
+- Telemetry tests cover the masker, the HTTP logging handler (bodies, truncation, no credentials in the log), the search spans, the three custom metrics and the on/off wiring. They run against in-process listeners, never a collector. The OTLP export itself was not run against a real collector.
+- 71 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress stage (each step with its own duration), the disabled search box and example chips during a search, the empty bookshelf, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
 - Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 
