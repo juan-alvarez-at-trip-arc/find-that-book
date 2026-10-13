@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Models;
+using FindThatBook.Application.Telemetry;
 using FindThatBook.Application.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -299,6 +300,7 @@ public sealed class OpenLibraryCatalog(
                 if (response.StatusCode == HttpStatusCode.TooManyRequests)
                 {
                     // Retrying a 429 only adds load: pause every request for what Open Library asked, and fail this one.
+                    FindThatBookTelemetry.RecordOpenLibraryCooldown();
                     _limiter.StartCooldown(response.Headers.RetryAfter, TimeSpan.FromSeconds(Math.Max(1, settings.DefaultCooldownSeconds)));
                     throw new CatalogUnavailableException("Open Library is rate limiting requests.");
                 }

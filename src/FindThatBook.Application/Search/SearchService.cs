@@ -1,6 +1,7 @@
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Matching;
 using FindThatBook.Application.Models;
+using FindThatBook.Application.Telemetry;
 
 namespace FindThatBook.Application.Search;
 
@@ -26,20 +27,38 @@ public sealed class SearchService(IQueryParser parser, IBookCatalog catalog, IEx
         var text = query.Trim();
         if (text.Length > MaxQueryLength) text = text[..MaxQueryLength];
 
-        var parsed = await parser.ParseAsync(text, ct);
-        var candidates = await catalog.FindAsync(parsed.Hypotheses, ct);
-        var matches = Matcher.Rank(parsed.Hypotheses, candidates, MaxResults);
+        using var search = FindThatBookTelemetry.Source.StartActivity("search");
+
+        ParseOutcome parsed;
+        using (FindThatBookTelemetry.Source.StartActivity("parse"))
+            parsed = await parser.ParseAsync(text, ct);
+
+        IReadOnlyList<CatalogCandidate> candidates;
+        using (FindThatBookTelemetry.Source.StartActivity("catalog"))
+            candidates = await catalog.FindAsync(parsed.Hypotheses, ct);
+
+        IReadOnlyList<MatchedBook> matches;
+        using (FindThatBookTelemetry.Source.StartActivity("rank"))
+            matches = Matcher.Rank(parsed.Hypotheses, candidates, MaxResults);
 
         if (matches.Count == 0)
         {
+            FindThatBookTelemetry.RecordSearchResults(0);
+            search?.SetTag("ftb.ai_used", parsed.AiUsed);
             return new SearchResponse(parsed.AiUsed,
                 "No matching books found. Try adding an author or a different part of the title.", []);
         }
 
-        var explanations = await writer.WriteAsync(matches, ct);
+        ExplanationOutcome explanations;
+        using (FindThatBookTelemetry.Source.StartActivity("explain"))
+            explanations = await writer.WriteAsync(matches, ct);
+
         var results = matches.Select((m, i) => ToResult(m, explanations.Explanations[i])).ToList();
         var message = Matcher.IsConfident(matches[0]) ? null : NoConfidentMatchMessage;
-        return new SearchResponse(parsed.AiUsed && explanations.AiUsed, message, results);
+        var aiUsed = parsed.AiUsed && explanations.AiUsed;
+        FindThatBookTelemetry.RecordSearchResults(results.Count);
+        search?.SetTag("ftb.ai_used", aiUsed);
+        return new SearchResponse(aiUsed, message, results);
     }
 
     /// <summary>Converts a matched candidate into the client result, using the first contributor as the author when the work has no primary authors.</summary>

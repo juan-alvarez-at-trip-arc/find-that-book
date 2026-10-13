@@ -13,7 +13,7 @@ flowchart TB
     end
 
     subgraph compose["docker compose"]
-        env[".env (git-ignored)<br/>AI_PROVIDER, keys, models,<br/>OPENLIBRARY_*"]
+        env[".env (git-ignored)<br/>AI_PROVIDER, keys, models,<br/>OPENLIBRARY_*, TELEMETRY_*, OTEL_*"]
         ctr["container: find-that-book<br/>port 8080, restart unless-stopped"]
         env --> ctr
     end
@@ -22,6 +22,7 @@ flowchart TB
     ctr -- "HTTPS" --> ol[(openlibrary.org)]
     ctr -- "HTTPS" --> gem[(Gemini API)]
     ctr -- "HTTPS" --> oai[("OpenAI-compatible gateway<br/>default: Groq")]
+    ctr -. "OTLP, only when telemetry is on" .-> otlp[(OTLP collector)]
     host([Host browser]) -- "http://localhost:8080" --> ctr
 ```
 
@@ -34,4 +35,4 @@ flowchart LR
     api --> ext[(Open Library, AI provider)]
 ```
 
-`dotnet run` reads env vars, not `.env`. Only `docker compose` reads `.env`.
+`dotnet run` reads env vars, not `.env`. See [07-telemetry.md](07-telemetry.md) for what is exported. Only `docker compose` reads `.env`.

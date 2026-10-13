@@ -1,5 +1,6 @@
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Models;
+using FindThatBook.Application.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace FindThatBook.Application.Parsing;
@@ -22,6 +23,7 @@ public sealed class FallbackQueryParser(IQueryParser primary, IQueryParser fallb
         }
         catch (AiUnavailableException ex)
         {
+            FindThatBookTelemetry.RecordAiFallback("parse");
             log.LogWarning(ex, "AI query parsing unavailable, using heuristic parser");
             return await fallback.ParseAsync(query, ct);
         }

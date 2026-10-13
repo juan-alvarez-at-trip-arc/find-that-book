@@ -18,6 +18,8 @@ Ideas that were tried or considered and not shipped, so they are not retried bli
 | Persistent cache | The one-hour in-memory cache is enough for one instance. |
 | ISBN matching | Not in the brief. |
 | Hosted live demo | Needs a hosting account. |
+| Masking the reader's search text in telemetry | The text is the app's core input, not a credential, and it is needed to debug results. Reconsider if logs leave the operator's own collector. |
+| A telemetry backend in `docker-compose.yml` | The app only exports OTLP. Point `OTEL_EXPORTER_OTLP_ENDPOINT` at an existing collector. |
 | Docker image build check | The Docker daemon was not available when the project was built. |
 
 ## Changed after the first draft

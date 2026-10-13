@@ -164,13 +164,22 @@ Single page with: a hero search box (compact after the first search), example ch
 
 - Settings come from `appsettings.json`, user secrets and environment variables (`Ai__Provider`, `Gemini__ApiKey`, `OpenAiCompatible__BaseUrl`, `OpenLibrary__Contact` and so on). The appsettings sections are `Ai`, `Gemini`, `OpenAiCompatible` and `OpenLibrary` (`BaseUrl`, `MaxDetailLookups`, `MaxAuthorsPerWork`, `MaxConcurrentRequests`, `DefaultCooldownSeconds`, `Contact`).
 - `docker-compose.yml` maps `.env` variables (`AI_PROVIDER`, `GEMINI_API_KEY`, `GEMINI_MODEL`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL`, `OPENLIBRARY_*`) to those settings. `.env` is git-ignored. `dotnet run` does not read it.
+- Telemetry (OpenTelemetry over OTLP) is off unless `Telemetry:Enabled` is true or `OTEL_EXPORTER_OTLP_ENDPOINT` is set. `Telemetry:LogHttpBodies` (default true) controls logging of outgoing HTTP bodies. Compose maps `TELEMETRY_ENABLED`, `TELEMETRY_LOG_HTTP_BODIES` and the `OTEL_*` variables.
 - Without any key the app runs in fallback mode.
 - The API serves the built frontend from `wwwroot` (copied from `web/dist` by the Dockerfile).
 - Production code under `src/` carries XML documentation comments.
 
+## Telemetry
+
+- Traces: ASP.NET Core and outgoing HTTP are instrumented. `SearchService` adds a `search` span with `parse`, `catalog`, `rank` and `explain` children (source `FindThatBook`).
+- Metrics: ASP.NET Core, HTTP client and runtime, plus `ftb.ai.fallback` (tag `step`: `parse` or `explain`), `ftb.openlibrary.cooldown` and `ftb.search.results` (meter `FindThatBook`).
+- Logs: all `ILogger` entries are exported. `HttpLoggingHandler` logs each outgoing request and response with headers and bodies (8 KB cap) for every `HttpClient`.
+- Masking: `SensitiveDataMasker` hides credential headers, query parameters, JSON fields, bearer tokens, the configured API keys and the Open Library contact before anything is logged. Bodies are masked first and cut second. The reader's search text is logged as typed.
+- The telemetry source and meter live in the Application layer through `System.Diagnostics`, so that layer keeps no I/O and no OpenTelemetry package. Only the Api project references OpenTelemetry.
+
 ## Testing
 
-- .NET (287 tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
+- .NET (311 tests, including masker, HTTP logging, span, metric and telemetry wiring tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
 - Frontend (58 tests, Vitest + Testing Library): the disabled search box and example chips during a search, results, badges, the featured results and their collapsed reasons, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress stage, empty bookshelf, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 
@@ -204,4 +213,5 @@ LLM re-ranking, persistent cache, ISBN matching, authentication, a hosted live d
 - Detail lookups were 8 works in the draft and are 6 in the build, with an author cap, a request limit and a 429 cooldown that the draft did not have.
 - New in the build: edition-title and author-alias matching, transliteration-tolerant author names, the year-aware AI explanation facts, the timed progress panel, the theme toggle, example promotion, Docker Compose, and XML documentation.
 - New after that: the free-text supplement for thin searches, the Bookshelf UI with `matchTier` and `exactTitle` in the API, and the mobile layout.
+- New after that: OpenTelemetry traces, metrics and logs with masked HTTP body logging (see Telemetry).
 - New after that: the health endpoints (the config dump is local-only), the study-aid filter, the "No confident match" message, shareable `?q=` links and saved example chips.
