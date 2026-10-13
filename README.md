@@ -59,12 +59,14 @@ Docker Compose (UI and API on one port, http://localhost:8080):
 2. Start it: `docker compose up --build`
 3. Stop it: `docker compose down`
 
+The compose file also starts a Jaeger all-in-one container (UI at http://localhost:16686) for viewing traces. The app only sends to it when telemetry is on and `OTEL_EXPORTER_OTLP_ENDPOINT` points at it. The static landing page is served at `/landing.html`.
+
 Plain Docker works too:
 
     docker build -t find-that-book .
     docker run --rm -p 8080:8080 -e Gemini__ApiKey=<your key> find-that-book
 
-Or pull the prebuilt image that CI publishes from `master`:
+Or pull the prebuilt image that CI publishes from `master` (tags `latest` and the commit SHA) and from `v*` tags (tags such as `1.2.3` and `1.2`):
 
     docker pull ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
     docker run --rm -p 8080:8080 -e Gemini__ApiKey=<your key> ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
@@ -83,8 +85,10 @@ src/
                                 config check (Health/), HTTP logging and masking (Telemetry/),
                                 DI registration
 tests/FindThatBook.Tests/       xUnit tests (stub HTTP handlers, fake AI client and catalog)
-web/                            React + Vite + TypeScript UI (see web/README.md)
+web/                            React + Vite + TypeScript UI (see web/README.md), plus the
+                                static landing page (public/landing.html)
 docs/superpowers/               design spec and implementation plan
+docs/call-tree-analysis.md      call tree of one traced search (Jaeger spans, HTTP calls, AI timings)
 docs/ui-proposals/              three static UI mockups (a featured-result layout based on Bookshelf was implemented)
 docs/ui-tests/                  by-hand UI test results, screenshots and pending checks
 PRODUCT.md, DESIGN.md           product context and the recorded visual system, for design work
@@ -203,7 +207,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - The AI readiness probes only list models. A gateway that is slow or stalls on chat completions still reports `ready`, and its searches fall back after the 30 second timeout.
 - With no results the only message is a toast, so dismissing it leaves the page blank for that search.
 - The toasts were checked by hand in headed Chrome with stubbed responses (see `docs/ui-tests/README.md`), not with a screen reader or on a real phone. The extra bottom padding that keeps the last result clear of the toasts uses `:has()`, so a browser without it can show a toast over the last result.
-- The Docker image builds and serves the UI and API (checked by hand on 2026-10-10, see `docs/ui-tests/README.md`), but no automated test builds or runs the image.
+- The Docker image builds and serves the UI and API (checked by hand on 2026-10-10, see `docs/ui-tests/README.md`), and the CI publish job builds the image and smoke-tests it (`/api/health` and the UI root) before pushing, but no test in the repo exercises searches against the running image.
 
 ## Testing
 
@@ -222,6 +226,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - Implementation plan (as built): [docs/superpowers/plans/2026-10-08-find-that-book.md](docs/superpowers/plans/2026-10-08-find-that-book.md)
 - Decision record (ideas set aside, changes from the first draft): [docs/decisions.md](docs/decisions.md)
 - Architecture diagrams (one file per diagram): [docs/architecture/](docs/architecture/)
+- Call tree of one traced search: [docs/call-tree-analysis.md](docs/call-tree-analysis.md)
 - Product context: [PRODUCT.md](PRODUCT.md). Visual system: [DESIGN.md](DESIGN.md).
 
 ## With more time

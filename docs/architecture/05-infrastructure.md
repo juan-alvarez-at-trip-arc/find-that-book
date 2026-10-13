@@ -15,6 +15,7 @@ flowchart TB
     subgraph compose["docker compose"]
         env[".env (git-ignored)<br/>AI_PROVIDER, keys, models,<br/>OPENLIBRARY_*, TELEMETRY_*, OTEL_*"]
         ctr["container: find-that-book<br/>port 8080, restart unless-stopped"]
+        jg["container: jaeger<br/>UI port 16686"]
         env --> ctr
     end
 
@@ -23,6 +24,7 @@ flowchart TB
     ctr -- "HTTPS" --> gem[(Gemini API)]
     ctr -- "HTTPS" --> oai[("OpenAI-compatible gateway<br/>default: Groq")]
     ctr -. "OTLP, only when telemetry is on" .-> otlp[(OTLP collector)]
+    otlp -.-> jg
     host([Host browser]) -- "http://localhost:8080" --> ctr
 ```
 
