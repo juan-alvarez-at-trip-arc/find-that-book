@@ -64,6 +64,11 @@ Plain Docker works too:
     docker build -t find-that-book .
     docker run --rm -p 8080:8080 -e Gemini__ApiKey=<your key> find-that-book
 
+Or pull the prebuilt image that CI publishes from `master`:
+
+    docker pull ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
+    docker run --rm -p 8080:8080 -e Gemini__ApiKey=<your key> ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
+
 ## Project layout
 
 ```
