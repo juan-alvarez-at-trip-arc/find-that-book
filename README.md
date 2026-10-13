@@ -2,7 +2,7 @@
 
 [![CI/CD](https://github.com/juan-carlos-alvarez-ruiz/find-that-book/actions/workflows/ci.yml/badge.svg)](https://github.com/juan-carlos-alvarez-ruiz/find-that-book/actions/workflows/ci.yml)
 
-Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5 ranked Open Library matches, each with a one-sentence explanation. .NET 8 Web API, React UI, and an AI provider for query extraction and explanations: Gemini (the brief's default) or any OpenAI-compatible endpoint (Groq, Cerebras, Ollama, OpenRouter, Mistral). See [AI providers](#ai-providers).
+Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5 ranked Open Library matches, each with a one-sentence explanation. .NET 10 Web API, React UI, and an AI provider for query extraction and explanations: Gemini (the brief's default) or any OpenAI-compatible endpoint (Groq, Cerebras, Ollama, OpenRouter, Mistral). See [AI providers](#ai-providers).
 
 ## Features
 
@@ -17,7 +17,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 
 ## Run it
 
-Requirements: .NET 8 SDK, Node 22+.
+Requirements: .NET 10 SDK, Node 22+.
 
 1. Get an API key. Gemini: https://ai.google.dev/gemini-api/docs/api-key. For an OpenAI-compatible provider such as Groq, see [AI providers](#ai-providers). The app also runs without any key, in fallback mode.
 2. Store it. For the default Gemini provider:
