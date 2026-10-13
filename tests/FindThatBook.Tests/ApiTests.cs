@@ -44,6 +44,29 @@ public class ApiTests
         => (await response.Content.ReadFromJsonAsync<JsonElement>());
 
     [Fact]
+    public async Task Compresses_responses_for_clients_that_accept_gzip()
+    {
+        var client = CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/health");
+        request.Headers.AcceptEncoding.ParseAdd("gzip");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("gzip", response.Content.Headers.ContentEncoding);
+    }
+
+    [Fact]
+    public async Task Leaves_responses_uncompressed_for_clients_that_do_not_ask_for_it()
+    {
+        var client = CreateClient();
+
+        var response = await client.GetAsync("/api/health");
+
+        Assert.Empty(response.Content.Headers.ContentEncoding);
+    }
+
+    [Fact]
     public async Task Without_a_gemini_key_search_still_works_and_reports_ai_unused()
     {
         var client = CreateClient();

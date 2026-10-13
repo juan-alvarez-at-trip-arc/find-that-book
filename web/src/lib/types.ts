@@ -9,6 +9,7 @@ export interface BookResult {
   explanation: string;
   matchTier: number;
   exactTitle: boolean;
+  matchedTitle?: string | null;
 }
 
 export interface SearchResponse {

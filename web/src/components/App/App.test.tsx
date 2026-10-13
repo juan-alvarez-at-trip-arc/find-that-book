@@ -289,6 +289,14 @@ test("does not search on open when there is no q parameter", () => {
   expect(fetchMock).not.toHaveBeenCalled();
 });
 
+test("the logo is a link to the home page, so it reloads without a query string", () => {
+  render(<App />);
+
+  const logo = screen.getByRole("link", { name: "Find That Book, home" });
+
+  expect(logo).toHaveAttribute("href", "/");
+});
+
 test("puts the searched text in the q parameter so the page can be shared", async () => {
   vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
   render(<App />);
@@ -297,6 +305,17 @@ test("puts the searched text in the q parameter so the page can be shared", asyn
   await screen.findByText("The Hobbit");
 
   expect(new URLSearchParams(window.location.search).get("q")).toBe("tolkien hobbit");
+});
+
+test("sets the page title to the book count and the query after a search", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+  expect(document.title).toBe("Find That Book");
+
+  await search("tolkien hobbit");
+  await screen.findByText("The Hobbit");
+
+  expect(document.title).toBe("1 book for “tolkien hobbit” · Find That Book");
 });
 
 test("moves focus to a results heading that names the query and the book count", async () => {
@@ -379,7 +398,7 @@ test("the error toast can be dismissed", async () => {
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });
 
-test("the basic search notice can be dismissed and returns after the next search", async () => {
+test("the basic search notice stays dismissed for later searches", async () => {
   vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: false, message: null, results: [hobbit] })));
   render(<App />);
   await search("hobbit");
@@ -389,7 +408,59 @@ test("the basic search notice can be dismissed and returns after the next search
   expect(screen.queryByText("Basic search mode")).not.toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: /search/i }));
-  expect(await screen.findByText("Basic search mode")).toBeInTheDocument();
+  await screen.findByText("The Hobbit");
+  expect(screen.queryByText("Basic search mode")).not.toBeInTheDocument();
+});
+
+test("does not show the basic search notice next to an empty result", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: false, message: "No matching books found.", results: [] })));
+  render(<App />);
+
+  await search("zzzz");
+
+  await screen.findByText("No matching books found.");
+  expect(screen.queryByText("Basic search mode")).not.toBeInTheDocument();
+});
+
+test("the empty state gives its advice once, even when the server message already carries advice", async () => {
+  const serverMessage = "No matching books found. Try adding an author or a different part of the title.";
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: serverMessage, results: [] })));
+  render(<App />);
+
+  await search("zzzz");
+
+  const toast = (await screen.findByText("No matching books found.")).closest(".toast") as HTMLElement;
+  expect(toast).toHaveTextContent("Try just the author's last name, or fewer words.");
+  expect(toast).not.toHaveTextContent("Try adding an author");
+});
+
+test("returns focus to the search box when a search fails", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ title: "Open Library is unavailable." }, 502, "application/problem+json")));
+  render(<App />);
+
+  await search("hobbit");
+  await screen.findByRole("alert");
+
+  expect(screen.getByRole("searchbox", { name: "Search for a book" })).toHaveFocus();
+});
+
+test("returns focus to the search box when a search finds nothing", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: "No matching books found.", results: [] })));
+  render(<App />);
+
+  await search("zzzz");
+  await screen.findByText("No matching books found.");
+
+  expect(screen.getByRole("searchbox", { name: "Search for a book" })).toHaveFocus();
+});
+
+test("keeps focus on the results heading when a search finds books", async () => {
+  vi.stubGlobal("fetch", vi.fn(() => reply({ aiUsed: true, message: null, results: [hobbit] })));
+  render(<App />);
+
+  await search("tolkien hobbit");
+
+  expect(await screen.findByRole("heading", { level: 2, name: "1 book for “tolkien hobbit”" })).toHaveFocus();
 });
 
 test("the error toast has a try again button that repeats the search", async () => {

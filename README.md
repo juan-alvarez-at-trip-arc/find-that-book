@@ -1,5 +1,7 @@
 # Find That Book
 
+[![CI/CD](https://github.com/juan-alvarez-at-trip-arc/find-that-book/actions/workflows/ci.yml/badge.svg)](https://github.com/juan-alvarez-at-trip-arc/find-that-book/actions/workflows/ci.yml)
+
 Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5 ranked Open Library matches, each with a one-sentence explanation. .NET 8 Web API, React UI, and an AI provider for query extraction and explanations: Gemini (the brief's default) or any OpenAI-compatible endpoint (Groq, Cerebras, Ollama, OpenRouter, Mistral). See [AI providers](#ai-providers).
 
 ## Features
@@ -8,9 +10,10 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - Ranks by a deterministic matching hierarchy (primary authors above contributors), so the order is testable and explanations cannot contradict it.
 - AI extraction and explanations with automatic fallback to a heuristic parser and template explanations. The app works with no AI key.
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
+- Static files and API responses are gzip-compressed for clients that ask for it (the script goes from about 234 KB to 85 KB).
 - Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
 - Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
-- UI: the top match shown large with its reason, the other matches as compact cards with match badges (Best match, Exact title, Author match, Close title) and a collapsible reason, a layout that works on phones, an illustrated progress stage while a search runs (one animated scene per step), dismissable toast messages for errors (with a Try again button), the AI fallback, weak matches and empty results (with an empty bookshelf picture), keyboard and screen reader support (Escape, focused results heading, announced toasts), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
+- UI: the top match shown large with its reason (the headline is the matched edition title when the work is titled differently), covers standing on a wooden ledge on warm paper with serif titles, a logo that links home, the other matches as compact cards with match badges (Best match, Exact title, Author match, Close title) and a collapsible reason, a layout that works on phones, an illustrated progress stage while a search runs (one animated scene per step), dismissable toast messages for errors (with a Try again button), the AI fallback, weak matches and empty results (with an empty bookshelf picture), keyboard and screen reader support (Escape, focused results heading, announced toasts), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
 
 ## Run it
 
@@ -79,7 +82,8 @@ web/                            React + Vite + TypeScript UI (see web/README.md)
 docs/superpowers/               design spec and implementation plan
 docs/ui-proposals/              three static UI mockups (a featured-result layout based on Bookshelf was implemented)
 docs/ui-tests/                  by-hand UI test results, screenshots and pending checks
-docs/architecture/              Mermaid diagrams: system context, layers, search flow, matching and fallback, infrastructure, Open Library protection, telemetry
+PRODUCT.md, DESIGN.md           product context and the recorded visual system, for design work
+docs/architecture/              Mermaid diagrams: system context, layers, search flow, matching and fallback, infrastructure, Open Library protection
 Dockerfile, docker-compose.yml  one image with UI and API
 ```
 
@@ -129,7 +133,7 @@ Observations from 2026-10-09 with one free routing gateway (they describe that g
 
 ## API
 
-`POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle }] }`. `matchTier` is 1 (strongest) to 5 and `exactTitle` is true when the title matched exactly. The query is trimmed and truncated to 200 characters. `message` is also set next to non-empty results when even the best match is weak ("No confident match").
+`POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle, matchedTitle }] }`. `matchTier` is 1 (strongest) to 5, `exactTitle` is true when the title matched exactly and `matchedTitle` is the edition title that matched when the work is titled differently (otherwise null). The query is trimmed and truncated to 200 characters. `message` is also set next to non-empty results when even the best match is weak ("No confident match").
 Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library cannot be searched, 500 for anything else.
 
 ### Health endpoints
@@ -176,7 +180,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - Tier 5 was added for title-only queries, which the brief's four tiers do not cover.
 - A guessed author split ranks below an exact title on its own, so "the little prince" finds the book before a "Little Pigs" book by an author named Prince.
 - Author-only queries use `/search.json?sort=editions` instead of `/authors/{id}/works.json`, which has no popularity order.
-- Open Library data quirks are handled in matching: a work can be titled in another language ("海辺のカフカ") while its English edition carries the title the reader typed, and authors can be stored in another script. Titles and names are shown as Open Library stores them.
+- Open Library data quirks are handled in matching: a work can be titled in another language ("海辺のカフカ") while its English edition carries the title the reader typed, and authors can be stored in another script. Names are shown as Open Library stores them. When a title matched through an edition title, the UI shows that edition title as the headline and the stored work title beneath it ("Catalogued as ...").
 - Open Library calls are cached in memory for an hour and retried twice on 5xx and timeouts. A failed detail lookup lowers a candidate's rank instead of failing the request.
 - The app is gentle with Open Library, which rate-limits (HTTP 429) heavy use. Each search looks up details for at most 6 works and 3 authors per work (`OpenLibrary:MaxDetailLookups`, `MaxAuthorsPerWork`), and at most 2 requests run at the same time (`MaxConcurrentRequests`). A 429 is never retried: it pauses all Open Library requests for the `Retry-After` time, or 30 s (`DefaultCooldownSeconds`), and during that pause searches fail fast with a 502 while cached lookups still work.
 - Open Library asks API users to identify themselves. Set `OpenLibrary__Contact` (an email or URL, or `OPENLIBRARY_CONTACT` for Docker Compose) and it is added to the `User-Agent`. It is empty by default and never filled in automatically.
@@ -184,6 +188,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 
 ## Known limitations
 
+- Authors stored in another script show in that script (for example 村上春樹), even when the title headline is the English edition title.
 - Pressing Enter while a search is running does nothing, because the search box, the example chips and the Search button are disabled during a search.
 - When the AI provider hangs, a search can wait up to about 40 seconds before falling back (two AI steps at 30 seconds each).
 - In fallback mode the guessed hypotheses can still produce odd results. Summaries and study guides are filtered by title phrase (summary, study guide, SparkNotes, CliffsNotes), so ones with other wording can still appear.
@@ -193,7 +198,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - The AI readiness probes only list models. A gateway that is slow or stalls on chat completions still reports `ready`, and its searches fall back after the 30 second timeout.
 - With no results the only message is a toast, so dismissing it leaves the page blank for that search.
 - The toasts were checked by hand in headed Chrome with stubbed responses (see `docs/ui-tests/README.md`), not with a screen reader or on a real phone. The extra bottom padding that keeps the last result clear of the toasts uses `:has()`, so a browser without it can show a toast over the last result.
-- The Docker image has not been built in this environment (the Docker daemon was not available), although the same layout was run by hand and `docker compose config` accepts the compose file.
+- The Docker image builds and serves the UI and API (checked by hand on 2026-10-10, see `docs/ui-tests/README.md`), but no automated test builds or runs the image.
 
 ## Testing
 
@@ -212,6 +217,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - Implementation plan (as built): [docs/superpowers/plans/2026-10-08-find-that-book.md](docs/superpowers/plans/2026-10-08-find-that-book.md)
 - Decision record (ideas set aside, changes from the first draft): [docs/decisions.md](docs/decisions.md)
 - Architecture diagrams (one file per diagram): [docs/architecture/](docs/architecture/)
+- Product context: [PRODUCT.md](PRODUCT.md). Visual system: [DESIGN.md](DESIGN.md).
 
 ## With more time
 

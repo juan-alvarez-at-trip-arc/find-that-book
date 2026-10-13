@@ -487,5 +487,6 @@ web/node_modules/
 web/dist/
 src/FindThatBook.Api/wwwroot/
 .superpowers/
+.impeccable/
 
 .env
