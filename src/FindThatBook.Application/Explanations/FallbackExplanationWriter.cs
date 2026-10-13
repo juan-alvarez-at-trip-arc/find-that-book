@@ -1,5 +1,6 @@
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Models;
+using FindThatBook.Application.Telemetry;
 using Microsoft.Extensions.Logging;
 
 namespace FindThatBook.Application.Explanations;
@@ -22,6 +23,7 @@ public sealed class FallbackExplanationWriter(IExplanationWriter primary, IExpla
         }
         catch (AiUnavailableException ex)
         {
+            FindThatBookTelemetry.RecordAiFallback("explain");
             log.LogWarning(ex, "AI explanations unavailable, using templates");
             return await fallback.WriteAsync(matches, ct);
         }

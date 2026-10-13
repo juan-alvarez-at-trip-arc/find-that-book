@@ -12,9 +12,9 @@
 
 ## Layout
 
-- `src/FindThatBook.Application`: models, interfaces, `Normalizer`, `Matcher`, heuristic parser, template explanations, fallback decorators, `SearchService`. No I/O.
-- `src/FindThatBook.Infrastructure`: Open Library client (`OpenLibraryCatalog`, `OpenLibraryGate`), AI seam (`IAiClient`), Gemini and OpenAI-compatible clients, DI registration.
-- `src/FindThatBook.Api`: controller, problem details, static files, `appsettings.json`.
+- `src/FindThatBook.Application`: models, interfaces, `Normalizer`, `Matcher`, heuristic parser, template explanations, fallback decorators, `SearchService`, `Telemetry/FindThatBookTelemetry` (trace source and metrics). No I/O.
+- `src/FindThatBook.Infrastructure`: Open Library client (`OpenLibraryCatalog`, `OpenLibraryGate`), AI seam (`IAiClient`), Gemini and OpenAI-compatible clients, `Telemetry/` (`HttpLoggingHandler`, `SensitiveDataMasker`), DI registration.
+- `src/FindThatBook.Api`: controller, problem details, static files, `appsettings.json`, `TelemetryExtensions` (OpenTelemetry setup).
 - `tests/FindThatBook.Tests`: xUnit with stub `HttpMessageHandler`s, `FakeAiClient`, `FakeCatalog` (`Support/Fakes.cs`).
 - `web/src/components/<Name>/` (component, CSS and tests together) and `web/src/lib/` (plain modules).
 
@@ -24,6 +24,7 @@
 - Every AI step must fall back to the non-AI version and set `aiUsed: false`. Decorators catch only `AiUnavailableException`.
 - Strength order, lower is stronger: T1=10, T2=20, T3 AI=30, T4=40, T5 exact=50, T3 guessed=60, T5 near=70. Change it only with a matcher test.
 - Be gentle with Open Library: 6 detail lookups per search, 2 concurrent requests, a 429 is never retried and starts a cooldown. Do not add calls without checking `OpenLibraryLoadTests`.
+- Telemetry is off unless `Telemetry:Enabled` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Logged HTTP headers, URLs and bodies must pass through `SensitiveDataMasker`. A new credential header, query parameter or JSON field name needs a masker test first. New spans and metrics go through `FindThatBookTelemetry`.
 - Production code under `src/` carries XML doc comments on every class, method, property, enum and interface, and no comments inside method bodies. Tests and `web/` follow the surrounding style.
 - No test calls a live API. Add a test that fails first for each fix.
 - The API field `first_publish_year` is the only snake_case field, matching the brief.

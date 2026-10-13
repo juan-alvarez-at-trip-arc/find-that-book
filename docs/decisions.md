@@ -18,6 +18,8 @@ Ideas that were tried or considered and not shipped, so they are not retried bli
 | Persistent cache | The one-hour in-memory cache is enough for one instance. |
 | ISBN matching | Not in the brief. |
 | Hosted live demo | Needs a hosting account. |
+| Masking the reader's search text in telemetry | The text is the app's core input, not a credential, and it is needed to debug results. Reconsider if logs leave the operator's own collector. |
+| A telemetry backend in `docker-compose.yml` | The app only exports OTLP. Point `OTEL_EXPORTER_OTLP_ENDPOINT` at an existing collector. |
 | Docker image build check | Done by hand on 2026-10-10: the image builds and serves the UI and API. No automated test builds or runs the image. |
 | Stop button, or an editable search box during a search | The owner kept the box locked and added no Stop (2026-10-10). One search at a time keeps the load on Open Library and the stale-response guard simple. A search can take up to about 43 seconds. |
 | A shelf motif on the landing page | The owner kept the landing quiet so the empty space keeps the focus on the search. The bookshelf shows for no results and in the progress stage. |
