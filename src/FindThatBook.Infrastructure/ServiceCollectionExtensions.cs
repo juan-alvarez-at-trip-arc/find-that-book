@@ -17,6 +17,9 @@ namespace FindThatBook.Infrastructure;
 /// <summary>Dependency injection registration for the Infrastructure layer.</summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>The most bytes any outgoing HTTP response may hold (2 MB). Open Library records and AI replies are a few kilobytes, so a larger body is a fault or an attack, and a request that meets one fails instead of filling memory.</summary>
+    public const int MaxResponseBytes = 2 * 1024 * 1024;
+
     /// <summary>Registers the Open Library catalog, the selected AI client, the AI-first parsers and writers with their non-AI fallbacks, and the search service.</summary>
     /// <param name="services">The service collection to add registrations to.</param>
     /// <param name="config">Application configuration. <c>Ai:Provider</c> selects <c>Gemini</c> (default) or <c>OpenAiCompatible</c>.</param>
@@ -24,6 +27,7 @@ public static class ServiceCollectionExtensions
     /// <exception cref="InvalidOperationException"><c>Ai:Provider</c> names an unknown provider.</exception>
     public static IServiceCollection AddFindThatBook(this IServiceCollection services, IConfiguration config)
     {
+        services.ConfigureHttpClientDefaults(builder => builder.ConfigureHttpClient(client => client.MaxResponseContentBufferSize = MaxResponseBytes));
         services.Configure<GeminiOptions>(config.GetSection("Gemini"));
         services.Configure<OpenLibraryOptions>(config.GetSection("OpenLibrary"));
         services.AddMemoryCache(options => options.SizeLimit = 2000);

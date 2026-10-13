@@ -24,7 +24,23 @@ public class ComposeFileTests
         var image = ServiceLines("jaeger").Select(l => l.Trim()).Single(l => l.StartsWith("image:"));
 
         Assert.DoesNotContain(":latest", image);
-        Assert.Matches(@"image: \S+:\d+\.\d+\.\d+$", image);
+        Assert.Matches(@"image: \S+:\d+\.\d+\.\d+(@sha256:[0-9a-f]{64})?$", image);
+    }
+
+    [Fact]
+    public void Jaeger_image_is_pinned_by_digest()
+    {
+        var image = ServiceLines("jaeger").Select(l => l.Trim()).Single(l => l.StartsWith("image:"));
+
+        Assert.Matches(@"@sha256:[0-9a-f]{64}$", image);
+    }
+
+    [Fact]
+    public void Jaeger_does_not_enable_the_unused_zipkin_listener()
+    {
+        var lines = ServiceLines("jaeger");
+
+        Assert.DoesNotContain(lines, l => l.Contains("ZIPKIN", StringComparison.OrdinalIgnoreCase) || l.Contains("9411"));
     }
 
     [Theory]

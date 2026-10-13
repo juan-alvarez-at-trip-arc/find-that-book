@@ -5,6 +5,7 @@ using FindThatBook.Infrastructure.Gemini;
 using FindThatBook.Infrastructure.Health;
 using FindThatBook.Infrastructure.OpenAi;
 using FindThatBook.Infrastructure.OpenLibrary;
+using FindThatBook.Tests.Support;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -126,6 +127,7 @@ public class HealthConfigDumpTests
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
+            b.UseSetting("Health:ExposeConfig", "true");
             b.UseSetting("Ai:Provider", "OpenAiCompatible");
             b.UseSetting("Gemini:ApiKey", "gem-secret-key-123");
             b.UseSetting("OpenAiCompatible:ApiKey", "oai-secret-key-456");
@@ -149,24 +151,41 @@ public class HealthConfigDumpTests
         Assert.Equal(3, body.GetProperty("openLibrary").GetProperty("maxDetailLookups").GetInt32());
     }
 
-    private sealed class RemoteIpFilter(string remote, string local) : IStartupFilter
-    {
-        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
-        {
-            app.Use((context, nextMiddleware) =>
+    private static HttpClient ClientFrom(string remote, string local = "10.0.0.5", bool expose = true)
+        => new WebApplicationFactory<Program>()
+            .WithWebHostBuilder(b =>
             {
-                context.Connection.RemoteIpAddress = IPAddress.Parse(remote);
-                context.Connection.LocalIpAddress = IPAddress.Parse(local);
-                return nextMiddleware(context);
-            });
-            next(app);
-        };
+                if (expose) b.UseSetting("Health:ExposeConfig", "true");
+                b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter(remote, local)));
+            })
+            .CreateClient();
+
+    [Theory]
+    [InlineData("127.0.0.1", "10.0.0.5")]
+    [InlineData("::1", "10.0.0.5")]
+    [InlineData("10.0.0.5", "10.0.0.5")]
+    public async Task Config_endpoint_is_off_by_default_even_for_local_callers(string remote, string local)
+    {
+        var response = await ClientFrom(remote, local, expose: false).GetAsync("/api/health/config");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private static HttpClient ClientFrom(string remote, string local = "10.0.0.5")
-        => new WebApplicationFactory<Program>()
-            .WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter(remote, local))))
-            .CreateClient();
+    [Theory]
+    [InlineData("false")]
+    [InlineData("")]
+    public async Task Config_endpoint_stays_off_when_the_setting_is_false_or_blank(string value)
+    {
+        var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+        {
+            b.UseSetting("Health:ExposeConfig", value);
+            b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter("127.0.0.1", "10.0.0.5")));
+        });
+
+        var response = await factory.CreateClient().GetAsync("/api/health/config");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
 
     [Theory]
     [InlineData("203.0.113.9")]

@@ -46,6 +46,14 @@ public class HttpLoggingHandlerTests
     }
 
     [Fact]
+    public async Task Refuses_to_buffer_a_response_body_larger_than_the_limit()
+    {
+        var (client, _) = Client(_ => StubHandler.Json(new string('a', HttpLoggingHandler.MaxBufferedBytes + 1)));
+
+        await Assert.ThrowsAsync<HttpRequestException>(() => client.GetAsync("v1/big"));
+    }
+
+    [Fact]
     public async Task Never_logs_credentials_from_headers_urls_or_bodies()
     {
         var (client, log) = Client(_ => StubHandler.Json("""{"echo":"sk-live-123456","token":"t0k"}"""));

@@ -28,6 +28,23 @@ public class RepoHardeningTests
     }
 
     [Fact]
+    public void Npm_installs_do_not_run_dependency_install_scripts()
+    {
+        var installs = RepoFiles.Lines("Dockerfile").Concat(RepoFiles.Lines(".github/workflows/ci.yml"))
+            .Where(l => l.Contains("npm ci"))
+            .ToList();
+
+        Assert.Equal(2, installs.Count);
+        Assert.All(installs, l => Assert.Contains("--ignore-scripts", l));
+    }
+
+    [Fact]
+    public void Dependabot_watches_the_compose_file_too()
+    {
+        Assert.Contains("package-ecosystem: docker-compose", RepoFiles.Text(".github/dependabot.yml"));
+    }
+
+    [Fact]
     public void Ci_audits_nuget_and_npm_dependencies()
     {
         var ci = RepoFiles.Text(".github/workflows/ci.yml");

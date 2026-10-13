@@ -377,4 +377,40 @@ public class OpenLibraryCatalogTests
         Assert.False(book.Enriched);
         Assert.DoesNotContain(handler.Requests, r => r.StartsWith("/authors/") || r.Contains("admin") || r.Contains("evil"));
     }
+
+    private sealed class HeldHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            Entered.TrySetResult();
+            await Release.Task.WaitAsync(ct);
+            return respond(request);
+        }
+    }
+
+    [Fact]
+    public async Task A_caller_that_cancels_does_not_fail_another_caller_sharing_its_request()
+    {
+        var handler = new HeldHandler(req => Route(req));
+        var catalog = new OpenLibraryCatalog(
+            new HttpClient(handler) { BaseAddress = new Uri("https://openlibrary.org/") },
+            new MemoryCache(new MemoryCacheOptions()),
+            NullLogger<OpenLibraryCatalog>.Instance,
+            Options.Create(new OpenLibraryOptions { RetryDelayMs = 0 }));
+        using var firstCaller = new CancellationTokenSource();
+
+        var first = catalog.FindAsync([Q.Make("the hobbit", "tolkien")], firstCaller.Token);
+        await handler.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        var second = catalog.FindAsync([Q.Make("the hobbit", "tolkien")], CancellationToken.None);
+        await Task.Delay(100);
+        await firstCaller.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
+        handler.Release.SetResult();
+
+        var book = Assert.Single(await second.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.Equal("OL1W", book.WorkId);
+    }
 }

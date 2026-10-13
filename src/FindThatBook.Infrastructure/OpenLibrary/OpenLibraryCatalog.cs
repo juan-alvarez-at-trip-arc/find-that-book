@@ -267,18 +267,26 @@ public sealed class OpenLibraryCatalog(
 
     /// <summary>Returns the JSON for a relative Open Library URL, served from the cache for an hour so repeated lookups cost no requests. Concurrent calls for the same URL share one request.</summary>
     /// <param name="relativeUrl">Path and query relative to the Open Library base address, also used as the cache key.</param>
-    /// <param name="ct">Cancellation token. When calls share a request, the token of the call that started it applies.</param>
+    /// <param name="ct">Cancellation token of this caller. It stops this caller from waiting, but never cancels a request other callers share.</param>
     /// <returns>The parsed JSON, or null when Open Library answered 404.</returns>
     private async Task<JsonNode?> GetJsonAsync(string relativeUrl, CancellationToken ct)
     {
-        var pending = _inFlight.GetOrAdd(relativeUrl, url => new Lazy<Task<JsonNode?>>(() => CachedFetchAsync(url, ct)));
+        var pending = _inFlight.GetOrAdd(relativeUrl, url => new Lazy<Task<JsonNode?>>(() => FetchSharedAsync(url)));
+        return await pending.Value.WaitAsync(ct);
+    }
+
+    /// <summary>Runs the request shared by every caller of one URL, on its own lifetime so that no caller's cancellation can fail the others. It is bounded by the HTTP timeout and the retry limit. The in-flight entry is removed when the request ends.</summary>
+    /// <param name="relativeUrl">Path and query relative to the Open Library base address.</param>
+    /// <returns>The parsed JSON, or null when Open Library answered 404.</returns>
+    private async Task<JsonNode?> FetchSharedAsync(string relativeUrl)
+    {
         try
         {
-            return await pending.Value;
+            return await CachedFetchAsync(relativeUrl, CancellationToken.None);
         }
         finally
         {
-            _inFlight.TryRemove(new KeyValuePair<string, Lazy<Task<JsonNode?>>>(relativeUrl, pending));
+            _inFlight.TryRemove(relativeUrl, out _);
         }
     }
 

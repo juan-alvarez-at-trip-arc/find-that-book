@@ -58,10 +58,11 @@ public static class RateLimitingExtensions
         return services;
     }
 
-    /// <summary>Tells whether the request is a search request.</summary>
+    /// <summary>Tells whether the request is a search request. Trailing slashes are ignored because routing accepts them and would otherwise reach the endpoint unlimited.</summary>
     /// <param name="context">The current HTTP context.</param>
-    /// <returns>True when the request path is the search endpoint.</returns>
-    private static bool IsSearch(HttpContext context) => context.Request.Path.Equals(SearchPath, StringComparison.OrdinalIgnoreCase);
+    /// <returns>True when the request path is the search endpoint, with or without trailing slashes.</returns>
+    private static bool IsSearch(HttpContext context)
+        => context.Request.Path.Value.AsSpan().TrimEnd('/').Equals(SearchPath, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Identifies the caller by remote address.</summary>
     /// <param name="context">The current HTTP context.</param>

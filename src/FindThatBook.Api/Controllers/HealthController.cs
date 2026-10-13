@@ -14,6 +14,7 @@ namespace FindThatBook.Api.Controllers;
 /// <param name="gemini">Gemini settings.</param>
 /// <param name="openAi">OpenAI-compatible settings.</param>
 /// <param name="openLibrary">Open Library settings.</param>
+/// <param name="configuration">Application configuration, read for the <c>Health:ExposeConfig</c> switch.</param>
 [ApiController]
 [Route("api/health")]
 public sealed class HealthController(
@@ -21,14 +22,20 @@ public sealed class HealthController(
     AiProviderSelection provider,
     IOptions<GeminiOptions> gemini,
     IOptions<OpenAiCompatibleOptions> openAi,
-    IOptions<OpenLibraryOptions> openLibrary) : ControllerBase
+    IOptions<OpenLibraryOptions> openLibrary,
+    IConfiguration configuration) : ControllerBase
 {
-    /// <summary>Returns the effective configuration values. API keys are masked, keeping only their last four characters. Only callers on the same machine are answered, and never callers relayed by a proxy.</summary>
-    /// <returns>A 200 result with the configuration dump, or 404 when the caller is not on the local machine or its address is unknown.</returns>
+    /// <summary>Returns the effective configuration values. API keys are masked, keeping only their last four characters. The endpoint is off unless <c>Health:ExposeConfig</c> is true, because a same-machine reverse proxy that adds no forwarding header makes every caller look local. When it is on, only callers on the same machine are answered, and never callers relayed by a proxy.</summary>
+    /// <returns>A 200 result with the configuration dump, or 404 when the endpoint is off, the caller is not on the local machine or its address is unknown.</returns>
     [HttpGet("config")]
-    public IActionResult Config() => IsLocalRequest()
+    public IActionResult Config() => CanSeeDiagnostics()
         ? Ok(ConfigDump.Build(provider, gemini.Value, openAi.Value, openLibrary.Value))
         : NotFound();
+
+    /// <summary>Tells whether the caller may see internal details: <c>Health:ExposeConfig</c> is true and the request comes directly from the machine the API runs on.</summary>
+    /// <returns>True when diagnostics are switched on and the caller is local. A blank or invalid setting counts as off.</returns>
+    private bool CanSeeDiagnostics()
+        => bool.TryParse(configuration["Health:ExposeConfig"], out var exposed) && exposed && IsLocalRequest();
 
     /// <summary>Tells whether the current request comes directly from the machine the API runs on. A request that carries proxy headers was relayed, so its loopback address says nothing about the original caller.</summary>
     /// <returns>True when the remote address is known and is loopback or equal to the local address, and no proxy header is present. False when the address is unknown.</returns>
@@ -56,15 +63,16 @@ public sealed class HealthController(
     [HttpGet]
     public IActionResult Live() => Ok(new { status = "ok" });
 
-    /// <summary>Reports whether searches can work. The result is cached for 30 seconds.</summary>
+    /// <summary>Reports whether searches can work. The result is cached for 30 seconds. The body holds only the overall status, because the per-dependency breakdown names the AI provider and says whether its key is missing or rejected. The full report goes only to callers that pass <see cref="CanSeeDiagnostics"/>.</summary>
     /// <param name="ct">Cancellation token tied to the HTTP request.</param>
-    /// <returns>200 with the report when ready or degraded (for example the AI is down and the fallback is used), 503 with the report when the configuration is invalid or Open Library is down.</returns>
+    /// <returns>200 when ready or degraded (for example the AI is down and the fallback is used), 503 when the configuration is invalid or Open Library is down. The body is <c>{ "status": ... }</c>, or the full report for a caller that may see diagnostics.</returns>
     [HttpGet("ready")]
     public async Task<IActionResult> Ready(CancellationToken ct)
     {
         var report = await health.GetAsync(ct);
+        object body = CanSeeDiagnostics() ? report : new { status = report.Status };
         return report.Status == HealthReport.Unready
-            ? StatusCode(StatusCodes.Status503ServiceUnavailable, report)
-            : Ok(report);
+            ? StatusCode(StatusCodes.Status503ServiceUnavailable, body)
+            : Ok(body);
     }
 }

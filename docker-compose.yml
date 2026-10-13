@@ -1,11 +1,9 @@
 services:
   jaeger:
-    image: jaegertracing/all-in-one:1.76.0
+    image: jaegertracing/all-in-one:1.76.0@sha256:ab6f1a1f0fb49ea08bcd19f6b84f6081d0d44b364b6de148e1798eb5816bacac
     container_name: jaeger
     ports:
       - "127.0.0.1:16686:16686" # Jaeger UI, reachable from this machine only. The app sends traces over the compose network.
-    environment:
-      - COLLECTOR_ZIPKIN_HTTP_PORT=9411 # Enable Zipkin compatibility
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]
@@ -23,6 +21,7 @@ services:
     environment:
       RateLimit__SearchPermitsPerMinute: ${RATE_LIMIT_SEARCHES_PER_MINUTE:-10}
       RateLimit__MaxConcurrentSearches: ${RATE_LIMIT_MAX_CONCURRENT_SEARCHES:-8}
+      Health__ExposeConfig: ${HEALTH_EXPOSE_CONFIG:-false}
       Ai__Provider: ${AI_PROVIDER:-Gemini}
       Gemini__ApiKey: ${GEMINI_API_KEY:-}
       Gemini__Model: ${GEMINI_MODEL:-gemini-3.8-flash}

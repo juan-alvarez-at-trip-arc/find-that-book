@@ -34,10 +34,22 @@ public static class HealthConfigCheck
         {
             errors.Add("OpenAiCompatible:BaseUrl must be an absolute http or https URL.");
         }
+        else if (!string.IsNullOrWhiteSpace(openAi.ApiKey) && SendsKeyInClear(openAi.BaseUrl))
+        {
+            warnings.Add("OpenAiCompatible:BaseUrl uses http to a non-loopback host, so the API key is sent unencrypted.");
+        }
 
         var status = errors.Count > 0 ? HealthStatus.Down : warnings.Count > 0 ? HealthStatus.Degraded : HealthStatus.Ok;
         return new ConfigHealth(status, [.. errors, .. warnings]);
     }
+
+    /// <summary>Tells whether a request to the URL would carry a credential over plain http to a host other than this machine.</summary>
+    /// <param name="url">The configured base URL. A blank value means the default, which is https.</param>
+    /// <returns>True for an http URL whose host is not localhost or a loopback address.</returns>
+    private static bool SendsKeyInClear(string? url)
+        => Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri)
+           && uri.Scheme == Uri.UriSchemeHttp
+           && !uri.IsLoopback;
 
     private static bool IsHttpUrl(string? value)
         => Uri.TryCreate(value?.Trim(), UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https";
