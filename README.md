@@ -181,7 +181,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - A guessed author split ranks below an exact title on its own, so "the little prince" finds the book before a "Little Pigs" book by an author named Prince.
 - Author-only queries use `/search.json?sort=editions` instead of `/authors/{id}/works.json`, which has no popularity order.
 - Open Library data quirks are handled in matching: a work can be titled in another language ("海辺のカフカ") while its English edition carries the title the reader typed, and authors can be stored in another script. Names are shown as Open Library stores them. When a title matched through an edition title, the UI shows that edition title as the headline and the stored work title beneath it ("Catalogued as ...").
-- Open Library calls are cached in memory for an hour and retried twice on 5xx and timeouts. A failed detail lookup lowers a candidate's rank instead of failing the request.
+- Open Library calls are cached in memory for an hour, concurrent calls for the same URL share one request, and calls are retried twice on 5xx and timeouts. A failed detail lookup lowers a candidate's rank instead of failing the request.
 - The app is gentle with Open Library, which rate-limits (HTTP 429) heavy use. Each search looks up details for at most 6 works and 3 authors per work (`OpenLibrary:MaxDetailLookups`, `MaxAuthorsPerWork`), and at most 2 requests run at the same time (`MaxConcurrentRequests`). A 429 is never retried: it pauses all Open Library requests for the `Retry-After` time, or 30 s (`DefaultCooldownSeconds`), and during that pause searches fail fast with a 502 while cached lookups still work.
 - Open Library asks API users to identify themselves. Set `OpenLibrary__Contact` (an email or URL, or `OPENLIBRARY_CONTACT` for Docker Compose) and it is added to the `User-Agent`. It is empty by default and never filled in automatically.
 - User text goes to the AI provider as delimited data, and only the structured fields it returns are used.
@@ -202,12 +202,12 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 
 ## Testing
 
-- 311 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 316 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
-- Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, the concurrency limit and the 429 cooldown.
+- Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, shared lookups for an author used by several works, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
 - Telemetry tests cover the masker, the HTTP logging handler (bodies, truncation, no credentials in the log), the search spans, the three custom metrics and the on/off wiring. They run against in-process listeners, never a collector. The OTLP export itself was not run against a real collector.
-- 71 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress stage (each step with its own duration), the disabled search box and example chips during a search, the empty bookshelf, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
+- 88 frontend tests (Vitest + Testing Library) cover results, match badges, the reason toggle and Escape, the focused results heading, the toasts (error, AI notice, weak match and empty state, dismissing one and its return after a new search), Try again, stale responses, the progress stage (each step with its own duration), the disabled search box and example chips during a search, the empty bookshelf, the compact hero, the theme toggle, the example list (including saving it) and the shareable `?q=` link.
 - Health tests cover each probe (ok, failure statuses, timeout, unreachable host, 429 cooldown), configuration validation, the overall status rules, the 30-second cache, the 200 and 503 responses and the masked configuration dump.
 - No test calls a live API.
 
