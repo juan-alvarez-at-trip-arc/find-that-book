@@ -20,7 +20,7 @@ Tolerates noisy, partial, misspelled and non-English input, ranks with determini
 
 ## Operating Context
 
-- .NET 8 Web API plus React/Vite/TypeScript UI, served from one container. Data comes from Open Library, which rate-limits, so searches are slow at times (several seconds) and the UI shows an illustrated progress stage.
+- .NET 10 Web API plus React/Vite/TypeScript UI, served from one container. Data comes from Open Library, which rate-limits, so searches are slow at times (several seconds) and the UI shows an illustrated progress stage.
 - AI provider is Gemini or any OpenAI-compatible endpoint. It can be unavailable, in which case a heuristic parser and template explanations answer and the response reports `aiUsed: false`.
 
 ## Capabilities and Constraints
