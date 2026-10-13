@@ -15,7 +15,7 @@ flowchart TB
     subgraph compose["docker compose"]
         env[".env (git-ignored)<br/>AI_PROVIDER, keys, models,<br/>OPENLIBRARY_*, TELEMETRY_*, OTEL_*"]
         ctr["container: find-that-book<br/>port 8080, restart unless-stopped"]
-        jg["container: jaeger<br/>UI port 16686"]
+        jg["container: jaeger 1.76.0<br/>UI on 127.0.0.1:16686 only"]
         env --> ctr
     end
 

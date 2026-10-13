@@ -54,12 +54,16 @@ Docker Compose (UI and API on one port, http://localhost:8080):
    OPENLIBRARY_MAX_CONCURRENT_REQUESTS=2
    OPENLIBRARY_DEFAULT_COOLDOWN_SECONDS=30
    OPENLIBRARY_CONTACT=<your email or URL>
+
+   # Search limits: per client address per minute, and at once across all clients
+   RATE_LIMIT_SEARCHES_PER_MINUTE=10
+   RATE_LIMIT_MAX_CONCURRENT_SEARCHES=8
    ```
    Every variable is optional. Blank values use the defaults.
 2. Start it: `docker compose up --build`
 3. Stop it: `docker compose down`
 
-The compose file also starts a Jaeger all-in-one container (UI at http://localhost:16686) for viewing traces. The app only sends to it when telemetry is on and `OTEL_EXPORTER_OTLP_ENDPOINT` points at it. The static landing page is served at `/landing.html`.
+The compose file also starts a Jaeger all-in-one container (pinned to 1.76.0, UI at http://localhost:16686, published on `127.0.0.1` only and with no other ports published) for viewing traces. The app only sends to it when telemetry is on and `OTEL_EXPORTER_OTLP_ENDPOINT` points at it, over the compose network. Both containers run with a read-only root file system, all capabilities dropped and `no-new-privileges`. Two optional `.env` values set the search limits: `RATE_LIMIT_SEARCHES_PER_MINUTE` (default 10) and `RATE_LIMIT_MAX_CONCURRENT_SEARCHES` (default 8). The static landing page is served at `/landing.html`.
 
 Plain Docker works too:
 
@@ -143,7 +147,7 @@ Observations from 2026-10-09 with one free routing gateway (they describe that g
 ## API
 
 `POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle, matchedTitle }] }`. `matchTier` is 1 (strongest) to 5, `exactTitle` is true when the title matched exactly and `matchedTitle` is the edition title that matched when the work is titled differently (otherwise null). The query is trimmed and truncated to 200 characters. `message` is also set next to non-empty results when even the best match is weak ("No confident match").
-Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library cannot be searched, 500 for anything else.
+Errors are RFC 7807 problem details: 400 for a blank query, 413 for a request body over 8 KB, 429 when the client or the server is over the search limit (with a `Retry-After` header, see [Security](#security)), 502 if Open Library cannot be searched, 500 for anything else.
 
 ### Health endpoints
 
@@ -156,8 +160,18 @@ Errors are RFC 7807 problem details: 400 for a blank query, 502 if Open Library 
 - **Probes:** Open Library runs a one-result search. Gemini reads the configured model's metadata and OpenAI-compatible calls `GET {baseUrl}/models`, so neither spends tokens. A server without a `/models` route still counts as reachable. Each probe times out after 5 seconds.
 - **Status:** `unready` means the configuration is invalid or Open Library is down. `degraded` means the AI provider is missing a key, rate limited or down, and searches use the non-AI fallback.
 - **Caching:** the readiness report is cached for 30 seconds, so polling does not use AI quota or trip Open Library throttling.
-- **Secrets:** `/api/health/config` masks API keys (first and last four characters stay visible, for example `free****...****654c`, and keys shorter than 12 characters are fully masked), shows `not set` for a missing key and removes credentials from URLs. The endpoint answers only callers on the same machine (loopback, or a remote address equal to the local one) and returns 404 to everyone else, because it shows internal URLs and the Open Library contact. Under Docker, requests through a published port come from the bridge gateway, so run `curl http://localhost:8080/api/health/config` inside the container instead.
+- **Secrets:** `/api/health/config` masks API keys (only the last four characters stay visible, for example `****...****654c`, and keys shorter than 16 characters are fully masked), shows `not set` for a missing key and removes credentials from URLs. The endpoint answers only callers on the same machine (loopback, or a remote address equal to the local one) and returns 404 to everyone else, including a caller whose address is unknown and any request that carries `X-Forwarded-For`, `Forwarded` or `X-Real-IP` (a proxy on the same machine would otherwise make every outside caller look local), because it shows internal URLs and the Open Library contact. Under Docker, requests through a published port come from the bridge gateway, so run `curl http://localhost:8080/api/health/config` inside the container instead.
 - **Controller:** the three endpoints live in `HealthController`. Settings come from the app's configuration, not from `.env`, which only Docker Compose reads.
+
+## Security
+
+- **Rate limit:** `POST /api/search` allows 10 searches per minute per client address and 8 searches at once across all clients (`RateLimit:SearchPermitsPerMinute`, `RateLimit:MaxConcurrentSearches`, env vars `RateLimit__*`). Each search can spend two AI calls and a dozen Open Library requests, and one client could otherwise start the shared Open Library cooldown for everyone. Other paths are not limited. The client address is the connection's remote address, so behind a reverse proxy all readers share one limit until forwarded headers are configured with known proxies.
+- **Request size:** Kestrel rejects bodies over 8 KB with a 413.
+- **Browser headers:** every response carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer` and a Content-Security-Policy that allows only the app's own scripts and styles, and images from `covers.openlibrary.org` and `archive.org` (cover redirects). The theme script is a file (`web/public/theme-init.js`) so no inline script is needed. The static landing page has its own policy that allows its inline script and styles. HSTS and HTTPS redirection are left to the proxy that terminates TLS.
+- **Prompt injection:** the model has no tools, no secrets in its prompt and no say in the ranking, so injected text can only change wording. Two inputs are untrusted. The reader's text goes into the parser prompt with `<` and `>` removed so it cannot close the delimiter. The book facts (titles, authors and contributors, which come from Open Library where anyone can edit records) go into the explanation prompt after control characters, angle brackets and backticks are removed and each value is cut (titles 200 characters, names 100, at most 5 authors and 5 contributors). They sit in a block marked as untrusted data, with a delimiter that is random for each request.
+- **AI output is untrusted:** the explanation reply must be an array with exactly one entry per book, with no duplicate, missing or out-of-range index. Each explanation is checked against the facts of its own book (`ExplanationGuard`): at most 240 characters and 40 words, no link, no email or domain written out (`dot com`, `[.]`), no number that is not in the facts, no capitalised word that is not in the facts, none of a few instruction or promotion words (`best`, `ignore`, `visit` and others), no "exact" for a near match and no contributor when the book has none. A word that is part of a real title is allowed. Any failure falls back to template explanations with `aiUsed: false`. The parser reply is limited too: a title or author over 200 characters or with a control character is rejected, and keywords are cut to 10 of at most 50 characters.
+- **Open Library ids:** only keys shaped like `/works/OL123W` and `/authors/OL123A` are followed, so a malformed upstream value cannot change the path of a later request.
+- **Supply chain:** Dockerfile base images are pinned by digest and the workflow actions by commit SHA (Dependabot updates both). CI fails on a known vulnerable NuGet package (`dotnet list package --vulnerable --include-transitive`) or an npm advisory of high severity or above (`npm audit --audit-level=high`). `.dockerignore` keeps `.env` and `.github` out of the build context.
 
 ## Telemetry
 
@@ -207,11 +221,14 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - The AI readiness probes only list models. A gateway that is slow or stalls on chat completions still reports `ready`, and its searches fall back after the 30 second timeout.
 - With no results the only message is a toast, so dismissing it leaves the page blank for that search.
 - The toasts were checked by hand in headed Chrome with stubbed responses (see `docs/ui-tests/README.md`), not with a screen reader or on a real phone. The extra bottom padding that keeps the last result clear of the toasts uses `:has()`, so a browser without it can show a toast over the last result.
+- The search limit counts by the connection's remote address, so behind a reverse proxy every reader shares it. Forwarded headers need configuring with known proxies first. The limit state lives in memory, so it is per instance and resets on restart.
+- The security headers were checked once on 2026-10-13 with headless Chrome against the Docker image (the page, a search, and the covers load with no policy violation logged). No automated browser test covers the Content-Security-Policy, and the image and Jaeger were run with the compose hardening flags by hand with `docker run`, not through `docker compose up`.
+- The image has no `HEALTHCHECK` (the base image has no `curl` or `wget`) and CI does not scan the built image for vulnerabilities.
 - The Docker image builds and serves the UI and API (checked by hand on 2026-10-10, see `docs/ui-tests/README.md`), and the CI publish job builds the image and smoke-tests it (`/api/health` and the UI root) before pushing, but no test in the repo exercises searches against the running image.
 
 ## Testing
 
-- 316 .NET tests. `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 386 .NET tests (security tests cover prompt injection, the rate limit, the proxy-aware config endpoint, the 413 response, the headers, id validation, key masking, AI output limits and the pinned compose, Dockerfile and workflow files). `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, shared lookups for an author used by several works, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.

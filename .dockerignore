@@ -6,3 +6,6 @@ web/dist
 .superpowers
 tests
 docs
+.env
+.env.*
+.github

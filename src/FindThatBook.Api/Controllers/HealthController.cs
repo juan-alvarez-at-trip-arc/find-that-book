@@ -23,25 +23,33 @@ public sealed class HealthController(
     IOptions<OpenAiCompatibleOptions> openAi,
     IOptions<OpenLibraryOptions> openLibrary) : ControllerBase
 {
-    /// <summary>Returns the effective configuration values. API keys are masked, keeping only their first and last four characters. Only callers on the same machine are answered.</summary>
-    /// <returns>A 200 result with the configuration dump, or 404 when the caller is not on the local machine.</returns>
+    /// <summary>Returns the effective configuration values. API keys are masked, keeping only their last four characters. Only callers on the same machine are answered, and never callers relayed by a proxy.</summary>
+    /// <returns>A 200 result with the configuration dump, or 404 when the caller is not on the local machine or its address is unknown.</returns>
     [HttpGet("config")]
     public IActionResult Config() => IsLocalRequest()
         ? Ok(ConfigDump.Build(provider, gemini.Value, openAi.Value, openLibrary.Value))
         : NotFound();
 
-    /// <summary>Tells whether the current request comes from the machine the API runs on.</summary>
-    /// <returns>True when the remote address is unknown, loopback, or equal to the local address.</returns>
+    /// <summary>Tells whether the current request comes directly from the machine the API runs on. A request that carries proxy headers was relayed, so its loopback address says nothing about the original caller.</summary>
+    /// <returns>True when the remote address is known and is loopback or equal to the local address, and no proxy header is present. False when the address is unknown.</returns>
     private bool IsLocalRequest()
     {
-        var remote = HttpContext.Connection.RemoteIpAddress;
-        if (remote is null || IPAddress.IsLoopback(remote))
+        var headers = HttpContext.Request.Headers;
+        if (ProxyHeaders.Any(headers.ContainsKey))
         {
-            return true;
+            return false;
         }
 
-        return remote.Equals(HttpContext.Connection.LocalIpAddress);
+        var remote = HttpContext.Connection.RemoteIpAddress;
+        if (remote is null)
+        {
+            return false;
+        }
+
+        return IPAddress.IsLoopback(remote) || remote.Equals(HttpContext.Connection.LocalIpAddress);
     }
+
+    private static readonly string[] ProxyHeaders = ["X-Forwarded-For", "Forwarded", "X-Real-IP"];
 
     /// <summary>Reports that the API is running, for container and load balancer health checks. It makes no outside calls.</summary>
     /// <returns>A 200 result with <c>{ "status": "ok" }</c>.</returns>

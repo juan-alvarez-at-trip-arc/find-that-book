@@ -4,17 +4,21 @@ using Microsoft.AspNetCore.ResponseCompression;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = 8192);
 builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddFindThatBook(builder.Configuration);
 builder.Services.AddResponseCompression(options =>
     options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["image/svg+xml"]));
+builder.Services.AddFindThatBookRateLimiting(builder.Configuration);
 builder.AddFindThatBookTelemetry();
 
 var app = builder.Build();
 
+app.UseSecurityHeaders();
 app.UseExceptionHandler();
+app.UseRateLimiter();
 app.UseResponseCompression();
 app.UseDefaultFiles();
 app.UseStaticFiles();
