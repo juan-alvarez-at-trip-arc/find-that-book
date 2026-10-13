@@ -17,4 +17,9 @@ services:
       OpenLibrary__MaxConcurrentRequests: ${OPENLIBRARY_MAX_CONCURRENT_REQUESTS:-2}
       OpenLibrary__DefaultCooldownSeconds: ${OPENLIBRARY_DEFAULT_COOLDOWN_SECONDS:-30}
       OpenLibrary__Contact: ${OPENLIBRARY_CONTACT:-}
+      Telemetry__Enabled: ${TELEMETRY_ENABLED:-false}
+      Telemetry__LogHttpBodies: ${TELEMETRY_LOG_HTTP_BODIES:-true}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-find-that-book}
     restart: unless-stopped

@@ -7,6 +7,7 @@ builder.Services.AddControllers();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddFindThatBook(builder.Configuration);
+builder.AddFindThatBookTelemetry();
 
 var app = builder.Build();
 
