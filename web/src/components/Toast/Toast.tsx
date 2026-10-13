@@ -16,17 +16,17 @@ export function Toast({ kind, title, children, onDismiss, action }: Props) {
         {kind === "error" ? (
           <>
             <circle cx="12" cy="12" r="10" fill="currentColor" />
-            <path d="M12 7v6m0 3.5v.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M12 7v6m0 3.5v.5" className="toast-mark" strokeWidth="2.2" strokeLinecap="round" />
           </>
         ) : kind === "info" ? (
           <>
             <circle cx="12" cy="12" r="10" fill="currentColor" />
-            <path d="M12 11v6m0-9.5v.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M12 11v6m0-9.5v.5" className="toast-mark" strokeWidth="2.2" strokeLinecap="round" />
           </>
         ) : (
           <>
             <path d="M12 2.5 22 20H2z" fill="currentColor" />
-            <path d="M12 9v5m0 3v.5" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" />
+            <path d="M12 9v5m0 3v.5" className="toast-mark" strokeWidth="2.2" strokeLinecap="round" />
           </>
         )}
       </svg>

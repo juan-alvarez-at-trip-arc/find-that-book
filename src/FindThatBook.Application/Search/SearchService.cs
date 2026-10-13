@@ -79,6 +79,7 @@ public sealed class SearchService(IQueryParser parser, IBookCatalog catalog, IEx
             book.CoverId is { } id ? $"https://covers.openlibrary.org/b/id/{id}-M.jpg" : null,
             explanation,
             (int)match.Tier,
-            match.ExactTitle);
+            match.ExactTitle,
+            match.MatchedTitle);
     }
 }

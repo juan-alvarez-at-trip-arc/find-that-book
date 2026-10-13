@@ -5,6 +5,24 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Find That Book</title>
+    <meta name="description" content="Type what you remember about a book, a title, an author or a year, and get up to five ranked Open Library matches with a one-sentence reason for each." />
+    <meta name="theme-color" content="#f4efe7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#16140f" media="(prefers-color-scheme: dark)" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Find That Book" />
+    <meta property="og:title" content="Find That Book: what was that book?" />
+    <meta property="og:description" content="Turn a half-remembered title, author or year into ranked Open Library matches, each with a short reason." />
+    <meta name="twitter:card" content="summary" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Find That Book",
+        "description": "Turns a messy text query into up to five ranked Open Library matches, each with a one-sentence explanation.",
+        "applicationCategory": "UtilitiesApplication",
+        "browserRequirements": "Requires JavaScript"
+      }
+    </script>
     <script>
       /* Apply a saved theme before first paint to avoid a flash; keep in sync with src/lib/theme.ts. */
       try {
@@ -14,6 +32,7 @@
     </script>
   </head>
   <body>
+    <noscript>Find That Book needs JavaScript to search. It turns what you remember about a book into ranked Open Library matches.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

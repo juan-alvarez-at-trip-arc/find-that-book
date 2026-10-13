@@ -102,6 +102,7 @@ public sealed record SearchRequest(string? Query);
 /// <param name="Explanation">The one-sentence reason this book matched.</param>
 /// <param name="MatchTier">The match tier from 1 (strongest) to 5,.</param>
 /// <param name="ExactTitle">True when the title matched exactly rather than nearly.</param>
+/// <param name="MatchedTitle">The edition title that matched when it differs from the work title, otherwise null.</param>
 public sealed record BookResult(
     string Title,
     string Author,
@@ -112,7 +113,8 @@ public sealed record BookResult(
     string? CoverUrl,
     string Explanation,
     int MatchTier,
-    bool ExactTitle);
+    bool ExactTitle,
+    string? MatchedTitle = null);
 
 /// <summary>The response of a search.</summary>
 /// <param name="AiUsed">True only when both query parsing and explanations used the AI.</param>
