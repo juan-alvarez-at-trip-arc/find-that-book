@@ -210,7 +210,57 @@ public class HealthReportTests
 
     // HTTP endpoint
 
-    private static HttpClient CreateClient(params IHealthProbe[] probes)
+    private static HttpClient CreateClient(params IHealthProbe[] probes) => CreateClient(false, probes);
+
+    private static HttpClient CreateClient(bool diagnostics, params IHealthProbe[] probes)
+    {
+        var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseSetting("Gemini:ApiKey", "k");
+            if (diagnostics) builder.UseSetting("Health:ExposeConfig", "true");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IHealthProbe>();
+                foreach (var probe in probes) services.AddSingleton(probe);
+                if (diagnostics) services.AddSingleton<IStartupFilter>(new RemoteIpFilter("127.0.0.1", "10.0.0.5"));
+            });
+        });
+        return factory.CreateClient();
+    }
+
+    [Theory]
+    [InlineData(HealthStatus.Ok, HttpStatusCode.OK, "ready")]
+    [InlineData(HealthStatus.Down, HttpStatusCode.OK, "degraded")]
+    public async Task Ready_endpoint_gives_ordinary_callers_only_the_overall_status(string aiStatus, HttpStatusCode code, string status)
+    {
+        var client = CreateClient(new FakeProbe("openLibrary", HealthStatus.Ok, critical: true), new FakeProbe("gemini", aiStatus, detail: "Gemini rejected the API key (401)"));
+
+        var response = await client.GetAsync("/api/health/ready");
+
+        Assert.Equal(code, response.StatusCode);
+        var raw = await response.Content.ReadAsStringAsync();
+        var body = JsonDocument.Parse(raw).RootElement;
+        Assert.Equal(status, body.GetProperty("status").GetString());
+        Assert.Single(body.EnumerateObject());
+        Assert.DoesNotContain("Gemini", raw);
+        Assert.DoesNotContain("401", raw);
+    }
+
+    [Fact]
+    public async Task Ready_endpoint_keeps_the_503_status_but_hides_the_breakdown_from_ordinary_callers()
+    {
+        var client = CreateClient(new FakeProbe("openLibrary", HealthStatus.Down, critical: true, detail: "returned 500"));
+
+        var response = await client.GetAsync("/api/health/ready");
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("unready", body.GetProperty("status").GetString());
+        Assert.Single(body.EnumerateObject());
+    }
+
+    [Fact]
+    public async Task Ready_endpoint_hides_the_breakdown_from_a_local_caller_when_diagnostics_are_off()
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -218,16 +268,46 @@ public class HealthReportTests
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IHealthProbe>();
-                foreach (var probe in probes) services.AddSingleton(probe);
+                services.AddSingleton<IHealthProbe>(new FakeProbe("openLibrary", HealthStatus.Ok, critical: true));
+                services.AddSingleton<IStartupFilter>(new RemoteIpFilter("127.0.0.1", "10.0.0.5"));
             });
         });
-        return factory.CreateClient();
+
+        var body = await (await factory.CreateClient().GetAsync("/api/health/ready")).Content.ReadFromJsonAsync<JsonElement>();
+
+        Assert.Single(body.EnumerateObject());
+    }
+
+    [Theory]
+    [InlineData("http://api.example.test/v1/")]
+    [InlineData("http://192.168.1.20:3001/v1/")]
+    [InlineData("http://rpi-llm.local:3001/v1/")]
+    public void An_api_key_sent_over_plain_http_to_a_remote_host_is_a_warning(string baseUrl)
+    {
+        var config = HealthConfigCheck.Validate(new AiProviderSelection("OpenAiCompatible"), new GeminiOptions(), new OpenAiCompatibleOptions { ApiKey = "k", BaseUrl = baseUrl }, new OpenLibraryOptions());
+
+        Assert.Equal(HealthStatus.Degraded, config.Status);
+        Assert.Contains("OpenAiCompatible:BaseUrl", Assert.Single(config.Issues));
+        Assert.DoesNotContain(baseUrl, string.Join(' ', config.Issues));
+    }
+
+    [Theory]
+    [InlineData("https://api.groq.com/openai/v1/", "k")]
+    [InlineData("http://localhost:11434/v1/", "k")]
+    [InlineData("http://127.0.0.1:11434/v1/", "k")]
+    [InlineData("http://[::1]:11434/v1/", "k")]
+    [InlineData("http://rpi-llm.local:3001/v1/", "")]
+    public void Plain_http_is_fine_for_loopback_or_when_no_key_is_sent(string baseUrl, string key)
+    {
+        var config = HealthConfigCheck.Validate(new AiProviderSelection("OpenAiCompatible"), new GeminiOptions(), new OpenAiCompatibleOptions { ApiKey = key, BaseUrl = baseUrl }, new OpenLibraryOptions());
+
+        Assert.Equal(HealthStatus.Ok, config.Status);
     }
 
     [Fact]
-    public async Task Ready_endpoint_returns_200_with_a_per_dependency_breakdown()
+    public async Task Ready_endpoint_returns_200_with_a_per_dependency_breakdown_to_a_local_caller_with_diagnostics_on()
     {
-        var client = CreateClient(new FakeProbe("openLibrary", HealthStatus.Ok, critical: true), new FakeProbe("gemini", HealthStatus.Ok));
+        var client = CreateClient(true, new FakeProbe("openLibrary", HealthStatus.Ok, critical: true), new FakeProbe("gemini", HealthStatus.Ok));
 
         var response = await client.GetAsync("/api/health/ready");
 

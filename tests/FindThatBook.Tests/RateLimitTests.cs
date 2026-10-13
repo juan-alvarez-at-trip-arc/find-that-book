@@ -44,6 +44,32 @@ public class RateLimitTests
         Assert.Equal("application/problem+json", limited.Content.Headers.ContentType!.MediaType);
     }
 
+    [Theory]
+    [InlineData("/api/search/")]
+    [InlineData("/API/Search/")]
+    public async Task Search_is_limited_on_path_variants_that_routing_still_accepts(string path)
+    {
+        var client = Factory(perMinute: 2).CreateClient();
+
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(path, new { query = "tolkien hobbit" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync(path, new { query = "tolkien hobbit" })).StatusCode);
+        var limited = await client.PostAsJsonAsync(path, new { query = "tolkien hobbit" });
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+    }
+
+    [Fact]
+    public async Task Search_limit_is_shared_between_the_plain_and_trailing_slash_paths()
+    {
+        var client = Factory(perMinute: 2).CreateClient();
+
+        await Search(client);
+        await client.PostAsJsonAsync("/api/search/", new { query = "tolkien hobbit" });
+        var limited = await Search(client);
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
+    }
+
     [Fact]
     public async Task Health_and_static_paths_are_not_rate_limited()
     {

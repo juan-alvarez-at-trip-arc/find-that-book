@@ -25,6 +25,9 @@ Ideas that were tried or considered and not shipped, so they are not retried bli
 | A shelf motif on the landing page | The owner kept the landing quiet so the empty space keeps the focus on the search. The bookshelf shows for no results and in the progress stage. |
 | A legend for the badges | The owner left the badges explained only by each card's reason sentence. |
 | A "Not it?" hint under the results, and closing the gap in the featured card | Reviewed in the critique runs and left as is. |
+| `AllowedHosts: *` replaced by a host list | A list would break the container on any hostname not in it, and the deployment hostnames are not known. Set `AllowedHosts` when you deploy. |
+| Removing `style-src-attr 'unsafe-inline'` and `https://*.archive.org` from the Content-Security-Policy | The progress scenes use inline style attributes and cover redirects go through archive.org. Removing either breaks the UI. |
+| Requiring https for the OpenAI-compatible base URL | A LAN or local gateway over http is a supported setup. Readiness reports `degraded` when an API key would go over http to a non-loopback host. |
 | A Latin-script author name on the byline | Needs alias handling in the API and changes the "names as stored" rule. Listed in the README under known limitations. |
 
 ## Changed after the first draft
@@ -44,3 +47,9 @@ Ideas that were tried or considered and not shipped, so they are not retried bli
 | Static files and API responses served uncompressed | gzip through the ASP.NET response compression middleware (the script goes from about 234 KB to 85 KB) | The seventh critique measured it. HTTPS compression stays off, which is the framework default, and a proxy in front can compress instead. |
 | The wordmark is plain text | The wordmark is a link to `/` that reloads the page with no query and an empty search box | A reader needs a way back to a clean start. A plain link does exactly that with no state handling. |
 | Progress stage steps advance every 2.5 seconds | Each step has its own time: understand 10 s, search 2 s, match 1 s, explain 30 s (`STEP_MS` in `web/src/lib/progress.ts`) | A logged search took 11.7 s for the AI parse, 1.6 s for Open Library and 29.5 s for the AI explanations, so equal steps showed "Writing explanations" for too short a time. The times are estimates, because the API reports no progress |
+| `/api/health/config` answers any caller on the same machine | Off (404 for everyone) unless `Health:ExposeConfig` is true, and still local-only when on | A reverse proxy on the same machine that adds no forwarding header makes every outside caller look local. nginx adds none by default |
+| `/api/health/ready` returns the full per-dependency report to everyone | Only `{ "status": ... }` to ordinary callers, with the status codes unchanged. The full report goes to a local caller when `Health:ExposeConfig` is true | The breakdown named the AI provider and said whether its key was missing or rejected |
+| The search limit matched the exact path `/api/search` | Trailing slashes are ignored when matching | Routing accepts `/api/search/`, which reached the controller with no limit (found by a live check, 13 of 13 requests passed) |
+| Security headers set before the exception handler | Set in `OnStarting` | The exception handler clears response headers, so 500, 502 and 413 responses had none |
+| Shared Open Library request runs on the first caller's cancellation token | Runs on its own lifetime. Each caller waits with its own token, and the in-flight entry is removed when the request ends | One reader disconnecting failed another reader's search with a 500 |
+| No cap on outgoing response size | 2 MB per response, also in the HTTP logging buffer | A faulty or hostile upstream could fill memory |

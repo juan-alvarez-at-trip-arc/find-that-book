@@ -12,6 +12,9 @@ public sealed class HttpLoggingHandler(ILogger<HttpLoggingHandler> log, Sensitiv
     /// <summary>The default limit of logged body characters per message.</summary>
     public const int DefaultMaxBodyChars = 8192;
 
+    /// <summary>The most bytes of a body that are buffered so it can be logged and still read by the caller. A larger body fails the request.</summary>
+    public const int MaxBufferedBytes = ServiceCollectionExtensions.MaxResponseBytes;
+
     /// <summary>Logs the request, sends it, then logs the response or the failure. The caller can still read both bodies.</summary>
     /// <param name="request">The outgoing request.</param>
     /// <param name="cancellationToken">Token that cancels the request.</param>
@@ -61,7 +64,7 @@ public sealed class HttpLoggingHandler(ILogger<HttpLoggingHandler> log, Sensitiv
         if (mediaType is not null && !IsText(mediaType))
             return $"[binary {mediaType}, {content.Headers.ContentLength?.ToString() ?? "unknown"} bytes]";
 
-        await content.LoadIntoBufferAsync();
+        await content.LoadIntoBufferAsync(MaxBufferedBytes, ct);
         var body = masker.MaskText(await content.ReadAsStringAsync(ct));
         return body.Length > maxBodyChars ? $"{body[..maxBodyChars]}...[truncated {body.Length - maxBodyChars} chars]" : body;
     }

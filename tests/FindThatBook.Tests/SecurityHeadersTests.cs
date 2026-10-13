@@ -1,7 +1,13 @@
 using System.Net;
+using System.Net.Http.Json;
+using FindThatBook.Application.Abstractions;
+using FindThatBook.Tests.Support;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 
 namespace FindThatBook.Tests;
@@ -22,6 +28,33 @@ public class SecurityHeadersTests
         Assert.Equal("nosniff", Header(response, "X-Content-Type-Options"));
         Assert.Equal("DENY", Header(response, "X-Frame-Options"));
         Assert.Equal("no-referrer", Header(response, "Referrer-Policy"));
+        Assert.Contains("camera=()", Header(response, "Permissions-Policy"));
+        Assert.Contains("microphone=()", Header(response, "Permissions-Policy"));
+        Assert.Contains("geolocation=()", Header(response, "Permissions-Policy"));
+    }
+
+    [Theory]
+    [InlineData(typeof(CatalogUnavailableException), HttpStatusCode.BadGateway)]
+    [InlineData(typeof(InvalidOperationException), HttpStatusCode.InternalServerError)]
+    public async Task Error_responses_from_the_exception_handler_carry_the_security_headers(Type exception, HttpStatusCode status)
+    {
+        var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
+        {
+            b.UseSetting("Gemini:ApiKey", "");
+            b.ConfigureTestServices(s =>
+            {
+                s.RemoveAll<IBookCatalog>();
+                s.AddSingleton<IBookCatalog>(new FakeCatalog(_ => throw (Exception)Activator.CreateInstance(exception, "boom")!));
+            });
+        });
+
+        var response = await factory.CreateClient().PostAsJsonAsync("/api/search", new { query = "tolkien hobbit" });
+
+        Assert.Equal(status, response.StatusCode);
+        Assert.Equal("nosniff", Header(response, "X-Content-Type-Options"));
+        Assert.Equal("DENY", Header(response, "X-Frame-Options"));
+        Assert.Equal("no-referrer", Header(response, "Referrer-Policy"));
+        Assert.Contains("default-src 'self'", Header(response, "Content-Security-Policy"));
     }
 
     [Fact]

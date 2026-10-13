@@ -5,8 +5,24 @@ using System.Text.Json.Nodes;
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Models;
 using FindThatBook.Infrastructure.Gemini;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 
 namespace FindThatBook.Tests.Support;
+
+public sealed class RemoteIpFilter(string remote, string local) : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+    {
+        app.Use((context, nextMiddleware) =>
+        {
+            context.Connection.RemoteIpAddress = IPAddress.Parse(remote);
+            context.Connection.LocalIpAddress = IPAddress.Parse(local);
+            return nextMiddleware(context);
+        });
+        next(app);
+    };
+}
 
 public sealed class StubHandler(Func<HttpRequestMessage, HttpResponseMessage> respond) : HttpMessageHandler
 {
