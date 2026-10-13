@@ -107,11 +107,46 @@ public class AiInjectionTests
             Write(JsonSerializer.Serialize(new[] { new { index = 0, explanation = "Exact title match; Tolkien is primary author." } }), matches));
     }
 
+    [Theory]
+    [InlineData("Near title match rather than an exact title, with Tolkien as the primary author.")]
+    [InlineData("Near title match, not an exact title; Tolkien is primary author.")]
+    [InlineData("Tolkien is primary author; the title is a near match instead of exact.")]
+    public async Task Saying_a_near_match_is_not_exact_is_accepted(string explanation)
+    {
+        var near = Books.Make("The Hobbit There and Back Again Illustrated Edition", ["J.R.R. Tolkien"]);
+        var matches = new[] { Matcher.Rank([Q.Make("the hobbit", "tolkien")], [near])[0] };
+        Assert.False(matches[0].ExactTitle);
+
+        var outcome = await Write(JsonSerializer.Serialize(new[] { new { index = 0, explanation } }), matches);
+
+        Assert.Equal(explanation, outcome.Explanations[0]);
+    }
+
     [Fact]
     public async Task Mentioning_a_contributor_for_a_book_that_has_none_is_rejected()
     {
         await Assert.ThrowsAsync<AiUnavailableException>(() =>
             Write(Reply("Exact title match; Tolkien is primary author.", "Dickens is primary author and also a contributor.")));
+    }
+
+    [Theory]
+    [InlineData("Exact title match with Dickens as the primary author and no other contributors.")]
+    [InlineData("Exact title match; Dickens is primary author, with no contributors listed.")]
+    [InlineData("Exact title match; Dickens is primary author, without any contributors.")]
+    public async Task Saying_a_book_has_no_contributors_is_accepted(string explanation)
+    {
+        var outcome = await Write(Reply("Exact title match; Tolkien is primary author; Dixon listed as contributor.", explanation));
+
+        Assert.Equal(explanation, outcome.Explanations[1]);
+    }
+
+    [Theory]
+    [InlineData("Exact title match; Dickens is primary author, with no contributors but also an illustrator.")]
+    [InlineData("Exact title match; Dickens is primary author and Smith is a contributor.")]
+    public async Task Claiming_a_contributor_next_to_a_negation_is_still_rejected(string explanation)
+    {
+        await Assert.ThrowsAsync<AiUnavailableException>(() =>
+            Write(Reply("Exact title match; Tolkien is primary author; Dixon listed as contributor.", explanation)));
     }
 
     [Theory]

@@ -21,7 +21,15 @@ internal static class ExplanationGuard
 
     private static readonly Regex Digits = new(@"\d+", RegexOptions.Compiled);
     private static readonly Regex ExactClaim = new(@"\bexact", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    private static readonly Regex NegatedExact = new(
+        @"\b(?:rather\s+than|instead\s+of|than|not|isn't|is\s+not)\s+(?:an?\s+)?exact\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
     private static readonly Regex ContributorClaim = new(@"\b(?:contributor|contributors|adaptor|adapter|illustrator|editor|translator)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    private static readonly Regex NegatedContributor = new(
+        @"\b(?:no|without|zero)\s+(?:(?:any|other)\s+)*(?:contributor|adaptor|adapter|illustrator|editor|translator)s?\b",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly HashSet<string> BannedWords = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -46,8 +54,9 @@ internal static class ExplanationGuard
         if (Contact.Matches(explanation).Any(m => !facts.Blob.Contains(m.Value.ToLowerInvariant(), StringComparison.Ordinal))) return false;
         if (Digits.Matches(explanation).Any(m => !facts.Tokens.Contains(m.Value))) return false;
         if (HasOutsideWord(words, facts)) return false;
-        if (ExactClaim.IsMatch(explanation) && !facts.Match.ExactTitle) return false;
-        return !(ContributorClaim.IsMatch(explanation) && facts.Contributors.Count == 0 && facts.Match.AuthorMatch != AuthorMatchKind.Contributor);
+        if (ExactClaim.IsMatch(NegatedExact.Replace(explanation, " ")) && !facts.Match.ExactTitle) return false;
+        var claimsContributor = ContributorClaim.IsMatch(NegatedContributor.Replace(explanation, " "));
+        return !(claimsContributor && facts.Contributors.Count == 0 && facts.Match.AuthorMatch != AuthorMatchKind.Contributor);
     }
 
     /// <summary>Finds a banned word, or a capitalised word after the first one, that is neither part of the facts nor plain match vocabulary.</summary>
