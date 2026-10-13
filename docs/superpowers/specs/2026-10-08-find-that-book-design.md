@@ -136,7 +136,7 @@ Frontend (`web/src/`):
 ## Error handling
 
 - Blank query: 400. Over 200 characters: truncated.
-- Open Library: 10 s per attempt, 2 retries with growing backoff on 5xx, timeouts and network errors, in-memory cache for an hour (size-limited to 2000 entries). If no hypothesis can be searched, 502.
+- Open Library: 10 s per attempt, 2 retries with growing backoff on 5xx, timeouts and network errors, in-memory cache for an hour (size-limited to 2000 entries). Concurrent lookups of the same URL share one request, so an author used by several works is fetched once per search. If no hypothesis can be searched, 502.
 - HTTP 429 is never retried. It starts a shared cooldown (`Retry-After`, or 30 s) during which every Open Library request fails fast without being sent. Cached lookups still work.
 - At most 2 Open Library requests run at once across the process.
 - Optional `OpenLibrary:Contact` (an email or URL) is added to the `User-Agent`. It is empty by default.
@@ -179,8 +179,8 @@ Single page with: a hero search box (compact after the first search), example ch
 
 ## Testing
 
-- .NET (311 tests, including masker, HTTP logging, span, metric and telemetry wiring tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
-- Frontend (58 tests, Vitest + Testing Library): the disabled search box and example chips during a search, results, badges, the featured results and their collapsed reasons, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress stage, empty bookshelf, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
+- .NET (316 tests, including masker, HTTP logging, span, metric and telemetry wiring tests): `Matcher` (tiers, ranking, study-aid filter, confidence, guessed hypotheses, edition titles, aliases, transliteration, dedupe), `Normalizer`, heuristic parser, template and AI explanation writers, Gemini and OpenAI-compatible clients (with stub HTTP handlers), schema conversion, provider selection, Open Library catalog (parsing, retries, enrichment, caps, concurrency limit, 429 cooldown), fallback decorators, `SearchService`, health (probes, configuration validation, status rules, cache, masked configuration dump), and `WebApplicationFactory` integration tests with a fake catalog.
+- Frontend (88 tests, Vitest + Testing Library): the disabled search box and example chips during a search, results, badges, the featured results and their collapsed reasons, the focused results heading, Try again, the skeleton, the compact hero, notices (including the weak-match notice), the `?q=` link, saved examples, empty and error states, stale-response handling, progress stage, empty bookshelf, theme toggle, example promotion. Layout and mobile styles were checked by hand in Chrome (dark mode, a window about 250px wide), not by automated tests.
 - No test calls a live API.
 
 ## Known limitations
