@@ -1,6 +1,6 @@
 # Find That Book
 
-[![CI/CD](https://github.com/juan-alvarez-at-trip-arc/find-that-book/actions/workflows/ci.yml/badge.svg)](https://github.com/juan-alvarez-at-trip-arc/find-that-book/actions/workflows/ci.yml)
+[![CI/CD](https://github.com/juan-carlos-alvarez-ruiz/find-that-book/actions/workflows/ci.yml/badge.svg)](https://github.com/juan-carlos-alvarez-ruiz/find-that-book/actions/workflows/ci.yml)
 
 Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5 ranked Open Library matches, each with a one-sentence explanation. .NET 8 Web API, React UI, and an AI provider for query extraction and explanations: Gemini (the brief's default) or any OpenAI-compatible endpoint (Groq, Cerebras, Ollama, OpenRouter, Mistral). See [AI providers](#ai-providers).
 
