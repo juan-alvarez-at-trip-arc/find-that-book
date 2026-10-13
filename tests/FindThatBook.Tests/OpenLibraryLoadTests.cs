@@ -74,6 +74,26 @@ public class OpenLibraryLoadTests
     }
 
     [Fact]
+    public async Task An_author_shared_by_several_works_is_fetched_once_per_search()
+    {
+        var authorRequests = 0;
+        var handler = new AsyncStubHandler(async (req, ct) =>
+        {
+            await Task.Delay(40, ct);
+            var path = req.RequestUri!.AbsolutePath;
+            if (path == "/authors/OL1A.json") Interlocked.Increment(ref authorRequests);
+            if (path == "/search.json") return StubHandler.Json(Docs(3));
+            if (path.StartsWith("/works/")) return StubHandler.Json("{\"authors\":[{\"author\":{\"key\":\"/authors/OL1A\"}}]}");
+            return StubHandler.Json("{\"name\":\"Shared Author\"}");
+        });
+
+        var found = await Catalog(handler).FindAsync([Q.Make("book", null)], default);
+
+        Assert.Equal(3, found.Count);
+        Assert.Equal(1, authorRequests);
+    }
+
+    [Fact]
     public async Task Requests_never_run_more_than_the_configured_number_at_once()
     {
         var inFlight = 0;

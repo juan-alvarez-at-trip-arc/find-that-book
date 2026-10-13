@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -33,6 +34,7 @@ public sealed class OpenLibraryCatalog(
     private const int EnrichmentConcurrency = 4;
     private readonly OpenLibraryGate _limiter = limiter ?? new OpenLibraryGate(options.Value.MaxConcurrentRequests);
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
+    private readonly ConcurrentDictionary<string, Lazy<Task<JsonNode?>>> _inFlight = new();
 
     /// <summary>One work as returned by an Open Library search, before its detail lookup.</summary>
     /// <param name="WorkId">Open Library work id without the path prefix.</param>
@@ -258,11 +260,28 @@ public sealed class OpenLibraryCatalog(
             .ToList());
     }
 
-    /// <summary>Returns the JSON for a relative Open Library URL, served from the cache for an hour so repeated lookups cost no requests.</summary>
+    /// <summary>Returns the JSON for a relative Open Library URL, served from the cache for an hour so repeated lookups cost no requests. Concurrent calls for the same URL share one request.</summary>
+    /// <param name="relativeUrl">Path and query relative to the Open Library base address, also used as the cache key.</param>
+    /// <param name="ct">Cancellation token. When calls share a request, the token of the call that started it applies.</param>
+    /// <returns>The parsed JSON, or null when Open Library answered 404.</returns>
+    private async Task<JsonNode?> GetJsonAsync(string relativeUrl, CancellationToken ct)
+    {
+        var pending = _inFlight.GetOrAdd(relativeUrl, url => new Lazy<Task<JsonNode?>>(() => CachedFetchAsync(url, ct)));
+        try
+        {
+            return await pending.Value;
+        }
+        finally
+        {
+            _inFlight.TryRemove(new KeyValuePair<string, Lazy<Task<JsonNode?>>>(relativeUrl, pending));
+        }
+    }
+
+    /// <summary>Reads the JSON for a relative URL from the cache, fetching and caching it on a miss.</summary>
     /// <param name="relativeUrl">Path and query relative to the Open Library base address, also used as the cache key.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The parsed JSON, or null when Open Library answered 404.</returns>
-    private async Task<JsonNode?> GetJsonAsync(string relativeUrl, CancellationToken ct)
+    private async Task<JsonNode?> CachedFetchAsync(string relativeUrl, CancellationToken ct)
     {
         var json = await cache.GetOrCreateAsync(relativeUrl, async entry =>
         {
