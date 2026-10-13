@@ -38,6 +38,8 @@ In production the build in `dist/` is served by the API itself (the Dockerfile c
 ## Project layout
 
 ```
+public/
+  landing.html             static landing page, served at /landing.html (Vite copies public/ into dist/)
 src/
   main.tsx                 entry point (loaded by index.html)
   setupTests.ts            Testing Library and jest-dom setup (referenced by vite.config.ts)
