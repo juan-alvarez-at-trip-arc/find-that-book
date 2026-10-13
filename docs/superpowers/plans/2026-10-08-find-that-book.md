@@ -2,11 +2,11 @@
 
 > **Status: as built.** Tasks 1-9 are the original plan. Tasks 10-16 record work added during and after execution. The repository is the source of truth for code, so this document lists, for each task, the final files, interfaces, behavior, tests and the commit that delivered it. Original code listings that no longer match the code were removed. If this plan is ever re-executed, use `superpowers:executing-plans` or `superpowers:subagent-driven-development` and the steps below as the checklist.
 
-**Goal:** Build a .NET 8 Web API plus React UI that turns a messy text query into up to 5 ranked Open Library matches, each with a one-sentence explanation.
+**Goal:** Build a .NET 10 Web API plus React UI that turns a messy text query into up to 5 ranked Open Library matches, each with a one-sentence explanation.
 
 **Architecture:** Layered .NET solution. `Application` holds the pure matching logic, normalization, fallbacks and interfaces. `Infrastructure` holds the Open Library client and the AI clients (Gemini or any OpenAI-compatible endpoint, chosen by configuration). `Api` hosts the controller and serves the built React app. Deterministic code ranks. The AI extracts query hypotheses and writes explanations, and every AI step has an AI-free fallback that sets `aiUsed: false`.
 
-**Tech Stack:** .NET 8, ASP.NET Core controllers, xUnit, `WebApplicationFactory`, React + Vite + TypeScript, Vitest + Testing Library, Docker and Docker Compose, Gemini REST API, OpenAI-compatible chat completions, Open Library API.
+**Tech Stack:** .NET 10, ASP.NET Core controllers, xUnit, `WebApplicationFactory`, React + Vite + TypeScript, Vitest + Testing Library, Docker and Docker Compose, Gemini REST API, OpenAI-compatible chat completions, Open Library API.
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
@@ -14,7 +14,7 @@
 
 ## Global Constraints
 
-- Target `net8.0` only. `global.json` pins SDK `8.0.100` with `rollForward: latestFeature`.
+- Target `net10.0` only. `global.json` pins SDK `10.0.100` with `rollForward: latestFeature`.
 - Layout: `src/FindThatBook.Application`, `src/FindThatBook.Infrastructure`, `src/FindThatBook.Api`, `tests/FindThatBook.Tests`, `web/` (frontend source in `web/src/components/<Name>/` and `web/src/lib/`).
 - Endpoint: `POST /api/search` with `{ "query": string }`. `GET /api/health` returns 200. Later addition: `GET /api/health/ready` (readiness) and `GET /api/health/config` (masked configuration), see the design spec.
 - Response fields: `aiUsed`, `message`, `results[]` with `title`, `author`, `authors`, `first_publish_year`, `workId`, `url`, `coverUrl`, `explanation`, `matchTier`, `exactTitle`. Only `first_publish_year` is snake_case.

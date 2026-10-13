@@ -6,8 +6,8 @@
 flowchart TB
     subgraph build["Dockerfile (multi-stage)"]
         s1["node:22-alpine<br/>npm ci, npm run build"]
-        s2["dotnet/sdk:8.0<br/>dotnet publish Api"]
-        s3["dotnet/aspnet:8.0<br/>app + wwwroot"]
+        s2["dotnet/sdk:10.0<br/>dotnet publish Api"]
+        s3["dotnet/aspnet:10.0<br/>app + wwwroot"]
         s1 -- "dist to wwwroot" --> s3
         s2 -- "publish output" --> s3
     end

@@ -15,7 +15,7 @@ Submission for the InfoTrack "Find That Book" challenge. A messy text query goes
 | D1 | Frontend: React + Vite + TypeScript, built and served by the API in one container. Source is split into `components/<Name>/` and `lib/` |
 | D2 | AI extracts the query and writes explanations. Ranking is deterministic code. No LLM re-ranking |
 | D3 | Every AI step has a non-AI fallback (heuristic parser, template explanations). The response carries `aiUsed: false` when any step fell back |
-| D4 | Layered .NET 8 solution: `Api`, `Application`, `Infrastructure`, `Tests` |
+| D4 | Layered .NET 10 solution: `Api`, `Application`, `Infrastructure`, `Tests` |
 | D5 | One `Dockerfile` (frontend + API in one image) and a `docker-compose.yml`. A hosted live demo was not deployed |
 | D6 | Open Library strategy: search, then enrich. Author-only queries use `/search.json?sort=editions`, not `/authors/{id}/works.json`, which has no popularity order |
 | D7 | AI provider is selectable by configuration: `Gemini` (default, per the brief) or `OpenAiCompatible` (Groq, Cerebras, Ollama, OpenRouter, Mistral). Gemini defaults to `gemini-3.8-flash` |
