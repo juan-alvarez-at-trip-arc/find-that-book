@@ -11,7 +11,7 @@ COPY global.json ./
 COPY src/ src/
 RUN dotnet publish src/FindThatBook.Api -c Release -o /out
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 LABEL org.opencontainers.image.source="https://github.com/juan-carlos-alvarez-ruiz/find-that-book"
 WORKDIR /app
 COPY --from=build /out ./
