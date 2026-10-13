@@ -54,6 +54,10 @@ Docker Compose (UI and API on one port, http://localhost:8080):
    OPENLIBRARY_MAX_CONCURRENT_REQUESTS=2
    OPENLIBRARY_DEFAULT_COOLDOWN_SECONDS=30
    OPENLIBRARY_CONTACT=<your email or URL>
+
+   # Search limits: per client address per minute, and at once across all clients
+   RATE_LIMIT_SEARCHES_PER_MINUTE=10
+   RATE_LIMIT_MAX_CONCURRENT_SEARCHES=8
    ```
    Every variable is optional. Blank values use the defaults.
 2. Start it: `docker compose up --build`
