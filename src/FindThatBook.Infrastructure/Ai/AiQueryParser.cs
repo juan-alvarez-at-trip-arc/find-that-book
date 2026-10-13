@@ -37,12 +37,15 @@ public sealed class AiQueryParser(IAiClient ai) : IQueryParser
             var author = ReadString(root, "author");
             if (title is null && author is null)
                 throw new AiUnavailableException("AI provider returned neither a title nor an author.");
+            if (!IsUsable(title) || !IsUsable(author))
+                throw new AiUnavailableException("AI provider returned an unusable title or author.");
 
             var keywords = root.TryGetProperty("keywords", out var k) && k.ValueKind == JsonValueKind.Array
                 ? k.EnumerateArray()
                     .Where(e => e.ValueKind == JsonValueKind.String)
                     .Select(e => e.GetString()!.Trim())
-                    .Where(s => s.Length > 0)
+                    .Where(s => s.Length > 0 && s.Length <= MaxKeywordLength && !s.Any(char.IsControl))
+                    .Take(MaxKeywords)
                     .ToList()
                 : [];
             return new ParseOutcome([new ParsedQuery(title, author, keywords)], true);
@@ -52,6 +55,15 @@ public sealed class AiQueryParser(IAiClient ai) : IQueryParser
             throw new AiUnavailableException("AI provider returned malformed JSON.", ex);
         }
     }
+
+    private const int MaxFieldLength = 200;
+    private const int MaxKeywordLength = 50;
+    private const int MaxKeywords = 10;
+
+    /// <summary>Tells whether a title or author from the reply is safe to put in a catalog search: absent, or short and free of control characters.</summary>
+    /// <param name="value">The title or author, or null.</param>
+    /// <returns>True when the value is null or within the length limit and has no control characters.</returns>
+    private static bool IsUsable(string? value) => value is null || (value.Length <= MaxFieldLength && !value.Any(char.IsControl));
 
     /// <summary>Reads a string property from the reply, trimming it and treating missing, non-string or blank values as absent.</summary>
     /// <param name="root">The JSON object returned by the AI provider.</param>
