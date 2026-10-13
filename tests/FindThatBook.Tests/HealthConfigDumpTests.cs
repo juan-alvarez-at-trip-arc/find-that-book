@@ -130,6 +130,7 @@ public class HealthConfigDumpTests
             b.UseSetting("OpenAiCompatible:ApiKey", "oai-secret-456");
             b.UseSetting("OpenAiCompatible:BaseUrl", "http://rpi-llm.local:3001/v1/");
             b.UseSetting("OpenLibrary:MaxDetailLookups", "3");
+            b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter("127.0.0.1", "10.0.0.5")));
         });
 
         var response = await factory.CreateClient().GetAsync("/api/health/config");
@@ -186,6 +187,28 @@ public class HealthConfigDumpTests
         var response = await ClientFrom(remote, local).GetAsync("/api/health/config");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Config_endpoint_hides_itself_when_the_caller_address_is_unknown()
+    {
+        var response = await new WebApplicationFactory<Program>().CreateClient().GetAsync("/api/health/config");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("X-Forwarded-For")]
+    [InlineData("Forwarded")]
+    [InlineData("X-Real-IP")]
+    public async Task Config_endpoint_hides_itself_from_callers_that_came_through_a_proxy(string header)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/health/config");
+        request.Headers.TryAddWithoutValidation(header, "203.0.113.9");
+
+        var response = await ClientFrom("127.0.0.1").SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
     [Fact]

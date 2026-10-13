@@ -16,6 +16,7 @@ public sealed class AiQueryParser(IAiClient ai) : IQueryParser
     /// <exception cref="AiUnavailableException">The AI call failed, the reply is malformed, or it contains neither a title nor an author, so the caller can fall back to the heuristic parser.</exception>
     public async Task<ParseOutcome> ParseAsync(string query, CancellationToken ct)
     {
+        query = query.Replace('<', ' ').Replace('>', ' ');
         var prompt = $"""
             Extract book search fields from a reader's messy text.
             Rules:
