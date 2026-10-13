@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. The .NET count is 287.
+**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. Task 24 (security fixes) brought the .NET count to 430 (88 frontend tests).
 
 ## Global Constraints
 
@@ -134,7 +134,7 @@ Readiness and configuration endpoints were added later, see Task 18.
 
 **Files:** `Dockerfile` (node build, .NET publish, aspnet runtime on port 8080), `.dockerignore`, `docker-compose.yml`, `README.md`, `.gitignore` (adds `.env`).
 
-**Behavior:** Compose maps `.env` variables (`AI_PROVIDER`, `GEMINI_*`, `OPENAI_*`, `OPENLIBRARY_*`) to the app settings. **Not verified:** the image was never built (the Docker daemon was not running); the equivalent layout was run by hand and `docker compose config -q` accepts the file.
+**Behavior:** Compose maps `.env` variables (`AI_PROVIDER`, `GEMINI_*`, `OPENAI_*`, `OPENLIBRARY_*`) to the app settings. **Not verified at the time:** the image was never built (the Docker daemon was not running; it was built and run by hand on 2026-10-10 and 2026-10-13); the equivalent layout was run by hand and `docker compose config -q` accepts the file.
 
 ### Task 10: Final review fix pass
 
@@ -295,11 +295,28 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 
 **Tests:** 5 new `Toast` tests and 4 new `App` tests (dismissing the error, AI, weak-match and empty-state toasts), plus 3 existing `App` tests renamed or adjusted for the toast markup (67 total, 58 before). New `App` behavior was written failing first. **Verified by hand in headed Chrome** (three runs, stubbed responses for the error, weak-match and empty states): every toast kind at 1024, 768, 390 and 320px in dark and light, dismiss and Try again, 24 stacked combinations with nothing covered at the end of the page. The first run found the toast covering the header on phones, fixed by moving it to the bottom. **Not done:** real touch, a screen reader, a real failed search, a browser without `:has()`. The prototype was not kept on a throwaway branch.
 
+### Task 24: Security fixes from a code review
+
+- [x] Not committed when this entry was written. Every fix has a test that failed first. Decisions are in `docs/decisions.md`.
+
+**Findings fixed:**
+- **F1 rate limit bypass:** `RateLimitingExtensions.IsSearch` ignores trailing slashes, because routing accepted `/api/search/` and the limiter did not. Found by a live check (13 of 13 requests passed). Tests in `RateLimitTests`.
+- **F2 error responses without security headers:** `SecurityHeadersExtensions` sets the headers in `OnStarting`, because the exception handler clears earlier ones. Tests in `SecurityHeadersTests` (500 and 502).
+- **F3 cancellation across callers:** `OpenLibraryCatalog.GetJsonAsync` waits with the caller's own token on a shared request that runs on its own lifetime (`FetchSharedAsync`), and the in-flight entry is removed when that request ends. Test in `OpenLibraryCatalogTests`.
+- **F4 config endpoint behind a proxy:** `/api/health/config` is off unless `Health:ExposeConfig` is true (appsettings `false`, compose `HEALTH_EXPOSE_CONFIG`), and then local-only as before. A blank value counts as off. Tests in `HealthConfigDumpTests`.
+- **F5 readiness detail:** `/api/health/ready` returns only `{ "status": ... }` (status codes unchanged) unless the caller passes the same gate (`HealthController.CanSeeDiagnostics`). Tests in `HealthReportTests`. `RemoteIpFilter` moved to `Support/Fakes.cs`.
+- **F6 compose:** Jaeger is pinned by digest and the unused Zipkin listener is removed. Tests in `ComposeFileTests`.
+- **F7 hardening:** a 2 MB cap on every outgoing response (`ServiceCollectionExtensions.MaxResponseBytes`, also in `HttpLoggingHandler.MaxBufferedBytes`), a readiness warning when an OpenAI-compatible key would go over http to a non-loopback host, a `Permissions-Policy` header, `npm ci --ignore-scripts` in the Dockerfile and CI, and the Dependabot `docker-compose` ecosystem. Tests in `HttpClientLimitsTests`, `HttpLoggingHandlerTests`, `HealthReportTests`, `SecurityHeadersTests` and `RepoHardeningTests`.
+
+**Left as is on purpose:** `AllowedHosts: *` (needs the deployment hostnames) and the CSP's `style-src-attr 'unsafe-inline'` and `https://*.archive.org` (the UI needs both).
+
+**Not verified:** the Dockerfile and CI changes were not run in Docker or CI (the equivalent local `npm ci --ignore-scripts` build and 88 frontend tests passed), `docker compose up` was not run with the pinned Jaeger digest, and the 413 response headers have no automated test (the test server does not enforce the Kestrel body limit).
+
 ---
 
 ## Not done or deferred
 
 - A hosted live demo (needs a hosting account).
-- Building the Docker image (the daemon was not available).
+- An automated test that builds and runs the Docker image (the image was built and run by hand on 2026-10-10 and 2026-10-13, and the CI publish job smoke-tests it).
 - Ideas tried and set aside: a time budget per Open Library lookup phase (fail faster). The Retry button was set aside earlier and built in Task 20.
 - Open items are listed in the spec under "Known limitations" and "Future improvements".
