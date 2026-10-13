@@ -23,13 +23,7 @@
         "browserRequirements": "Requires JavaScript"
       }
     </script>
-    <script>
-      /* Apply a saved theme before first paint to avoid a flash; keep in sync with src/lib/theme.ts. */
-      try {
-        var m = localStorage.getItem("ftb-theme");
-        if (m === "light" || m === "dark") document.documentElement.setAttribute("data-theme", m);
-      } catch (e) {}
-    </script>
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <noscript>Find That Book needs JavaScript to search. It turns what you remember about a book into ranked Open Library matches.</noscript>

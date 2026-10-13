@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace FindThatBook.Api;
 
 /// <summary>
-/// Turns unhandled exceptions into problem details responses. An unavailable catalog becomes a 502 with a retry hint, and anything else becomes a 500 without exposing internals.
+/// Turns unhandled exceptions into problem details responses. An unavailable catalog becomes a 502 with a retry hint, a request the server rejected (for example a body over the size limit) keeps its own client error status, and anything else becomes a 500 without exposing internals.
 /// </summary>
 /// <param name="problems">Service that writes the problem details body.</param>
 /// <param name="log">Logger for the handled exception.</param>
@@ -21,6 +21,8 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problems, ILogger
         var (status, title) = exception switch
         {
             CatalogUnavailableException => (StatusCodes.Status502BadGateway, "Open Library is unavailable. Please try again shortly."),
+            BadHttpRequestException { StatusCode: StatusCodes.Status413PayloadTooLarge } => (StatusCodes.Status413PayloadTooLarge, "The request is too large."),
+            BadHttpRequestException bad => (bad.StatusCode, "The request could not be read."),
             _ => (StatusCodes.Status500InternalServerError, "An unexpected error occurred."),
         };
 

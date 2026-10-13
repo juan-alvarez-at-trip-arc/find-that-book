@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using FindThatBook.Application.Abstractions;
 using FindThatBook.Application.Models;
 using FindThatBook.Application.Telemetry;
@@ -35,6 +36,8 @@ public sealed class OpenLibraryCatalog(
     private readonly OpenLibraryGate _limiter = limiter ?? new OpenLibraryGate(options.Value.MaxConcurrentRequests);
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
     private readonly ConcurrentDictionary<string, Lazy<Task<JsonNode?>>> _inFlight = new();
+    private static readonly Regex WorkKey = new(@"^/works/(OL\d+W)$", RegexOptions.Compiled);
+    private static readonly Regex AuthorKey = new(@"^/authors/(OL\d+A)$", RegexOptions.Compiled);
 
     /// <summary>One work as returned by an Open Library search, before its detail lookup.</summary>
     /// <param name="WorkId">Open Library work id without the path prefix.</param>
@@ -148,13 +151,13 @@ public sealed class OpenLibraryCatalog(
             {
                 var key = node?["key"]?.GetValue<string>();
                 var title = node?["title"]?.GetValue<string>();
-                if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(title)) continue;
+                if (string.IsNullOrWhiteSpace(title) || key is null || WorkKey.Match(key) is not { Success: true } workKey) continue;
 
                 var names = node!["author_name"] is JsonArray authorNames
                     ? authorNames.Select(n => n?.GetValue<string>()).OfType<string>().ToList()
                     : [];
                 result.Add(new SearchDoc(
-                    key.Split('/')[^1],
+                    workKey.Groups[1].Value,
                     title,
                     names,
                     node["first_publish_year"]?.GetValue<int>(),
@@ -198,7 +201,9 @@ public sealed class OpenLibraryCatalog(
             var authorIds = (work?["authors"] as JsonArray ?? [])
                 .Select(a => a?["author"]?["key"]?.GetValue<string>())
                 .OfType<string>()
-                .Select(k => k.Split('/')[^1])
+                .Select(k => AuthorKey.Match(k))
+                .Where(m => m.Success)
+                .Select(m => m.Groups[1].Value)
                 .Distinct()
                 .Take(Math.Max(1, options.Value.MaxAuthorsPerWork))
                 .ToList();

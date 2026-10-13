@@ -33,12 +33,13 @@ In production the build in `dist/` is served by the API itself (the Dockerfile c
 - Look: warm paper page, a serif (system stack: Iowan Old Style, Palatino, Georgia) only for the page question and book titles, one blue accent and spine colors that mean match quality. The product context is in `PRODUCT.md` and the visual system in `DESIGN.md`, both at the repo root.
 - Page metadata in `index.html`: description, theme-color (matches the page backgrounds, checked by a test), Open Graph and Twitter tags, JSON-LD, a noscript line. `header` sits outside `main`, and the search form has `role="search"`.
 - Example chips: five at start. A search that returns at least one result moves its text to the front of the list (an existing chip is moved, otherwise the last chip is dropped). Failed and empty searches leave the list alone. The list is saved in `localStorage` under `ftb-examples` (guarded access, invalid data falls back to the defaults).
-- Theme toggle: System (default), Light or Dark. System follows the operating system live. The choice is stored in `localStorage` under `ftb-theme`, every storage access is guarded, and a small inline script in `index.html` applies a saved Light or Dark choice before the first paint to avoid a flash. The theme is applied through a `data-theme` attribute on `<html>` and `color-scheme` in CSS, and the colors are CSS variables defined for each mode in `App.css`.
+- Theme toggle: System (default), Light or Dark. System follows the operating system live. The choice is stored in `localStorage` under `ftb-theme`, every storage access is guarded, and a small script, `public/theme-init.js` (a file, because the Content-Security-Policy allows no inline script), applies a saved Light or Dark choice before the first paint to avoid a flash. The theme is applied through a `data-theme` attribute on `<html>` and `color-scheme` in CSS, and the colors are CSS variables defined for each mode in `App.css`.
 
 ## Project layout
 
 ```
 public/
+  theme-init.js            applies the saved theme before first paint (loaded by index.html)
   landing.html             static landing page, served at /landing.html (Vite copies public/ into dist/)
 src/
   main.tsx                 entry point (loaded by index.html)

@@ -23,7 +23,7 @@ public sealed class HealthController(
     IOptions<OpenAiCompatibleOptions> openAi,
     IOptions<OpenLibraryOptions> openLibrary) : ControllerBase
 {
-    /// <summary>Returns the effective configuration values. API keys are masked, keeping only their first and last four characters. Only callers on the same machine are answered, and never callers relayed by a proxy.</summary>
+    /// <summary>Returns the effective configuration values. API keys are masked, keeping only their last four characters. Only callers on the same machine are answered, and never callers relayed by a proxy.</summary>
     /// <returns>A 200 result with the configuration dump, or 404 when the caller is not on the local machine or its address is unknown.</returns>
     [HttpGet("config")]
     public IActionResult Config() => IsLocalRequest()

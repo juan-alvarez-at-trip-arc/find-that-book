@@ -161,17 +161,17 @@ public class OpenLibraryCatalogTests
     public async Task Enrichment_cap_takes_docs_round_robin_across_hypotheses()
     {
         string Docs(string prefix) => "{\"docs\":[" + string.Join(",",
-            Enumerable.Range(1, 5).Select(i => $"{{\"key\":\"/works/{prefix}{i}W\",\"title\":\"{prefix} {i}\"}}")) + "]}";
+            Enumerable.Range(1, 5).Select(i => $"{{\"key\":\"/works/OL{(prefix[0] - 'A' + 1) * 100 + i}W\",\"title\":\"{prefix} {i}\"}}")) + "]}";
         var handler = new StubHandler(req => Route(req, r =>
             StubHandler.Json(Docs(r.RequestUri!.Query.Contains("title=aaa") ? "A" : r.RequestUri.Query.Contains("title=bbb") ? "B" : "C"))));
 
         var found = await Catalog(handler).FindAsync([Q.Make("aaa", null), Q.Make("bbb", null), Q.Make("ccc", null)], default);
 
         Assert.Equal(6, found.Count);
-        Assert.Contains(found, b => b.WorkId == "A1W");
-        Assert.Contains(found, b => b.WorkId == "B1W");
-        Assert.Contains(found, b => b.WorkId == "C1W");
-        Assert.DoesNotContain(found, b => b.WorkId == "A3W");
+        Assert.Contains(found, b => b.WorkId == "OL101W");
+        Assert.Contains(found, b => b.WorkId == "OL201W");
+        Assert.Contains(found, b => b.WorkId == "OL301W");
+        Assert.DoesNotContain(found, b => b.WorkId == "OL103W");
     }
 
     [Fact]
@@ -342,5 +342,39 @@ public class OpenLibraryCatalogTests
         var found = await Catalog(handler).FindAsync([Q.Make("the hobbit", null), Q.Make(null, "tolkien")], default);
 
         Assert.Single(found);
+    }
+
+    [Theory]
+    [InlineData("/works/OL1W?x=1")]
+    [InlineData("/works/OL1W#frag")]
+    [InlineData("/works/OL1W%2f..%2fadmin")]
+    [InlineData("/works/not-an-id")]
+    [InlineData("/authors/OL1A")]
+    public async Task Docs_whose_key_is_not_a_work_id_are_skipped_and_never_looked_up(string key)
+    {
+        var handler = new StubHandler(req => Route(req, _ => StubHandler.Json(
+            $$"""{"docs":[{"key":"{{key}}","title":"Odd","author_name":["Someone"]}]}""")));
+
+        var found = await Catalog(handler).FindAsync([Q.Make("odd", "someone")], default);
+
+        Assert.Empty(found);
+        Assert.DoesNotContain(handler.Requests, r => r.StartsWith("/works/") || r.StartsWith("/authors/"));
+    }
+
+    [Theory]
+    [InlineData("/authors/OL1A?x=1")]
+    [InlineData("/authors/OL1A%2f..%2fadmin")]
+    [InlineData("/authors/evil")]
+    [InlineData("/works/OL1W")]
+    public async Task Author_keys_that_are_not_author_ids_are_ignored_and_never_looked_up(string authorKey)
+    {
+        var handler = new StubHandler(req => req.RequestUri!.AbsolutePath == "/works/OL1W.json"
+            ? StubHandler.Json($$$"""{"authors":[{"author":{"key":"{{{authorKey}}}"}}]}""")
+            : Route(req));
+
+        var book = Assert.Single(await Catalog(handler).FindAsync([Q.Make("the hobbit", "tolkien")], default));
+
+        Assert.False(book.Enriched);
+        Assert.DoesNotContain(handler.Requests, r => r.StartsWith("/authors/") || r.Contains("admin") || r.Contains("evil"));
     }
 }

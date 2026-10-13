@@ -56,16 +56,17 @@ public sealed record ConfigDump(AiConfig Ai, GeminiConfig Gemini, OpenAiCompatib
                 openLibrary.MaxAuthorsPerWork, openLibrary.MaxConcurrentRequests, openLibrary.DefaultCooldownSeconds,
                 openLibrary.Contact, openLibrary.UserAgent));
 
-    private const int VisibleEnds = 4;
+    private const int VisibleTail = 4;
+    private const int MinLengthToShowTail = 16;
 
-    /// <summary>Masks a key so it can be recognised but not used: the first and last four characters stay visible, and keys shorter than twelve characters are hidden completely.</summary>
+    /// <summary>Masks a key so it can be recognised but not used: only the last four characters stay visible, and keys shorter than sixteen characters are hidden completely.</summary>
     private static string Mask(string? key)
     {
         if (string.IsNullOrWhiteSpace(key)) return "not set";
         key = key.Trim();
-        return key.Length < VisibleEnds * 3
+        return key.Length < MinLengthToShowTail
             ? new string('*', key.Length)
-            : key[..VisibleEnds] + new string('*', key.Length - VisibleEnds * 2) + key[^VisibleEnds..];
+            : new string('*', key.Length - VisibleTail) + key[^VisibleTail..];
     }
 
     private static string Or(string? value, string fallback) => string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();

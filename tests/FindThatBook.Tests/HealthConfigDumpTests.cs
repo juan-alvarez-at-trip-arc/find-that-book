@@ -23,7 +23,7 @@ public class HealthConfigDumpTests
         => ConfigDump.Build(new AiProviderSelection(provider), gemini ?? new GeminiOptions(), openAi ?? new OpenAiCompatibleOptions(), openLibrary ?? new OpenLibraryOptions());
 
     [Fact]
-    public void A_long_key_keeps_only_its_first_and_last_four_characters()
+    public void A_long_key_keeps_only_its_last_four_characters()
     {
         const string key = "freellmapi-66556a145888667463961087c5cd313902fa3ddd48d2654c";
 
@@ -31,15 +31,16 @@ public class HealthConfigDumpTests
 
         var masked = dump.OpenAiCompatible.ApiKey;
         Assert.Equal(key.Length, masked.Length);
-        Assert.StartsWith("free", masked);
         Assert.EndsWith("654c", masked);
-        Assert.Equal(new string('*', key.Length - 8), masked[4..^4]);
+        Assert.Equal(new string('*', key.Length - 4), masked[..^4]);
         Assert.DoesNotContain(key, JsonSerializer.Serialize(dump));
     }
 
     [Theory]
     [InlineData("gem-secret")]
     [InlineData("12345678901")]
+    [InlineData("abcdefghwxyz")]
+    [InlineData("abcdefghijklmno")]
     [InlineData("a")]
     public void A_short_key_is_fully_masked(string key)
     {
@@ -49,8 +50,8 @@ public class HealthConfigDumpTests
     }
 
     [Fact]
-    public void A_twelve_character_key_shows_four_characters_at_each_end()
-        => Assert.Equal("abcd****wxyz", Build(gemini: new GeminiOptions { ApiKey = "abcdefghwxyz" }).Gemini.ApiKey);
+    public void A_sixteen_character_key_shows_its_last_four_characters()
+        => Assert.Equal("************wxyz", Build(gemini: new GeminiOptions { ApiKey = "abcdefghijklwxyz" }).Gemini.ApiKey);
 
     [Theory]
     [InlineData(null)]
@@ -66,7 +67,7 @@ public class HealthConfigDumpTests
 
     [Fact]
     public void Surrounding_whitespace_is_ignored_when_masking()
-        => Assert.Equal("abcd****wxyz", Build(gemini: new GeminiOptions { ApiKey = "  abcdefghwxyz " }).Gemini.ApiKey);
+        => Assert.Equal("************wxyz", Build(gemini: new GeminiOptions { ApiKey = "  abcdefghijklwxyz " }).Gemini.ApiKey);
 
     [Fact]
     public void Blank_models_and_urls_show_the_effective_defaults()
@@ -126,8 +127,8 @@ public class HealthConfigDumpTests
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseSetting("Ai:Provider", "OpenAiCompatible");
-            b.UseSetting("Gemini:ApiKey", "gem-secret-123");
-            b.UseSetting("OpenAiCompatible:ApiKey", "oai-secret-456");
+            b.UseSetting("Gemini:ApiKey", "gem-secret-key-123");
+            b.UseSetting("OpenAiCompatible:ApiKey", "oai-secret-key-456");
             b.UseSetting("OpenAiCompatible:BaseUrl", "http://rpi-llm.local:3001/v1/");
             b.UseSetting("OpenLibrary:MaxDetailLookups", "3");
             b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter("127.0.0.1", "10.0.0.5")));
@@ -137,13 +138,13 @@ public class HealthConfigDumpTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var raw = await response.Content.ReadAsStringAsync();
-        Assert.DoesNotContain("gem-secret-123", raw);
-        Assert.DoesNotContain("oai-secret-456", raw);
+        Assert.DoesNotContain("gem-secret-key-123", raw);
+        Assert.DoesNotContain("oai-secret-key-456", raw);
 
         var body = JsonDocument.Parse(raw).RootElement;
         Assert.Equal("OpenAiCompatible", body.GetProperty("ai").GetProperty("provider").GetString());
-        Assert.Equal("gem-******-123", body.GetProperty("gemini").GetProperty("apiKey").GetString());
-        Assert.Equal("oai-******-456", body.GetProperty("openAiCompatible").GetProperty("apiKey").GetString());
+        Assert.Equal("**************-123", body.GetProperty("gemini").GetProperty("apiKey").GetString());
+        Assert.Equal("**************-456", body.GetProperty("openAiCompatible").GetProperty("apiKey").GetString());
         Assert.Equal("http://rpi-llm.local:3001/v1/", body.GetProperty("openAiCompatible").GetProperty("baseUrl").GetString());
         Assert.Equal(3, body.GetProperty("openLibrary").GetProperty("maxDetailLookups").GetInt32());
     }
