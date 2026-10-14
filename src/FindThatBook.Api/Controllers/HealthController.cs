@@ -1,4 +1,5 @@
 using System.Net;
+using FindThatBook.Infrastructure.Ai;
 using FindThatBook.Infrastructure.Gemini;
 using FindThatBook.Infrastructure.Health;
 using FindThatBook.Infrastructure.OpenAi;
@@ -15,6 +16,7 @@ namespace FindThatBook.Api.Controllers;
 /// <param name="openAi">OpenAI-compatible settings.</param>
 /// <param name="openLibrary">Open Library settings.</param>
 /// <param name="configuration">Application configuration, read for the <c>Health:ExposeConfig</c> switch.</param>
+/// <param name="generation">The generation settings (temperature, top-k, top-p, seed, reasoning effort) shown in the configuration dump.</param>
 [ApiController]
 [Route("api/health")]
 public sealed class HealthController(
@@ -23,13 +25,14 @@ public sealed class HealthController(
     IOptions<GeminiOptions> gemini,
     IOptions<OpenAiCompatibleOptions> openAi,
     IOptions<OpenLibraryOptions> openLibrary,
-    IConfiguration configuration) : ControllerBase
+    IConfiguration configuration,
+    IOptions<AiGenerationOptions> generation) : ControllerBase
 {
     /// <summary>Returns the effective configuration values. API keys are masked, keeping only their last four characters. The endpoint is off unless <c>Health:ExposeConfig</c> is true, because a same-machine reverse proxy that adds no forwarding header makes every caller look local. When it is on, only callers on the same machine are answered, and never callers relayed by a proxy.</summary>
     /// <returns>A 200 result with the configuration dump, or 404 when the endpoint is off, the caller is not on the local machine or its address is unknown.</returns>
     [HttpGet("config")]
     public IActionResult Config() => CanSeeDiagnostics()
-        ? Ok(ConfigDump.Build(provider, gemini.Value, openAi.Value, openLibrary.Value))
+        ? Ok(ConfigDump.Build(provider, gemini.Value, openAi.Value, openLibrary.Value, generation.Value))
         : NotFound();
 
     /// <summary>Tells whether the caller may see internal details: <c>Health:ExposeConfig</c> is true and the request comes directly from the machine the API runs on.</summary>

@@ -22,12 +22,13 @@ public static class ServiceCollectionExtensions
 
     /// <summary>Registers the Open Library catalog, the selected AI client, the AI-first parsers and writers with their non-AI fallbacks, and the search service.</summary>
     /// <param name="services">The service collection to add registrations to.</param>
-    /// <param name="config">Application configuration. <c>Ai:Provider</c> selects <c>Gemini</c> (default) or <c>OpenAiCompatible</c>.</param>
+    /// <param name="config">Application configuration. <c>Ai:Provider</c> selects <c>Gemini</c> (default) or <c>OpenAiCompatible</c>. <c>Ai:Temperature</c>, <c>Ai:TopK</c> and <c>Ai:TopP</c> set the sampling parameters sent to either provider.</param>
     /// <returns>The same <paramref name="services"/> instance, for chaining.</returns>
     /// <exception cref="InvalidOperationException"><c>Ai:Provider</c> names an unknown provider.</exception>
     public static IServiceCollection AddFindThatBook(this IServiceCollection services, IConfiguration config)
     {
         services.ConfigureHttpClientDefaults(builder => builder.ConfigureHttpClient(client => client.MaxResponseContentBufferSize = MaxResponseBytes));
+        services.Configure<AiGenerationOptions>(config.GetSection("Ai"));
         services.Configure<GeminiOptions>(config.GetSection("Gemini"));
         services.Configure<OpenLibraryOptions>(config.GetSection("OpenLibrary"));
         services.AddMemoryCache(options => options.SizeLimit = 2000);
