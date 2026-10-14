@@ -8,12 +8,12 @@
 - Run the API: `dotnet run --project src/FindThatBook.Api` (http://localhost:5080). Pass settings as env vars (`Ai__Provider`, `Gemini__ApiKey`, `OpenAiCompatible__*`, `OpenLibrary__Contact`). `dotnet run` does not read `.env`, only `docker compose` does.
 - Frontend (from `web/`): `npm test`, `npm run lint` (Oxlint), `npm run build` (`tsc -b` and Vite), `npm run dev` (http://localhost:5173, proxies `/api` to 5080). `vite.config.ts` makes Vitest process `App.css` (other CSS is stubbed), so a test can read it with `?raw`.
 - Serve the built UI from the API: `npx vite build --outDir ../src/FindThatBook.Api/wwwroot --emptyOutDir` from `web/`. `wwwroot` is git-ignored.
-- Docker: `docker compose up --build` (http://localhost:8080). The image was built and run by hand on 2026-10-13 (.NET 10 images).
+- Docker: `docker compose up --build` (http://localhost:8080). The image was built and run by hand on 2026-10-14 (.NET 10 images). The container's pages refuse to be framed, so a UI test that needs iframes serves the build files from another port (see `docs/ui-tests/README.md`).
 
 ## Layout
 
 - `src/FindThatBook.Application`: models, interfaces, `Normalizer`, `Matcher`, heuristic parser, template explanations, fallback decorators, `SearchService`, `Telemetry/FindThatBookTelemetry` (trace source and metrics). No I/O.
-- `src/FindThatBook.Infrastructure`: Open Library client (`OpenLibraryCatalog`, `OpenLibraryGate`), AI seam (`IAiClient`), Gemini and OpenAI-compatible clients, `Telemetry/` (`HttpLoggingHandler`, `SensitiveDataMasker`), DI registration.
+- `src/FindThatBook.Infrastructure`: Open Library client (`OpenLibraryCatalog`, `OpenLibraryGate`), AI seam (`IAiClient`), Gemini and OpenAI-compatible clients, `Ai/AiGenerationOptions` (the generation settings both clients send), `Telemetry/` (`HttpLoggingHandler`, `SensitiveDataMasker`), DI registration.
 - `src/FindThatBook.Api`: controller, problem details, static files, `appsettings.json`, `TelemetryExtensions` (OpenTelemetry setup).
 - `tests/FindThatBook.Tests`: xUnit with stub `HttpMessageHandler`s, `FakeAiClient`, `FakeCatalog` (`Support/Fakes.cs`).
 - `web/src/components/<Name>/` (component, CSS and tests together) and `web/src/lib/` (plain modules).
@@ -27,6 +27,7 @@
 - Telemetry is off unless `Telemetry:Enabled` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set. Logged HTTP headers, URLs and bodies must pass through `SensitiveDataMasker`. A new credential header, query parameter or JSON field name needs a masker test first. New spans and metrics go through `FindThatBookTelemetry`.
 - `POST /api/search` is rate limited per client and by concurrent searches (`RateLimitingExtensions`). Treat AI text and catalog text as untrusted: the AI never gets tools, secrets or a say in ranking, instructions and untrusted text go to the model in separate roles (`AiPrompt.Instructions` and `AiPrompt.Data`), catalog data goes into prompts only through `ExplanationFacts`, and `ExplanationGuard` must pass before an explanation is shown. Every new AI step needs a validated reply, a non-AI fallback and an adversarial test. Every response carries the headers from `SecurityHeadersExtensions`, whose Content-Security-Policy allows no inline script, so put scripts in files (`web/public/`). Follow only Open Library keys that match `/works/OL…W` or `/authors/OL…A`. Pin new Docker images by digest and new workflow actions by commit SHA.
 - `GET /api/health/config` and the per-dependency body of `/api/health/ready` are off unless `Health:ExposeConfig` is true, and then local callers only (`HealthController.CanSeeDiagnostics`). The search limit ignores trailing slashes. Security headers are set in `OnStarting` so error responses keep them. Every outgoing HTTP response is capped (`ServiceCollectionExtensions.MaxResponseBytes`). Use `npm ci --ignore-scripts`. Pin compose images by digest too.
+- AI generation settings (temperature, top-k, top-p, seed, reasoning effort) come from `Ai:Temperature`, `Ai:TopK`, `Ai:TopP`, `Ai:Seed` and `Ai:ReasoningEffort` through `AiGenerationOptions`. Do not hardcode a value in a client, and send everything except the temperature only when set.
 - Production code under `src/` carries XML doc comments on every class, method, property, enum and interface, and no comments inside method bodies. Tests and `web/` follow the surrounding style.
 - No test calls a live API. Add a test that fails first for each fix.
 - The API field `first_publish_year` is the only snake_case field, matching the brief.

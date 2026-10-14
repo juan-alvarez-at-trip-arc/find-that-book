@@ -23,6 +23,11 @@ services:
       RateLimit__MaxConcurrentSearches: ${RATE_LIMIT_MAX_CONCURRENT_SEARCHES:-8}
       Health__ExposeConfig: ${HEALTH_EXPOSE_CONFIG:-false}
       Ai__Provider: ${AI_PROVIDER:-Gemini}
+      Ai__Temperature: ${AI_TEMPERATURE:-}
+      Ai__TopK: ${AI_TOP_K:-}
+      Ai__TopP: ${AI_TOP_P:-}
+      Ai__Seed: ${AI_SEED:-}
+      Ai__ReasoningEffort: ${AI_REASONING_EFFORT:-}
       Gemini__ApiKey: ${GEMINI_API_KEY:-}
       Gemini__Model: ${GEMINI_MODEL:-gemini-3.8-flash}
       OpenAiCompatible__ApiKey: ${OPENAI_API_KEY:-}

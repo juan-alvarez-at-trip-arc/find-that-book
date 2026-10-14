@@ -1,12 +1,19 @@
+using FindThatBook.Infrastructure.Ai;
 using FindThatBook.Infrastructure.Gemini;
 using FindThatBook.Infrastructure.OpenAi;
 using FindThatBook.Infrastructure.OpenLibrary;
 
 namespace FindThatBook.Infrastructure.Health;
 
-/// <summary>The selected AI provider.</summary>
+/// <summary>The selected AI provider and the generation values sent to it.</summary>
 /// <param name="Provider">Either <c>Gemini</c> or <c>OpenAiCompatible</c>.</param>
-public sealed record AiConfig(string Provider);
+/// <param name="Temperature">The temperature sent, after the fallback to the default for an invalid value.</param>
+/// <param name="TopK">The top-k sent, or null when none is sent.</param>
+/// <param name="TopP">The top-p sent, or null when none is sent.</param>
+/// <param name="Seed">The seed sent, or null when none is sent.</param>
+/// <param name="ReasoningEffort">The reasoning effort sent (trimmed, lower case), or null when none is sent.</param>
+public sealed record AiConfig(
+    string Provider, double Temperature = AiGenerationOptions.DefaultTemperature, int? TopK = null, double? TopP = null, int? Seed = null, string? ReasoningEffort = null);
 
 /// <summary>Gemini settings.</summary>
 /// <param name="ApiKey">The masked key, or <c>not set</c>.</param>
@@ -45,10 +52,11 @@ public sealed record ConfigDump(AiConfig Ai, GeminiConfig Gemini, OpenAiCompatib
     /// <param name="gemini">Gemini settings.</param>
     /// <param name="openAi">OpenAI-compatible settings.</param>
     /// <param name="openLibrary">Open Library settings.</param>
+    /// <param name="generation">The generation settings (temperature, top-k, top-p, seed, reasoning effort). When null, the defaults are shown.</param>
     /// <returns>A dump that never contains an API key.</returns>
-    public static ConfigDump Build(AiProviderSelection provider, GeminiOptions gemini, OpenAiCompatibleOptions openAi, OpenLibraryOptions openLibrary)
+    public static ConfigDump Build(AiProviderSelection provider, GeminiOptions gemini, OpenAiCompatibleOptions openAi, OpenLibraryOptions openLibrary, AiGenerationOptions? generation = null)
         => new(
-            new AiConfig(provider.Name),
+            new AiConfig(provider.Name, (generation ?? new AiGenerationOptions()).EffectiveTemperature, generation?.EffectiveTopK, generation?.EffectiveTopP, generation?.EffectiveSeed, generation?.EffectiveReasoningEffort),
             new GeminiConfig(Mask(gemini.ApiKey), Or(gemini.Model, GeminiOptions.DefaultModel)),
             new OpenAiCompatibleConfig(Mask(openAi.ApiKey), WithoutCredentials(Or(openAi.BaseUrl, OpenAiCompatibleOptions.DefaultBaseUrl)), Or(openAi.Model, OpenAiCompatibleOptions.DefaultModel)),
             new OpenLibraryConfig(

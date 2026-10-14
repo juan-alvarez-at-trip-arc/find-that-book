@@ -1,3 +1,4 @@
+using FindThatBook.Infrastructure.Ai;
 using FindThatBook.Infrastructure.Gemini;
 using FindThatBook.Infrastructure.OpenAi;
 using FindThatBook.Infrastructure.OpenLibrary;
@@ -12,13 +13,15 @@ namespace FindThatBook.Infrastructure.Health;
 /// <param name="openLibrary">Open Library settings.</param>
 /// <param name="provider">The selected AI provider.</param>
 /// <param name="clock">Time source, replaceable in tests. Defaults to the system clock.</param>
+/// <param name="generation">The generation settings (temperature, top-k, top-p, seed, reasoning effort) to validate. When null, they are not checked.</param>
 public sealed class HealthReportService(
     IEnumerable<IHealthProbe> probes,
     IOptions<GeminiOptions> gemini,
     IOptions<OpenAiCompatibleOptions> openAi,
     IOptions<OpenLibraryOptions> openLibrary,
     AiProviderSelection provider,
-    TimeProvider? clock = null)
+    TimeProvider? clock = null,
+    IOptions<AiGenerationOptions>? generation = null)
 {
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromSeconds(30);
 
@@ -40,7 +43,7 @@ public sealed class HealthReportService(
             if (Fresh() is { } again) return again;
 
             var results = await Task.WhenAll(probes.Select(p => p.CheckAsync(ct)));
-            var config = HealthConfigCheck.Validate(provider, gemini.Value, openAi.Value, openLibrary.Value);
+            var config = HealthConfigCheck.Validate(provider, gemini.Value, openAi.Value, openLibrary.Value, generation?.Value);
             var criticalDown = probes.Zip(results).Any(x => x.First.Critical && x.Second.Status == HealthStatus.Down);
 
             var status = config.Status == HealthStatus.Down || criticalDown

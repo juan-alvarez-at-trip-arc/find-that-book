@@ -11,9 +11,10 @@ namespace FindThatBook.Infrastructure.OpenAi;
 /// <summary>Talks to any OpenAI-compatible <c>/chat/completions</c> endpoint (Groq, Cerebras, Ollama, OpenRouter, Mistral) in JSON mode, putting the JSON Schema in the system message and wrapping non-object schemas as <c>{"result": ...}</c>.</summary>
 /// <param name="http">HTTP client whose base address points at the provider's API root.</param>
 /// <param name="options">Provider settings: API key, base URL and model name.</param>
-public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompatibleOptions> options) : IAiClient
+/// <param name="generationOptions">Temperature, top-k, top-p, seed and reasoning effort from the <c>Ai</c> configuration section. When null, the defaults apply: temperature 0 and nothing else.</param>
+public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompatibleOptions> options, IOptions<AiGenerationOptions>? generationOptions = null) : IAiClient
 {
-    /// <summary>Posts a <c>chat/completions</c> request with <c>response_format</c> set to <c>json_object</c> at temperature 0, wrapping array-shaped schemas in an object because JSON mode needs an object at the root.</summary>
+    /// <summary>Posts a <c>chat/completions</c> request with <c>response_format</c> set to <c>json_object</c>, the configured temperature and, when set, <c>top_p</c>, <c>top_k</c>, <c>seed</c> and <c>reasoning_effort</c>. Array-shaped schemas are wrapped in an object because JSON mode needs an object at the root.</summary>
     /// <param name="prompt">The instructions, sent in the system message with the schema, and the untrusted data, sent alone as the user message.</param>
     /// <param name="schema">The expected output shape as standard JSON Schema. It is cloned, never mutated.</param>
     /// <param name="ct">Token used to cancel the request.</param>
@@ -22,6 +23,7 @@ public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompa
     public async Task<string> GenerateJsonAsync(AiPrompt prompt, JsonNode schema, CancellationToken ct)
     {
         var settings = options.Value;
+        var gen = generationOptions?.Value ?? new AiGenerationOptions();
 
         // json_object mode needs an object at the root, so other roots are wrapped as {"result": ...}.
         var wrapped = !(schema["type"] is JsonValue type && type.TryGetValue<string>(out var name) && name == "object");
@@ -47,9 +49,13 @@ public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompa
                 },
                 new JsonObject { ["role"] = "user", ["content"] = prompt.Data }),
             ["response_format"] = new JsonObject { ["type"] = "json_object" },
-            ["temperature"] = 0,
+            ["temperature"] = gen.EffectiveTemperature,
             ["stream"] = false, // some gateways stream by default, which this client cannot parse
         };
+        if (gen.EffectiveTopP is { } topP) body["top_p"] = topP;
+        if (gen.EffectiveTopK is { } topK) body["top_k"] = topK;
+        if (gen.EffectiveSeed is { } seed) body["seed"] = seed;
+        if (gen.EffectiveReasoningEffort is { } effort) body["reasoning_effort"] = effort;
 
         using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = JsonContent.Create(body) };
         if (!string.IsNullOrWhiteSpace(settings.ApiKey))

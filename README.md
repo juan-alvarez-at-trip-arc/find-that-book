@@ -38,6 +38,13 @@ Docker Compose (UI and API on one port, http://localhost:8080):
    # AI provider: Gemini (default) or OpenAiCompatible
    AI_PROVIDER=Gemini
 
+   # Generation settings sent to either provider. Blank means temperature 0 and nothing else is sent.
+   AI_TEMPERATURE=
+   AI_TOP_K=
+   AI_TOP_P=
+   AI_SEED=
+   AI_REASONING_EFFORT=
+
    # Gemini
    GEMINI_API_KEY=<your key>
    GEMINI_MODEL=gemini-3.8-flash
@@ -126,7 +133,23 @@ Examples for `OpenAiCompatible`:
 
 Model names and free-tier limits change often, so check the provider's own pages. Whichever provider you pick, every AI step still degrades to the non-AI parser and templates on any failure, and the response reports `aiUsed: false`.
 
-How the OpenAI-compatible client works: it posts a `chat/completions` request with `response_format: {"type": "json_object"}` (the mode most providers support), `stream: false` (some gateways stream by default), temperature 0, puts the expected JSON Schema and our instructions in the system message and only the untrusted data (the reader's text or the catalog records) in the user message, and wraps array-shaped results in a `{"result": ...}` object because JSON mode needs an object at the root. The reply is parsed and validated by the same code as for Gemini. Schemas are written once as standard JSON Schema, and the Gemini client converts them to Gemini's dialect.
+How the OpenAI-compatible client works: it posts a `chat/completions` request with `response_format: {"type": "json_object"}` (the mode most providers support), `stream: false` (some gateways stream by default), the configured temperature (0 by default), `top_p` and `top_k` when they are set, puts the expected JSON Schema and our instructions in the system message and only the untrusted data (the reader's text or the catalog records) in the user message, and wraps array-shaped results in a `{"result": ...}` object because JSON mode needs an object at the root. The reply is parsed and validated by the same code as for Gemini. Schemas are written once as standard JSON Schema, and the Gemini client converts them to Gemini's dialect.
+
+### Generation settings: temperature, top-k, top-p, seed and reasoning
+
+Both providers take the same five values from the `Ai` configuration section (env vars `Ai__Temperature`, `Ai__TopK`, `Ai__TopP`, `Ai__Seed` and `Ai__ReasoningEffort`, or `AI_TEMPERATURE`, `AI_TOP_K`, `AI_TOP_P`, `AI_SEED` and `AI_REASONING_EFFORT` for Docker Compose):
+
+| Setting | Range | Not set | Gemini field | OpenAI-compatible field |
+|---|---|---|---|---|
+| `Ai:Temperature` | 0 to 2 | 0 | `generationConfig.temperature` | `temperature` |
+| `Ai:TopK` | 1 or more | not sent, the provider's default applies | `generationConfig.topK` | `top_k` |
+| `Ai:TopP` | above 0, at most 1 | not sent, the provider's default applies | `generationConfig.topP` | `top_p` |
+| `Ai:Seed` | any integer | not sent | `generationConfig.seed` | `seed` |
+| `Ai:ReasoningEffort` | a short word such as `minimal`, `low`, `medium` or `high` | not sent, the model's default applies | `generationConfig.thinkingConfig.thinkingLevel` | `reasoning_effort` |
+
+A blank value counts as not set. An out-of-range value is not sent (the temperature falls back to 0), and `/api/health/ready` reports the setting as invalid (the configuration check is `down`, so the app is `unready`). The messages name the setting and never print its value. `GET /api/health/config` shows the values that are sent. `top_k` is not part of the OpenAI chat API, and some gateways reject unknown parameters, so leave `AI_TOP_K` blank for those. Ranking never depends on these values, and every AI step still falls back to the non-AI version on any failure.
+
+The seed asks the provider to repeat its choices for the same input, as far as it supports that, and it does not guarantee identical text. The accepted reasoning words depend on the model (providers use `minimal`, `low`, `medium`, `high` and, on some models, `none` or `xhigh`), so only the shape is checked: a lowercase word of letters, digits, hyphens or underscores, starting with a letter, up to 20 characters. The value is trimmed and lowercased. A model that does not support a reasoning setting rejects it with an error, and then every search falls back to basic parsing. A third-party report said xAI's Grok models reject `reasoning_effort`. That did not hold when tried: on 2026-10-14 `api.x.ai` accepted `reasoning_effort: "low"`, `seed` and `top_p` for `grok-4.7` (HTTP 200, see `docs/call-tree-analysis.md`). It cut the hidden reasoning tokens from 467 and 1,370 to 103 and 180 in that one sample. The seed did not make the text repeat there. Whether another model or gateway accepts these values still has to be tried, so leave them blank until you have. Gemini's older `thinkingBudget` is not offered.
 
 ### Why Gemini alone is not reliable enough
 
@@ -158,7 +181,7 @@ Errors are RFC 7807 problem details: 400 for a blank query, 413 for a request bo
 | --- | --- | --- |
 | `GET /api/health` | Liveness for container and load balancer checks. No outside calls. | 200 `{ "status": "ok" }` |
 | `GET /api/health/ready` | Readiness. Validates the configuration and probes Open Library and the selected AI provider. | 200 with `ready` or `degraded`, 503 with `unready`. The body is only `{ "status": ... }`. The per-dependency breakdown shows only to a local caller when `Health:ExposeConfig` is true. |
-| `GET /api/health/config` | The effective configuration values, with masked API keys. Off (404) unless `Health:ExposeConfig` is true. | 200 with `ai`, `gemini`, `openAiCompatible` and `openLibrary` sections |
+| `GET /api/health/config` | The effective configuration values, with masked API keys. Off (404) unless `Health:ExposeConfig` is true. The `ai` section shows the provider and the generation values that are sent (temperature, top-k, top-p, seed, reasoning effort). | 200 with `ai`, `gemini`, `openAiCompatible` and `openLibrary` sections |
 
 - **Probes:** Open Library runs a one-result search. Gemini reads the configured model's metadata and OpenAI-compatible calls `GET {baseUrl}/models`, so neither spends tokens. A server without a `/models` route still counts as reachable. Each probe times out after 5 seconds.
 - **Status:** `unready` means the configuration is invalid or Open Library is down. `degraded` means the AI provider is missing a key, rate limited or down, and searches use the non-AI fallback.
@@ -227,15 +250,15 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - With no results the only message is a toast, so dismissing it leaves the page blank for that search.
 - The toasts were checked by hand in headed Chrome with stubbed responses (see `docs/ui-tests/README.md`), not with a screen reader or on a real phone. The extra bottom padding that keeps the last result clear of the toasts uses `:has()`, so a browser without it can show a toast over the last result.
 - The search limit counts by the connection's remote address, so behind a reverse proxy every reader shares it. Forwarded headers need configuring with known proxies first. The limit state lives in memory, so it is per instance and resets on restart.
-- The security headers were checked once on 2026-10-13 with headless Chrome against the Docker image (the page, a search, and the covers load with no policy violation logged). No automated browser test covers the Content-Security-Policy, and the image and Jaeger were run with the compose hardening flags by hand with `docker run`, not through `docker compose up`.
+- The security headers were checked by hand against the Docker image started with `docker compose up` (so with the compose hardening flags): on 2026-10-13 in headless Chrome and on 2026-10-14 in headed Chrome (T30 in `docs/ui-tests/README.md`). The page, a search and the covers load with no policy violation logged, and a browser refuses to show the app in a frame (`X-Frame-Options: DENY` and `frame-ancestors 'none'` are enforced). No automated browser test covers the Content-Security-Policy.
 - `AllowedHosts` is `*`, so the app answers any `Host` header. Set it to your hostnames when you deploy. The Content-Security-Policy keeps `style-src-attr 'unsafe-inline'` (the progress scenes use inline style attributes) and allows `https://*.archive.org` (cover redirects).
 - A shared Open Library request still runs to the end when every caller has cancelled. It is bounded by the 10 second timeout and the retry limit, and its result lands in the cache.
 - The image has no `HEALTHCHECK` (the base image has no `curl` or `wget`) and CI does not scan the built image for vulnerabilities.
-- The Docker image builds and serves the UI and API (checked by hand on 2026-10-10, see `docs/ui-tests/README.md`), and the CI publish job builds the image and smoke-tests it (`/api/health` and the UI root) before pushing, but no test in the repo exercises searches against the running image.
+- The Docker image builds and serves the UI and API (checked by hand on 2026-10-10, 2026-10-13 and 2026-10-14, see `docs/ui-tests/README.md`), AI mode was checked once with a real gateway (T32: `aiUsed: true`, no fallback toast), and the CI publish job builds the image and smoke-tests it (`/api/health` and the UI root) before pushing, but no test in the repo exercises searches against the running image.
 
 ## Testing
 
-- 430 .NET tests (security tests cover prompt injection, role separation, the rate limit (including path variants), the opt-in and proxy-aware config endpoint, the minimal readiness body, the 413 response, the headers (including on error responses), the response size cap, shared requests and cancellation, id validation, key masking, AI output limits and the pinned compose, Dockerfile and workflow files). `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 487 .NET tests (generation-setting tests cover the defaults, range and shape checks, both providers' request bodies, configuration binding through the real container, the readiness check and the config dump; security tests cover prompt injection, role separation, the rate limit (including path variants), the opt-in and proxy-aware config endpoint, the minimal readiness body, the 413 response, the headers (including on error responses), the response size cap, shared requests and cancellation, id validation, key masking, AI output limits and the pinned compose, Dockerfile and workflow files). `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, shared lookups for an author used by several works, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.

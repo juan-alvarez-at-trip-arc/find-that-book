@@ -10,14 +10,15 @@ namespace FindThatBook.Infrastructure.Gemini;
 /// <summary>AI client for the Gemini <c>generateContent</c> API, sending the prompt with a converted <c>responseSchema</c> and returning the JSON text from the first candidate.</summary>
 /// <param name="http">HTTP client whose base address points at the Gemini API.</param>
 /// <param name="options">Gemini settings: API key and model name.</param>
-public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> options) : IAiClient
+/// <param name="generationOptions">Temperature, top-k, top-p, seed and reasoning effort from the <c>Ai</c> configuration section. When null, the defaults apply: temperature 0 and nothing else.</param>
+public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> options, IOptions<AiGenerationOptions>? generationOptions = null) : IAiClient
 {
     /// <summary>Gets the first element of a JSON array node.</summary>
     /// <param name="node">The node to inspect, expected to be a JSON array.</param>
     /// <returns>The first element, or <c>null</c> when the node is not an array or is empty.</returns>
     private static JsonNode? First(JsonNode? node) => node is JsonArray { Count: > 0 } array ? array[0] : null;
 
-    /// <summary>Calls Gemini with JSON response mode and the schema converted to Gemini's dialect, at temperature 0. The instructions go in <c>systemInstruction</c> and the data in the user content.</summary>
+    /// <summary>Calls Gemini with JSON response mode and the schema converted to Gemini's dialect, using the configured temperature and, when set, top-k, top-p, seed and reasoning effort (sent as <c>thinkingConfig.thinkingLevel</c>). The instructions go in <c>systemInstruction</c> and the data in the user content.</summary>
     /// <param name="prompt">The instructions and the untrusted data to send.</param>
     /// <param name="schema">The expected output shape as standard JSON Schema.</param>
     /// <param name="ct">Token used to cancel the request.</param>
@@ -29,6 +30,18 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
         if (string.IsNullOrWhiteSpace(settings.ApiKey))
             throw new AiUnavailableException("Gemini API key is not configured.");
 
+        var gen = generationOptions?.Value ?? new AiGenerationOptions();
+        var generation = new JsonObject
+        {
+            ["responseMimeType"] = "application/json",
+            ["responseSchema"] = GeminiSchema.FromJsonSchema(schema),
+            ["temperature"] = gen.EffectiveTemperature,
+        };
+        if (gen.EffectiveTopK is { } topK) generation["topK"] = topK;
+        if (gen.EffectiveTopP is { } topP) generation["topP"] = topP;
+        if (gen.EffectiveSeed is { } seed) generation["seed"] = seed;
+        if (gen.EffectiveReasoningEffort is { } effort) generation["thinkingConfig"] = new JsonObject { ["thinkingLevel"] = effort };
+
         var body = new JsonObject
         {
             ["systemInstruction"] = new JsonObject
@@ -39,12 +52,7 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
             {
                 ["parts"] = new JsonArray(new JsonObject { ["text"] = prompt.Data }),
             }),
-            ["generationConfig"] = new JsonObject
-            {
-                ["responseMimeType"] = "application/json",
-                ["responseSchema"] = GeminiSchema.FromJsonSchema(schema),
-                ["temperature"] = 0,
-            },
+            ["generationConfig"] = generation,
         };
 
         var model = string.IsNullOrWhiteSpace(settings.Model) ? GeminiOptions.DefaultModel : settings.Model.Trim();
