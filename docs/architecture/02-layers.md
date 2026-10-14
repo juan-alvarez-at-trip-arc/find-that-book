@@ -29,6 +29,7 @@ flowchart TB
         IAiClient{{IAiClient}}
         GeminiClient
         OpenAiCompatibleClient
+        GenOptions["AiGenerationOptions<br/>(Ai section: temperature, top-k,<br/>top-p, seed, reasoning effort)"]
         Health["Health probes and report"]
         HttpLog["HttpLoggingHandler, SensitiveDataMasker"]
         DI["ServiceCollectionExtensions"]
@@ -63,5 +64,8 @@ flowchart TB
     AiExplanationWriter --> IAiClient
     GeminiClient -.implements.-> IAiClient
     OpenAiCompatibleClient -.implements.-> IAiClient
+    GeminiClient --> GenOptions
+    OpenAiCompatibleClient --> GenOptions
+    Health --> GenOptions
     OpenLibraryCatalog --> OpenLibraryGate
 ```

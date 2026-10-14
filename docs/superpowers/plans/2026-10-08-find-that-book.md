@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. Task 24 (security fixes) brought the .NET count to 430 (88 frontend tests).
+**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. Task 24 (security fixes) brought the .NET count to 430 and Task 25 (AI generation settings) to 487 (88 frontend tests).
 
 ## Global Constraints
 
@@ -312,11 +312,39 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 
 **Not verified:** the Dockerfile and CI changes were not run in Docker or CI (the equivalent local `npm ci --ignore-scripts` build and 88 frontend tests passed), `docker compose up` was not run with the pinned Jaeger digest, and the 413 response headers have no automated test (the test server does not enforce the Kestrel body limit).
 
+### Task 25: AI generation settings from configuration
+
+- [x] Not committed when this entry was written. Every behavior has a test that failed first (the tests did not compile until `AiGenerationOptions` existed). Decision in `docs/decisions.md`.
+
+**Files:** new `Infrastructure/Ai/AiGenerationOptions.cs` and `tests/.../AiGenerationTests.cs`. Changed `GeminiClient`, `OpenAiCompatibleClient`, `ServiceCollectionExtensions`, `HealthConfigCheck`, `HealthReportService`, `ConfigDump` (`AiConfig` gained `Temperature`, `TopK`, `TopP`, `Seed`, `ReasoningEffort`), `HealthController`, `appsettings.json`, `docker-compose.yml` and `.env.sample`. The type was first named `AiSamplingOptions` and was renamed when the seed and the reasoning effort were added.
+
+**Behavior:**
+- `Ai:Temperature` (0 to 2, default 0), `Ai:TopK` (1 or more), `Ai:TopP` (above 0, at most 1), `Ai:Seed` (any integer) and `Ai:ReasoningEffort` (a short lowercase word) are bound to `AiGenerationOptions` and shared by both clients. Compose maps `AI_TEMPERATURE`, `AI_TOP_K`, `AI_TOP_P`, `AI_SEED` and `AI_REASONING_EFFORT`, blank by default.
+- Gemini gets `generationConfig.temperature`, `topK`, `topP`, `seed` and `thinkingConfig.thinkingLevel`. OpenAI-compatible gets `temperature`, `top_p`, `top_k`, `seed` and `reasoning_effort`. Everything except the temperature is sent only when set, because some gateways reject unknown parameters. With nothing configured the requests are the same as before.
+- The reasoning effort is trimmed and lowercased, and only its shape is checked (letters, digits, hyphens or underscores, starting with a letter, up to 20 characters), because the accepted words depend on the model.
+- A blank value is not set. An invalid value is not sent (the temperature falls back to 0), the readiness config check reports it as an error that names the setting without its value, and the config dump shows the values that are sent.
+
+**Tests:** 57 new (487 total): defaults, ranges and shapes, both clients' request bodies with set, default and invalid values, binding from configuration, blank values, the registered client sending the configured values through the real container for both providers, the readiness check, the config dump, and the compose and `.env.sample` mappings.
+
+**Verified later (2026-10-14):** a real search through `docker compose` with temperature 0, top-p 0.95, seed 93756 and reasoning effort `low` against `api.x.ai` (`grok-4.7`). All four AI requests carried the fields and were answered with HTTP 200, so the third-party report that Grok rejects `reasoning_effort` did not hold. Reasoning tokens fell from 467 and 1,370 to 103 and 180, and a repeat search showed that the seed does not make the text repeat (see `docs/call-tree-analysis.md`).
+
+**Not verified:** a real call to Gemini or to another OpenAI-compatible gateway with these values set, and `top_k` on any provider (it was blank in the real run). The Gemini field names (`seed`, `thinkingConfig.thinkingLevel`) come from Google's documentation search results and the reference page was not read in full.
+
+### Task 26: By-hand verification after Tasks 24 and 25
+
+- [x] Not committed when this entry was written. No code changed in this task. The results are in `docs/call-tree-analysis.md` and `docs/ui-tests/README.md`.
+
+**Traced searches (`docker compose`, headed Chrome, 2026-10-14):** two earlier searches for "cien anios de soledad" (one fell back after the 30 s AI timeout and found nothing, the other answered in 23 s) and then two with the generation settings set (7.6 s and 8.1 s). `api.x.ai` accepted `reasoning_effort`, `seed` and `top_p`, the reasoning tokens fell by 78% and 87%, and the seed did not make the explanation text repeat. A repeated search made no Open Library call, because the lookups come from the one-hour cache.
+
+**By-hand UI run (twelfth, T1 to T32):** all scenarios pass and 13 screenshots are current. New in it: AI mode with a real gateway (T32), and the finding that a browser refuses to frame the app, so the width scenarios ran against the same build served from another port.
+
+**Documentation corrected:** the claim that Grok models reject `reasoning_effort` (README, decisions, `.env.sample`, Task 25) was replaced by what the real run showed. The README, `CLAUDE.md`, the architecture diagrams, the UI spec and the decision record carry the new settings, dates and test counts.
+
 ---
 
 ## Not done or deferred
 
 - A hosted live demo (needs a hosting account).
-- An automated test that builds and runs the Docker image (the image was built and run by hand on 2026-10-10 and 2026-10-13, and the CI publish job smoke-tests it).
+- An automated test that builds and runs the Docker image (the image was built and run by hand on 2026-10-10, 2026-10-13 and 2026-10-14, and the CI publish job smoke-tests it).
 - Ideas tried and set aside: a time budget per Open Library lookup phase (fail faster). The Retry button was set aside earlier and built in Task 20.
 - Open items are listed in the spec under "Known limitations" and "Future improvements".
