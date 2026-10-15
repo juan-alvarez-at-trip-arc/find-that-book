@@ -1,3 +1,4 @@
+using FindThatBook.Infrastructure.Ai;
 using System.Net;
 using FindThatBook.Infrastructure.Gemini;
 using FindThatBook.Infrastructure.Health;
@@ -121,7 +122,7 @@ public class HealthProbeTests
     {
         HttpRequestMessage? seen = null;
         var handler = new StubHandler(r => { seen = r; return StubHandler.Json("{}"); });
-        var probe = new GeminiProbe(Factory(handler), Options.Create(new GeminiOptions { ApiKey = "k", Model = "gemini-x" }));
+        var probe = new GeminiProbe(Factory(handler), Options.Create(new GeminiOptions { ApiKey = "k" }), Options.Create(new AiGenerationOptions { Model = "gemini-x" }));
 
         var result = await probe.CheckAsync(CancellationToken.None);
 
@@ -135,7 +136,7 @@ public class HealthProbeTests
     public async Task Gemini_with_a_blank_model_checks_the_default_model()
     {
         var handler = new StubHandler(_ => StubHandler.Json("{}"));
-        var probe = new GeminiProbe(Factory(handler), Options.Create(new GeminiOptions { ApiKey = "k", Model = "" }));
+        var probe = new GeminiProbe(Factory(handler), Options.Create(new GeminiOptions { ApiKey = "k" }), Options.Create(new AiGenerationOptions { Model = "" }));
 
         await probe.CheckAsync(CancellationToken.None);
 

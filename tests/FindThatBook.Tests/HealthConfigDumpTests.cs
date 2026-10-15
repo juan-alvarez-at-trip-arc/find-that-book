@@ -1,3 +1,4 @@
+using FindThatBook.Infrastructure.Ai;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -20,8 +21,9 @@ public class HealthConfigDumpTests
         string provider = "Gemini",
         GeminiOptions? gemini = null,
         OpenAiCompatibleOptions? openAi = null,
-        OpenLibraryOptions? openLibrary = null)
-        => ConfigDump.Build(new AiProviderSelection(provider), gemini ?? new GeminiOptions(), openAi ?? new OpenAiCompatibleOptions(), openLibrary ?? new OpenLibraryOptions());
+        OpenLibraryOptions? openLibrary = null,
+        AiGenerationOptions? generation = null)
+        => ConfigDump.Build(new AiProviderSelection(provider), gemini ?? new GeminiOptions(), openAi ?? new OpenAiCompatibleOptions(), openLibrary ?? new OpenLibraryOptions(), generation);
 
     [Fact]
     public void A_long_key_keeps_only_its_last_four_characters()
@@ -70,17 +72,30 @@ public class HealthConfigDumpTests
     public void Surrounding_whitespace_is_ignored_when_masking()
         => Assert.Equal("************wxyz", Build(gemini: new GeminiOptions { ApiKey = "  abcdefghijklwxyz " }).Gemini.ApiKey);
 
-    [Fact]
-    public void Blank_models_and_urls_show_the_effective_defaults()
-    {
-        var dump = Build(
-            gemini: new GeminiOptions { Model = "" },
-            openAi: new OpenAiCompatibleOptions { Model = " ", BaseUrl = "" });
 
-        Assert.Equal(GeminiOptions.DefaultModel, dump.Gemini.Model);
-        Assert.Equal(OpenAiCompatibleOptions.DefaultModel, dump.OpenAiCompatible.Model);
+    [Fact]
+    public void A_blank_url_shows_the_effective_default()
+    {
+        var dump = Build(openAi: new OpenAiCompatibleOptions { BaseUrl = "" });
+
         Assert.Equal(OpenAiCompatibleOptions.DefaultBaseUrl, dump.OpenAiCompatible.BaseUrl);
     }
+
+    [Theory]
+    [InlineData("Gemini", "", GeminiOptions.DefaultModel)]
+    [InlineData("OpenAiCompatible", " ", OpenAiCompatibleOptions.DefaultModel)]
+    [InlineData("Gemini", "my-model", "my-model")]
+    [InlineData("OpenAiCompatible", " my-model ", "my-model")]
+    public void The_model_shown_is_the_one_in_use_for_the_selected_provider(string provider, string configured, string expected)
+    {
+        var dump = Build(provider: provider, generation: new AiGenerationOptions { Model = configured });
+
+        Assert.Equal(expected, dump.Ai.Model);
+    }
+
+    [Fact]
+    public void No_generation_settings_show_the_default_model_of_the_provider()
+        => Assert.Equal(OpenAiCompatibleOptions.DefaultModel, Build(provider: "OpenAiCompatible").Ai.Model);
 
     [Fact]
     public void Credentials_embedded_in_a_url_are_removed()
@@ -127,11 +142,11 @@ public class HealthConfigDumpTests
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
-            b.UseSetting("Health:ExposeConfig", "true");
+            b.UseSetting("Api:Health:ExposeConfig", "true");
             b.UseSetting("Ai:Provider", "OpenAiCompatible");
-            b.UseSetting("Gemini:ApiKey", "gem-secret-key-123");
-            b.UseSetting("OpenAiCompatible:ApiKey", "oai-secret-key-456");
-            b.UseSetting("OpenAiCompatible:BaseUrl", "http://rpi-llm.local:3001/v1/");
+            b.UseSetting("Ai:Gemini:ApiKey", "gem-secret-key-123");
+            b.UseSetting("Ai:OpenAiCompatible:ApiKey", "oai-secret-key-456");
+            b.UseSetting("Ai:OpenAiCompatible:BaseUrl", "http://rpi-llm.local:3001/v1/");
             b.UseSetting("OpenLibrary:MaxDetailLookups", "3");
             b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter("127.0.0.1", "10.0.0.5")));
         });
@@ -155,7 +170,7 @@ public class HealthConfigDumpTests
         => new WebApplicationFactory<Program>()
             .WithWebHostBuilder(b =>
             {
-                if (expose) b.UseSetting("Health:ExposeConfig", "true");
+                if (expose) b.UseSetting("Api:Health:ExposeConfig", "true");
                 b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter(remote, local)));
             })
             .CreateClient();
@@ -178,7 +193,7 @@ public class HealthConfigDumpTests
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
-            b.UseSetting("Health:ExposeConfig", value);
+            b.UseSetting("Api:Health:ExposeConfig", value);
             b.ConfigureTestServices(s => s.AddSingleton<IStartupFilter>(new RemoteIpFilter("127.0.0.1", "10.0.0.5")));
         });
 

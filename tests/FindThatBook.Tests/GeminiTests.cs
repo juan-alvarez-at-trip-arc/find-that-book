@@ -18,7 +18,7 @@ public class GeminiTests
 
     private static GeminiClient Client(StubHandler handler, string? key = "test-key", string? model = null)
         => new(new HttpClient(handler) { BaseAddress = new Uri("https://generativelanguage.googleapis.com/") },
-               Options.Create(model is null ? new GeminiOptions { ApiKey = key } : new GeminiOptions { ApiKey = key, Model = model }));
+               Options.Create(new GeminiOptions { ApiKey = key }), Options.Create(new AiGenerationOptions { Model = model }));
 
     private static readonly JsonNode Schema = JsonNode.Parse("""{"type":"OBJECT"}""")!;
 

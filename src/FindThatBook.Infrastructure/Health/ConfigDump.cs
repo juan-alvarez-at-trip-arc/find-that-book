@@ -12,19 +12,18 @@ namespace FindThatBook.Infrastructure.Health;
 /// <param name="TopP">The top-p sent, or null when none is sent.</param>
 /// <param name="Seed">The seed sent, or null when none is sent.</param>
 /// <param name="ReasoningEffort">The reasoning effort sent (trimmed, lower case), or null when none is sent.</param>
+/// <param name="Model">The model in use for the selected provider, after the blank-value fallback to that provider's default.</param>
 public sealed record AiConfig(
-    string Provider, double Temperature = AiGenerationOptions.DefaultTemperature, int? TopK = null, double? TopP = null, int? Seed = null, string? ReasoningEffort = null);
+    string Provider, double Temperature = AiGenerationOptions.DefaultTemperature, int? TopK = null, double? TopP = null, int? Seed = null, string? ReasoningEffort = null, string? Model = null);
 
 /// <summary>Gemini settings.</summary>
 /// <param name="ApiKey">The masked key, or <c>not set</c>.</param>
-/// <param name="Model">The model in use, after the blank-value fallback.</param>
-public sealed record GeminiConfig(string ApiKey, string Model);
+public sealed record GeminiConfig(string ApiKey);
 
 /// <summary>OpenAI-compatible settings.</summary>
 /// <param name="ApiKey">The masked key, or <c>not set</c>.</param>
 /// <param name="BaseUrl">The API root in use, after the blank-value fallback and without credentials.</param>
-/// <param name="Model">The model in use, after the blank-value fallback.</param>
-public sealed record OpenAiCompatibleConfig(string ApiKey, string BaseUrl, string Model);
+public sealed record OpenAiCompatibleConfig(string ApiKey, string BaseUrl);
 
 /// <summary>Open Library settings.</summary>
 /// <param name="BaseUrl">The API root, without credentials.</param>
@@ -56,11 +55,11 @@ public sealed record ConfigDump(AiConfig Ai, GeminiConfig Gemini, OpenAiCompatib
     /// <returns>A dump that never contains an API key.</returns>
     public static ConfigDump Build(AiProviderSelection provider, GeminiOptions gemini, OpenAiCompatibleOptions openAi, OpenLibraryOptions openLibrary, AiGenerationOptions? generation = null)
         => new(
-            new AiConfig(provider.Name, (generation ?? new AiGenerationOptions()).EffectiveTemperature, generation?.EffectiveTopK, generation?.EffectiveTopP, generation?.EffectiveSeed, generation?.EffectiveReasoningEffort),
-            new GeminiConfig(Mask(gemini.ApiKey), Or(gemini.Model, GeminiOptions.DefaultModel)),
-            new OpenAiCompatibleConfig(Mask(openAi.ApiKey), WithoutCredentials(Or(openAi.BaseUrl, OpenAiCompatibleOptions.DefaultBaseUrl)), Or(openAi.Model, OpenAiCompatibleOptions.DefaultModel)),
+            new AiConfig(provider.Name, (generation ?? new AiGenerationOptions()).EffectiveTemperature, generation?.EffectiveTopK, generation?.EffectiveTopP, generation?.EffectiveSeed, generation?.EffectiveReasoningEffort, (generation ?? new AiGenerationOptions()).ModelOr(provider.Name == AiProviderSelection.Gemini ? GeminiOptions.DefaultModel : OpenAiCompatibleOptions.DefaultModel)),
+            new GeminiConfig(Mask(gemini.ApiKey)),
+            new OpenAiCompatibleConfig(Mask(openAi.ApiKey), WithoutCredentials(Or(openAi.BaseUrl, OpenAiCompatibleOptions.DefaultBaseUrl))),
             new OpenLibraryConfig(
-                WithoutCredentials(openLibrary.BaseUrl), openLibrary.MaxRetries, openLibrary.RetryDelayMs, openLibrary.MaxDetailLookups,
+                WithoutCredentials(openLibrary.BaseUrl), openLibrary.Resilience.MaxRetries, openLibrary.Resilience.RetryDelayMs, openLibrary.MaxDetailLookups,
                 openLibrary.MaxAuthorsPerWork, openLibrary.MaxConcurrentRequests, openLibrary.DefaultCooldownSeconds,
                 openLibrary.Contact, openLibrary.UserAgent));
 

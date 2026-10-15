@@ -17,11 +17,11 @@ public sealed class OpenLibraryResiliencePipeline
     /// <summary>The configured pipeline. Run one attempt, with its gate and cooldown checks, inside it.</summary>
     public ResiliencePipeline Pipeline { get; }
 
-    /// <summary>Builds the pipeline from the settings: retry (only when <see cref="OpenLibraryOptions.MaxRetries"/> is above 0), then the circuit breaker, then the timeout per attempt.</summary>
+    /// <summary>Builds the pipeline from the settings: retry (only when <see cref="OpenLibraryResilienceOptions.MaxRetries"/> is above 0), then the circuit breaker, then the timeout per attempt.</summary>
     /// <param name="settings">Retry, timeout and circuit settings.</param>
     /// <param name="clock">Time source, replaceable in tests. Defaults to the system clock.</param>
     /// <returns>A pipeline whose circuit state belongs to this instance.</returns>
-    public static OpenLibraryResiliencePipeline Create(OpenLibraryOptions settings, TimeProvider? clock = null)
+    public static OpenLibraryResiliencePipeline Create(OpenLibraryResilienceOptions settings, TimeProvider? clock = null)
     {
         var builder = new ResiliencePipelineBuilder { TimeProvider = clock ?? TimeProvider.System };
         var transient = new PredicateBuilder().Handle<Exception>(IsTransient);

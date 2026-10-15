@@ -60,7 +60,7 @@ public class HealthReportTests
         var config = HealthConfigCheck.Validate(new AiProviderSelection("Gemini"), new GeminiOptions(), new OpenAiCompatibleOptions(), new OpenLibraryOptions());
 
         Assert.Equal(HealthStatus.Degraded, config.Status);
-        Assert.Contains("Gemini:ApiKey", Assert.Single(config.Issues));
+        Assert.Contains("Ai:Gemini:ApiKey", Assert.Single(config.Issues));
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class HealthReportTests
         var config = HealthConfigCheck.Validate(new AiProviderSelection("OpenAiCompatible"), new GeminiOptions(), new OpenAiCompatibleOptions { BaseUrl = "nope" }, new OpenLibraryOptions());
 
         Assert.Equal(HealthStatus.Down, config.Status);
-        Assert.Contains("OpenAiCompatible:BaseUrl", Assert.Single(config.Issues));
+        Assert.Contains("Ai:OpenAiCompatible:BaseUrl", Assert.Single(config.Issues));
     }
 
     [Fact]
@@ -216,8 +216,8 @@ public class HealthReportTests
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
-            builder.UseSetting("Gemini:ApiKey", "k");
-            if (diagnostics) builder.UseSetting("Health:ExposeConfig", "true");
+            builder.UseSetting("Ai:Gemini:ApiKey", "k");
+            if (diagnostics) builder.UseSetting("Api:Health:ExposeConfig", "true");
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IHealthProbe>();
@@ -264,7 +264,7 @@ public class HealthReportTests
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
-            builder.UseSetting("Gemini:ApiKey", "k");
+            builder.UseSetting("Ai:Gemini:ApiKey", "k");
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IHealthProbe>();
@@ -287,7 +287,7 @@ public class HealthReportTests
         var config = HealthConfigCheck.Validate(new AiProviderSelection("OpenAiCompatible"), new GeminiOptions(), new OpenAiCompatibleOptions { ApiKey = "k", BaseUrl = baseUrl }, new OpenLibraryOptions());
 
         Assert.Equal(HealthStatus.Degraded, config.Status);
-        Assert.Contains("OpenAiCompatible:BaseUrl", Assert.Single(config.Issues));
+        Assert.Contains("Ai:OpenAiCompatible:BaseUrl", Assert.Single(config.Issues));
         Assert.DoesNotContain(baseUrl, string.Join(' ', config.Issues));
     }
 

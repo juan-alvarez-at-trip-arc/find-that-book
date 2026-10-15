@@ -18,7 +18,7 @@ public class TelemetryWiringTests
     private static WebApplicationFactory<Program> Factory(params (string Key, string Value)[] settings)
         => new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
-            builder.UseSetting("Gemini:ApiKey", "");
+            builder.UseSetting("Ai:Gemini:ApiKey", "");
             foreach (var (key, value) in settings) builder.UseSetting(key, value);
             builder.ConfigureTestServices(services =>
             {
@@ -40,7 +40,7 @@ public class TelemetryWiringTests
     [Fact]
     public void Telemetry_turns_on_with_the_flag_or_an_otlp_endpoint()
     {
-        Assert.True(TelemetryExtensions.IsTelemetryEnabled(Config(("Telemetry:Enabled", "true"))));
+        Assert.True(TelemetryExtensions.IsTelemetryEnabled(Config(("Api:Telemetry:Enabled", "true"))));
         Assert.True(TelemetryExtensions.IsTelemetryEnabled(Config(("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"))));
     }
 
@@ -55,7 +55,7 @@ public class TelemetryWiringTests
     [Fact]
     public async Task With_telemetry_on_the_app_serves_searches_and_registers_body_logging()
     {
-        using var factory = Factory(("Telemetry:Enabled", "true"), ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1"));
+        using var factory = Factory(("Api:Telemetry:Enabled", "true"), ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1"));
         var client = factory.CreateClient();
 
         var response = await client.PostAsJsonAsync("/api/search", new { query = "tolkien hobbit" });
@@ -67,7 +67,7 @@ public class TelemetryWiringTests
     [Fact]
     public void Body_logging_can_be_switched_off_while_telemetry_is_on()
     {
-        using var factory = Factory(("Telemetry:Enabled", "true"), ("Telemetry:LogHttpBodies", "false"), ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1"));
+        using var factory = Factory(("Api:Telemetry:Enabled", "true"), ("Api:Telemetry:LogHttpBodies", "false"), ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://127.0.0.1:1"));
 
         Assert.Null(factory.Services.GetService<HttpLoggingHandler>());
     }

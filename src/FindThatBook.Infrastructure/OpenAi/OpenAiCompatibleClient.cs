@@ -39,7 +39,7 @@ public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompa
 
         var body = new JsonObject
         {
-            ["model"] = string.IsNullOrWhiteSpace(settings.Model) ? OpenAiCompatibleOptions.DefaultModel : settings.Model.Trim(),
+            ["model"] = gen.ModelOr(OpenAiCompatibleOptions.DefaultModel),
             ["messages"] = new JsonArray(
                 new JsonObject
                 {

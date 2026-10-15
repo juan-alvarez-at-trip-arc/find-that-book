@@ -24,10 +24,7 @@ public class OpenLibraryResilienceTests
 
     private static OpenLibraryOptions Settings(int retries = 0) => new()
     {
-        RetryDelayMs = 0,
-        MaxRetries = retries,
-        CircuitBreakerMinimumThroughput = 2,
-        CircuitBreakerBreakSeconds = 20,
+        Resilience = { RetryDelayMs = 0, MaxRetries = retries, CircuitBreakerMinimumThroughput = 2, CircuitBreakerBreakSeconds = 20 },
     };
 
     private static OpenLibraryCatalog Catalog(HttpMessageHandler handler, OpenLibraryOptions settings, TimeProvider clock)
@@ -37,7 +34,7 @@ public class OpenLibraryResilienceTests
             NullLogger<OpenLibraryCatalog>.Instance,
             Options.Create(settings),
             new OpenLibraryGate(settings.MaxConcurrentRequests, clock),
-            OpenLibraryResiliencePipeline.Create(settings, clock));
+            OpenLibraryResiliencePipeline.Create(settings.Resilience, clock));
 
     private static HttpResponseMessage Ok(HttpRequestMessage req)
         => req.RequestUri!.AbsolutePath == "/search.json" ? StubHandler.Json(HobbitSearch) : StubHandler.Json("""{"authors":[]}""");
@@ -109,8 +106,8 @@ public class OpenLibraryResilienceTests
     {
         var clock = TimeProvider.System;
         var settings = Settings(retries: 1);
-        settings.AttemptTimeoutMs = 50;
-        settings.CircuitBreakerMinimumThroughput = 100;
+        settings.Resilience.AttemptTimeoutMs = 50;
+        settings.Resilience.CircuitBreakerMinimumThroughput = 100;
         var handler = new HangingHandler();
         var catalog = Catalog(handler, settings, clock);
 
@@ -125,7 +122,7 @@ public class OpenLibraryResilienceTests
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["OpenLibrary:MaxRetries"] = "0", ["OpenLibrary:RetryDelayMs"] = "0", ["OpenLibrary:CircuitBreakerMinimumThroughput"] = "2",
+            ["OpenLibrary:Resilience:MaxRetries"] = "0", ["OpenLibrary:Resilience:RetryDelayMs"] = "0", ["OpenLibrary:Resilience:CircuitBreakerMinimumThroughput"] = "2",
         }).Build();
         var services = new ServiceCollection();
         services.AddLogging();
@@ -145,19 +142,19 @@ public class OpenLibraryResilienceTests
         => catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default);
 
     [Theory]
-    [InlineData("AttemptTimeoutMs", "OPENLIBRARY_ATTEMPT_TIMEOUT_MS", "10000")]
-    [InlineData("CircuitBreakerFailureRatio", "OPENLIBRARY_CIRCUIT_FAILURE_RATIO", "0.5")]
-    [InlineData("CircuitBreakerMinimumThroughput", "OPENLIBRARY_CIRCUIT_MINIMUM_THROUGHPUT", "6")]
-    [InlineData("CircuitBreakerSamplingSeconds", "OPENLIBRARY_CIRCUIT_SAMPLING_SECONDS", "30")]
-    [InlineData("CircuitBreakerBreakSeconds", "OPENLIBRARY_CIRCUIT_BREAK_SECONDS", "20")]
+    [InlineData("AttemptTimeoutMs", "OPEN_LIBRARY_RESILIENCE_ATTEMPT_TIMEOUT_MS", "10000")]
+    [InlineData("CircuitBreakerFailureRatio", "OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_FAILURE_RATIO", "0.5")]
+    [InlineData("CircuitBreakerMinimumThroughput", "OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_MINIMUM_THROUGHPUT", "6")]
+    [InlineData("CircuitBreakerSamplingSeconds", "OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_SAMPLING_SECONDS", "30")]
+    [InlineData("CircuitBreakerBreakSeconds", "OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_BREAK_SECONDS", "20")]
     public void Compose_and_the_env_sample_map_each_open_library_resilience_setting_with_its_default(string setting, string variable, string expectedDefault)
     {
         var compose = RepoFiles.Text("docker-compose.yml");
         var sample = RepoFiles.Text(".env.sample");
 
-        Assert.Contains($"OpenLibrary__{setting}: ${{{variable}:-{expectedDefault}}}", compose);
+        Assert.Contains($"OpenLibrary__Resilience__{setting}: ${{{variable}:-{expectedDefault}}}", compose);
         Assert.Contains(variable + "=", sample);
-        Assert.Equal(expectedDefault, Convert.ToString(typeof(OpenLibraryOptions).GetProperty(setting)!.GetValue(new OpenLibraryOptions()), System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal(expectedDefault, Convert.ToString(typeof(OpenLibraryResilienceOptions).GetProperty(setting)!.GetValue(new OpenLibraryResilienceOptions()), System.Globalization.CultureInfo.InvariantCulture));
     }
 
     private sealed class HangingHandler : HttpMessageHandler

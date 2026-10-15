@@ -18,7 +18,7 @@ public class OpenLibraryLoadTests
     private static OpenLibraryCatalog Catalog(HttpMessageHandler handler, OpenLibraryOptions? options = null, OpenLibraryGate? gate = null, IMemoryCache? cache = null)
     {
         options ??= new OpenLibraryOptions();
-        options.RetryDelayMs = 0;
+        options.Resilience.RetryDelayMs = 0;
         return new OpenLibraryCatalog(
             new HttpClient(handler) { BaseAddress = new Uri("https://openlibrary.org/") },
             cache ?? new MemoryCache(new MemoryCacheOptions()),

@@ -38,7 +38,7 @@ public sealed class OpenLibraryCatalog(
     private const int MinFieldedHits = 3;
     private const int EnrichmentConcurrency = 4;
     private readonly OpenLibraryGate _limiter = limiter ?? new OpenLibraryGate(options.Value.MaxConcurrentRequests);
-    private readonly OpenLibraryResiliencePipeline _resilience = resilience ?? OpenLibraryResiliencePipeline.Create(options.Value);
+    private readonly OpenLibraryResiliencePipeline _resilience = resilience ?? OpenLibraryResiliencePipeline.Create(options.Value.Resilience);
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
     private readonly ConcurrentDictionary<string, Lazy<Task<JsonNode?>>> _inFlight = new();
     private static readonly Regex WorkKey = new(@"^/works/(OL\d+W)$", RegexOptions.Compiled);

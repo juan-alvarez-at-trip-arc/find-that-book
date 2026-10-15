@@ -33,26 +33,20 @@ public static class HealthConfigCheck
         RequirePositive(errors, "OpenLibrary:MaxAuthorsPerWork", openLibrary.MaxAuthorsPerWork);
         RequirePositive(errors, "OpenLibrary:MaxConcurrentRequests", openLibrary.MaxConcurrentRequests);
         RequirePositive(errors, "OpenLibrary:DefaultCooldownSeconds", openLibrary.DefaultCooldownSeconds);
-        RequirePositive(errors, "OpenLibrary:AttemptTimeoutMs", openLibrary.AttemptTimeoutMs);
-        RequirePositive(errors, "OpenLibrary:CircuitBreakerSamplingSeconds", openLibrary.CircuitBreakerSamplingSeconds);
-        RequirePositive(errors, "OpenLibrary:CircuitBreakerBreakSeconds", openLibrary.CircuitBreakerBreakSeconds);
-        if (openLibrary.CircuitBreakerFailureRatio is <= 0 or > 1)
-            errors.Add("OpenLibrary:CircuitBreakerFailureRatio must be above 0 and at most 1.");
-        if (openLibrary.CircuitBreakerMinimumThroughput < 2)
-            errors.Add("OpenLibrary:CircuitBreakerMinimumThroughput must be at least 2.");
+        errors.AddRange(openLibrary.Resilience.Problems());
 
         if (provider.Name == AiProviderSelection.Gemini)
         {
             if (string.IsNullOrWhiteSpace(gemini.ApiKey))
-                warnings.Add("Gemini:ApiKey is not set; the app uses the non-AI fallback.");
+                warnings.Add("Ai:Gemini:ApiKey is not set; the app uses the non-AI fallback.");
         }
         else if (!string.IsNullOrWhiteSpace(openAi.BaseUrl) && !IsHttpUrl(openAi.BaseUrl))
         {
-            errors.Add("OpenAiCompatible:BaseUrl must be an absolute http or https URL.");
+            errors.Add("Ai:OpenAiCompatible:BaseUrl must be an absolute http or https URL.");
         }
         else if (!string.IsNullOrWhiteSpace(openAi.ApiKey) && SendsKeyInClear(openAi.BaseUrl))
         {
-            warnings.Add("OpenAiCompatible:BaseUrl uses http to a non-loopback host, so the API key is sent unencrypted.");
+            warnings.Add("Ai:OpenAiCompatible:BaseUrl uses http to a non-loopback host, so the API key is sent unencrypted.");
         }
 
         var status = errors.Count > 0 ? HealthStatus.Down : warnings.Count > 0 ? HealthStatus.Degraded : HealthStatus.Ok;

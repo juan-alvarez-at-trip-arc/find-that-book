@@ -26,6 +26,14 @@ public sealed partial class AiGenerationOptions
     /// <summary>The configured reasoning effort: a short word such as <c>minimal</c>, <c>low</c>, <c>medium</c> or <c>high</c>. The accepted words depend on the provider and the model, so only the shape is checked here (<see cref="Problems"/>). It is sent to an OpenAI-compatible gateway as <c>reasoning_effort</c> and to Gemini as <c>thinkingConfig.thinkingLevel</c>. A blank value counts as not set. A model that does not support reasoning settings may reject it, so leave it unset for those.</summary>
     public string? ReasoningEffort { get; set; }
 
+    /// <summary>The model name, for whichever provider is selected. A blank value counts as not set and the provider's own default applies (see <see cref="ModelOr"/>).</summary>
+    public string? Model { get; set; }
+
+    /// <summary>The model to use: the configured one, trimmed, or the default of the selected provider when it is blank.</summary>
+    /// <param name="providerDefault">The default model of the selected provider.</param>
+    /// <returns>The model name to send.</returns>
+    public string ModelOr(string providerDefault) => string.IsNullOrWhiteSpace(Model) ? providerDefault : Model.Trim();
+
     /// <summary>The temperature to send: the configured one when it is from 0 to 2, otherwise <see cref="DefaultTemperature"/>.</summary>
     public double EffectiveTemperature => Temperature is { } t && t >= 0 && t <= MaxTemperature ? t : DefaultTemperature;
 

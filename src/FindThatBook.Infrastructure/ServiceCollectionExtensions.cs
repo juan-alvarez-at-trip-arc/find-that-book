@@ -35,7 +35,7 @@ public static class ServiceCollectionExtensions
     {
         services.ConfigureHttpClientDefaults(builder => builder.ConfigureHttpClient(client => client.MaxResponseContentBufferSize = MaxResponseBytes));
         services.Configure<AiGenerationOptions>(config.GetSection("Ai"));
-        services.Configure<GeminiOptions>(config.GetSection("Gemini"));
+        services.Configure<GeminiOptions>(config.GetSection("Ai:Gemini"));
         services.Configure<OpenLibraryOptions>(config.GetSection("OpenLibrary"));
         services.Configure<AiResilienceOptions>(config.GetSection("Ai:Resilience"));
         services.AddSingleton(sp => AiResiliencePipeline.Create(sp.GetRequiredService<IOptions<AiResilienceOptions>>().Value));
@@ -47,9 +47,9 @@ public static class ServiceCollectionExtensions
             client.DefaultRequestHeaders.UserAgent.ParseAdd(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.UserAgent);
         });
         services.AddSingleton(sp => new OpenLibraryGate(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.MaxConcurrentRequests));
-        services.AddSingleton(sp => OpenLibraryResiliencePipeline.Create(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value));
+        services.AddSingleton(sp => OpenLibraryResiliencePipeline.Create(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.Resilience));
 
-        services.Configure<OpenAiCompatibleOptions>(config.GetSection("OpenAiCompatible"));
+        services.Configure<OpenAiCompatibleOptions>(config.GetSection("Ai:OpenAiCompatible"));
 
         var provider = (config["Ai:Provider"] ?? "").Trim();
         if (provider.Length == 0 || provider.Equals("Gemini", StringComparison.OrdinalIgnoreCase))

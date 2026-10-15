@@ -18,12 +18,12 @@ public static class RateLimitingExtensions
 
     /// <summary>Limits <c>/api/search</c> per client address and by the number of searches running at once. Other paths are not limited. A limited request gets a 429 problem details response with a <c>Retry-After</c> header.</summary>
     /// <param name="services">The service collection to add registrations to.</param>
-    /// <param name="config">Application configuration. <c>RateLimit:SearchPermitsPerMinute</c> and <c>RateLimit:MaxConcurrentSearches</c> override the defaults, and values below 1 use the defaults.</param>
+    /// <param name="config">Application configuration. <c>Api:RateLimit:SearchPermitsPerMinute</c> and <c>Api:RateLimit:MaxConcurrentSearches</c> override the defaults, and values below 1 use the defaults.</param>
     /// <returns>The same <paramref name="services"/> instance, for chaining.</returns>
     public static IServiceCollection AddFindThatBookRateLimiting(this IServiceCollection services, IConfiguration config)
     {
-        var perMinute = Positive(config.GetValue("RateLimit:SearchPermitsPerMinute", DefaultSearchPermitsPerMinute), DefaultSearchPermitsPerMinute);
-        var concurrent = Positive(config.GetValue("RateLimit:MaxConcurrentSearches", DefaultMaxConcurrentSearches), DefaultMaxConcurrentSearches);
+        var perMinute = Positive(config.GetValue("Api:RateLimit:SearchPermitsPerMinute", DefaultSearchPermitsPerMinute), DefaultSearchPermitsPerMinute);
+        var concurrent = Positive(config.GetValue("Api:RateLimit:MaxConcurrentSearches", DefaultMaxConcurrentSearches), DefaultMaxConcurrentSearches);
 
         services.AddRateLimiter(options =>
         {

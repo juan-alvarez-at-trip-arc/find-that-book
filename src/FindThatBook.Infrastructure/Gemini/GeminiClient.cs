@@ -56,7 +56,7 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
             ["generationConfig"] = generation,
         };
 
-        var model = string.IsNullOrWhiteSpace(settings.Model) ? GeminiOptions.DefaultModel : settings.Model.Trim();
+        var model = gen.ModelOr(GeminiOptions.DefaultModel);
         HttpRequestMessage NewRequest()
         {
             var request = new HttpRequestMessage(HttpMethod.Post, $"v1beta/models/{model}:generateContent")

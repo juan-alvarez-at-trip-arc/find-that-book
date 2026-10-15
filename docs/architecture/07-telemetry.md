@@ -1,6 +1,6 @@
 # Telemetry
 
-Off unless `Telemetry:Enabled` is true or `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
+Off unless `Api:Telemetry:Enabled` is true or `OTEL_EXPORTER_OTLP_ENDPOINT` is set.
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ flowchart LR
     FT -- "source and meter" --> OTel
     HL --> M
     HL -- "ILogger entries" --> OTel
-    TE -- "Telemetry:LogHttpBodies" --> HL
+    TE -- "Api:Telemetry:LogHttpBodies" --> HL
     OTel -- "OTLP" --> col[(OTLP collector)]
     HL -. "every HttpClient" .-> ext[(Open Library, AI provider)]
 ```

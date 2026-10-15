@@ -40,7 +40,7 @@ public class SecurityHeadersTests
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
-            b.UseSetting("Gemini:ApiKey", "");
+            b.UseSetting("Ai:Gemini:ApiKey", "");
             b.ConfigureTestServices(s =>
             {
                 s.RemoveAll<IBookCatalog>();

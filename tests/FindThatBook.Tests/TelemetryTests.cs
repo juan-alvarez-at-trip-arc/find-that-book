@@ -116,7 +116,7 @@ public class TelemetryTests
             new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests))) { BaseAddress = new Uri("https://openlibrary.org/") },
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<OpenLibraryCatalog>.Instance,
-            Options.Create(new OpenLibraryOptions { RetryDelayMs = 0 }));
+            Options.Create(new OpenLibraryOptions { Resilience = { RetryDelayMs = 0 } }));
 
         await Assert.ThrowsAsync<CatalogUnavailableException>(() => catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default));
 
@@ -153,14 +153,14 @@ public class TelemetryTests
     public async Task The_open_library_circuit_opening_is_counted()
     {
         using var measurements = new Measurements();
-        var settings = new OpenLibraryOptions { RetryDelayMs = 0, MaxRetries = 0, CircuitBreakerMinimumThroughput = 2 };
+        var settings = new OpenLibraryOptions { Resilience = { RetryDelayMs = 0, MaxRetries = 0, CircuitBreakerMinimumThroughput = 2 } };
         var catalog = new OpenLibraryCatalog(
             new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable))) { BaseAddress = new Uri("https://openlibrary.org/") },
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<OpenLibraryCatalog>.Instance,
             Options.Create(settings),
             null,
-            OpenLibraryResiliencePipeline.Create(settings));
+            OpenLibraryResiliencePipeline.Create(settings.Resilience));
         await Assert.ThrowsAsync<CatalogUnavailableException>(() => catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default));
         await Assert.ThrowsAsync<CatalogUnavailableException>(() => catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default));
 

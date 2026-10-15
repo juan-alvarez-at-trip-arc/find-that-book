@@ -15,7 +15,7 @@ namespace FindThatBook.Api.Controllers;
 /// <param name="gemini">Gemini settings.</param>
 /// <param name="openAi">OpenAI-compatible settings.</param>
 /// <param name="openLibrary">Open Library settings.</param>
-/// <param name="configuration">Application configuration, read for the <c>Health:ExposeConfig</c> switch.</param>
+/// <param name="configuration">Application configuration, read for the <c>Api:Health:ExposeConfig</c> switch.</param>
 /// <param name="generation">The generation settings (temperature, top-k, top-p, seed, reasoning effort) shown in the configuration dump.</param>
 [ApiController]
 [Route("api/health")]
@@ -28,17 +28,17 @@ public sealed class HealthController(
     IConfiguration configuration,
     IOptions<AiGenerationOptions> generation) : ControllerBase
 {
-    /// <summary>Returns the effective configuration values. API keys are masked, keeping only their last four characters. The endpoint is off unless <c>Health:ExposeConfig</c> is true, because a same-machine reverse proxy that adds no forwarding header makes every caller look local. When it is on, only callers on the same machine are answered, and never callers relayed by a proxy.</summary>
+    /// <summary>Returns the effective configuration values. API keys are masked, keeping only their last four characters. The endpoint is off unless <c>Api:Health:ExposeConfig</c> is true, because a same-machine reverse proxy that adds no forwarding header makes every caller look local. When it is on, only callers on the same machine are answered, and never callers relayed by a proxy.</summary>
     /// <returns>A 200 result with the configuration dump, or 404 when the endpoint is off, the caller is not on the local machine or its address is unknown.</returns>
     [HttpGet("config")]
     public IActionResult Config() => CanSeeDiagnostics()
         ? Ok(ConfigDump.Build(provider, gemini.Value, openAi.Value, openLibrary.Value, generation.Value))
         : NotFound();
 
-    /// <summary>Tells whether the caller may see internal details: <c>Health:ExposeConfig</c> is true and the request comes directly from the machine the API runs on.</summary>
+    /// <summary>Tells whether the caller may see internal details: <c>Api:Health:ExposeConfig</c> is true and the request comes directly from the machine the API runs on.</summary>
     /// <returns>True when diagnostics are switched on and the caller is local. A blank or invalid setting counts as off.</returns>
     private bool CanSeeDiagnostics()
-        => bool.TryParse(configuration["Health:ExposeConfig"], out var exposed) && exposed && IsLocalRequest();
+        => bool.TryParse(configuration["Api:Health:ExposeConfig"], out var exposed) && exposed && IsLocalRequest();
 
     /// <summary>Tells whether the current request comes directly from the machine the API runs on. A request that carries proxy headers was relayed, so its loopback address says nothing about the original caller.</summary>
     /// <returns>True when the remote address is known and is loopback or equal to the local address, and no proxy header is present. False when the address is unknown.</returns>

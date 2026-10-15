@@ -1,4 +1,5 @@
 using System.Net;
+using FindThatBook.Infrastructure.Ai;
 using FindThatBook.Infrastructure.Gemini;
 using Microsoft.Extensions.Options;
 
@@ -7,7 +8,8 @@ namespace FindThatBook.Infrastructure.Health;
 /// <summary>Checks Gemini by reading the configured model's metadata. The call needs the API key but uses no tokens.</summary>
 /// <param name="clients">Factory for the HTTP client.</param>
 /// <param name="options">Gemini settings.</param>
-public sealed class GeminiProbe(IHttpClientFactory clients, IOptions<GeminiOptions> options) : IHealthProbe
+/// <param name="generation">The generation settings, read for the model name (<c>Ai:Model</c>). When null, the default model is checked.</param>
+public sealed class GeminiProbe(IHttpClientFactory clients, IOptions<GeminiOptions> options, IOptions<AiGenerationOptions>? generation = null) : IHealthProbe
 {
     /// <inheritdoc />
     public string Name => "gemini";
@@ -22,7 +24,7 @@ public sealed class GeminiProbe(IHttpClientFactory clients, IOptions<GeminiOptio
         if (string.IsNullOrWhiteSpace(settings.ApiKey))
             return (HealthStatus.Degraded, "API key is not configured; the non-AI fallback is used");
 
-        var model = string.IsNullOrWhiteSpace(settings.Model) ? GeminiOptions.DefaultModel : settings.Model.Trim();
+        var model = (generation?.Value ?? new AiGenerationOptions()).ModelOr(GeminiOptions.DefaultModel);
         using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(ProbeRunner.BaseUri(GeminiOptions.ApiBaseUrl), $"v1beta/models/{model}"));
         request.Headers.Add("x-goog-api-key", settings.ApiKey);
 

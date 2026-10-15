@@ -165,7 +165,7 @@ public class AiResilienceTests
         var handler = new StubHandler(_ => Status(HttpStatusCode.ServiceUnavailable));
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Ai:Provider"] = provider, ["Gemini:ApiKey"] = "k",
+            ["Ai:Provider"] = provider, ["Ai:Gemini:ApiKey"] = "k",
             ["Ai:Resilience:RetryCount"] = "0", ["Ai:Resilience:BreakerMinimumThroughput"] = "2",
         }).Build();
         var services = new ServiceCollection();
@@ -198,12 +198,13 @@ public class AiResilienceTests
     [Fact]
     public void The_readiness_config_check_fails_on_invalid_open_library_circuit_values()
     {
-        var openLibrary = new OpenLibraryOptions { CircuitBreakerFailureRatio = 0, CircuitBreakerMinimumThroughput = 1, CircuitBreakerSamplingSeconds = 0, CircuitBreakerBreakSeconds = -77, AttemptTimeoutMs = 0 };
+        var openLibrary = new OpenLibraryOptions { Resilience = { CircuitBreakerFailureRatio = 0, CircuitBreakerMinimumThroughput = 1, CircuitBreakerSamplingSeconds = 0, CircuitBreakerBreakSeconds = -77, AttemptTimeoutMs = 0 } };
 
         var config = HealthConfigCheck.Validate(new AiProviderSelection("Gemini"), new GeminiOptions { ApiKey = "k" }, new OpenAiCompatibleOptions(), openLibrary);
 
         Assert.Equal(HealthStatus.Down, config.Status);
         Assert.Equal(5, config.Issues.Count);
+        Assert.Contains(config.Issues, i => i.Contains("OpenLibrary:Resilience:CircuitBreakerBreakSeconds"));
         Assert.DoesNotContain(config.Issues, i => i.Contains("-77"));
     }
 

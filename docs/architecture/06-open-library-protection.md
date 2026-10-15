@@ -11,7 +11,7 @@ flowchart LR
     infl -- no --> retry
 
     subgraph pipe["OpenLibraryResiliencePipeline (Polly)"]
-        retry["Retry: MaxRetries times<br/>growing delay with jitter<br/>on 5xx, network error, timeout, bad JSON"] --> cb{"Circuit open?"}
+        retry["Retry: Resilience MaxRetries times<br/>growing delay with jitter<br/>on 5xx, network error, timeout, bad JSON"] --> cb{"Circuit open?"}
         cb -- no --> tmo["Timeout per attempt<br/>10 s (AttemptTimeoutMs)"]
     end
 
@@ -27,4 +27,4 @@ flowchart LR
     http -- 200 --> store[Cache result] --> ret
 ```
 
-The circuit opens when at least half of the requests in 30 seconds failed, with at least 6 requests (`OpenLibrary:CircuitBreaker*`). It stays open for 20 seconds, then lets one request through. While it is open, searches fail with a 502 and send no request. Opening and closing are counted by `ftb.openlibrary.circuit`.
+The circuit opens when at least half of the requests in 30 seconds failed, with at least 6 requests (`OpenLibrary:Resilience:CircuitBreaker*`). It stays open for 20 seconds, then lets one request through. While it is open, searches fail with a 502 and send no request. Opening and closing are counted by `ftb.openlibrary.circuit`.

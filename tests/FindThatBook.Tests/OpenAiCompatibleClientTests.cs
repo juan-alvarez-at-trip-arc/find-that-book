@@ -17,12 +17,12 @@ public class OpenAiCompatibleClientTests
     private static string Completion(string? content)
         => JsonSerializer.Serialize(new { choices = new[] { new { message = new { role = "assistant", content } } } });
 
-    private static OpenAiCompatibleClient Client(StubHandler handler, OpenAiCompatibleOptions? options = null)
+    private static OpenAiCompatibleClient Client(StubHandler handler, OpenAiCompatibleOptions? options = null, string? model = null)
     {
         options ??= new OpenAiCompatibleOptions { ApiKey = "test-key" };
         return new OpenAiCompatibleClient(
             new HttpClient(handler) { BaseAddress = options.BaseUri },
-            Options.Create(options));
+            Options.Create(options), Options.Create(new AiGenerationOptions { Model = model }));
     }
 
     [Fact]
@@ -64,10 +64,10 @@ public class OpenAiCompatibleClientTests
             return StubHandler.Json(Completion("{}"));
         });
 
-        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "k", Model = "llama-x" }).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default);
+        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "k" }, "llama-x").GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default);
         Assert.Equal("llama-x", model);
 
-        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "k", Model = "  " }).GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default);
+        await Client(handler, new OpenAiCompatibleOptions { ApiKey = "k" }, "  ").GenerateJsonAsync(new AiPrompt("Reply in JSON.", "p"), ObjectSchema, default);
         Assert.Equal(OpenAiCompatibleOptions.DefaultModel, model);
     }
 
