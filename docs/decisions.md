@@ -28,6 +28,7 @@ Ideas that were tried or considered and not shipped, so they are not retried bli
 | `AllowedHosts: *` replaced by a host list | A list would break the container on any hostname not in it, and the deployment hostnames are not known. Set `AllowedHosts` when you deploy. |
 | Removing `style-src-attr 'unsafe-inline'` and `https://*.archive.org` from the Content-Security-Policy | The progress scenes use inline style attributes and cover redirects go through archive.org. Removing either breaks the UI. |
 | Requiring https for the OpenAI-compatible base URL | A LAN or local gateway over http is a supported setup. Readiness reports `degraded` when an API key would go over http to a non-loopback host. |
+| A named Cloudflare Tunnel with a stable hostname | Needs a domain in the Cloudflare account, and the account has none. A tunnel was created, configured and deleted on 2026-10-14. `quick-tunnel` in `docker-compose.yml` gives a temporary `trycloudflare.com` URL instead. Revisit when a domain is added: create the tunnel with `cf tunnels create`, add its hostname to the ingress, and run `cloudflared` with the tunnel token from `.env`. |
 | A Latin-script author name on the byline | Needs alias handling in the API and changes the "names as stored" rule. Listed in the README under known limitations. |
 
 ## Changed after the first draft

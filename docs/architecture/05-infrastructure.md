@@ -16,8 +16,12 @@ flowchart TB
         env[".env (git-ignored)<br/>AI_PROVIDER, keys, models,<br/>AI_TEMPERATURE, AI_TOP_K, AI_TOP_P,<br/>AI_SEED, AI_REASONING_EFFORT,<br/>HEALTH_EXPOSE_CONFIG, RATE_LIMIT_*,<br/>OPENLIBRARY_*, TELEMETRY_*, OTEL_*"]
         ctr["container: find-that-book<br/>port 8080, restart unless-stopped"]
         jg["container: jaeger 1.76.0 (pinned by digest)<br/>UI on 127.0.0.1:16686 only"]
+        qt["container: quick-tunnel<br/>cloudflared 2026.10.0 (pinned by digest)<br/>temporary trycloudflare.com URL"]
         env --> ctr
+        qt -- "http://app:8080" --> ctr
     end
+    qt -- "outbound QUIC" --> cf[(Cloudflare edge)]
+    web([Internet visitors]) -- "https://*.trycloudflare.com" --> cf
 
     s3 --> ctr
     ctr -- "HTTPS" --> ol[(openlibrary.org)]

@@ -8,7 +8,7 @@
 - Run the API: `dotnet run --project src/FindThatBook.Api` (http://localhost:5080). Pass settings as env vars (`Ai__Provider`, `Gemini__ApiKey`, `OpenAiCompatible__*`, `OpenLibrary__Contact`). `dotnet run` does not read `.env`, only `docker compose` does.
 - Frontend (from `web/`): `npm test`, `npm run lint` (Oxlint), `npm run build` (`tsc -b` and Vite), `npm run dev` (http://localhost:5173, proxies `/api` to 5080). `vite.config.ts` makes Vitest process `App.css` (other CSS is stubbed), so a test can read it with `?raw`.
 - Serve the built UI from the API: `npx vite build --outDir ../src/FindThatBook.Api/wwwroot --emptyOutDir` from `web/`. `wwwroot` is git-ignored.
-- Docker: `docker compose up --build` (http://localhost:8080). The image was built and run by hand on 2026-10-14 (.NET 10 images). The container's pages refuse to be framed, so a UI test that needs iframes serves the build files from another port (see `docs/ui-tests/README.md`).
+- Docker: `docker compose up --build` (http://localhost:8080). The image was built and run by hand on 2026-10-14 (.NET 10 images). Compose also starts `quick-tunnel` (cloudflared, pinned by digest), which publishes the app on a temporary `trycloudflare.com` URL shown by `docker compose logs quick-tunnel`. Stop it with `docker compose stop quick-tunnel` when the app should not be public. The container's pages refuse to be framed, so a UI test that needs iframes serves the build files from another port (see `docs/ui-tests/README.md`).
 
 ## Layout
 
