@@ -73,7 +73,9 @@ Docker Compose (UI and API on one port, http://localhost:8080):
 2. Start it: `docker compose up --build`
 3. Stop it: `docker compose down`
 
-The compose file also starts a Jaeger all-in-one container (pinned to 1.76.0 by digest, UI at http://localhost:16686, published on `127.0.0.1` only and with no other ports published) for viewing traces. The app only sends to it when telemetry is on and `OTEL_EXPORTER_OTLP_ENDPOINT` points at it, over the compose network. Both containers run with a read-only root file system, all capabilities dropped and `no-new-privileges`. Two optional `.env` values set the search limits: `RATE_LIMIT_SEARCHES_PER_MINUTE` (default 10) and `RATE_LIMIT_MAX_CONCURRENT_SEARCHES` (default 8). The static landing page is served at `/landing.html`.
+The compose file also starts a Jaeger all-in-one container (pinned to 1.76.0 by digest, UI at http://localhost:16686, published on `127.0.0.1` only and with no other ports published) for viewing traces. The app only sends to it when telemetry is on and `OTEL_EXPORTER_OTLP_ENDPOINT` points at it, over the compose network. All three containers run with a read-only root file system, all capabilities dropped and `no-new-privileges`. Two optional `.env` values set the search limits: `RATE_LIMIT_SEARCHES_PER_MINUTE` (default 10) and `RATE_LIMIT_MAX_CONCURRENT_SEARCHES` (default 8). The static landing page is served at `/landing.html`.
+
+The compose file also starts a `quick-tunnel` service (`cloudflare/cloudflared` 2026.10.0, pinned by digest, same hardening flags) that publishes the app on a temporary `https://*.trycloudflare.com` URL. Read the URL with `docker compose logs quick-tunnel`. It changes on every start and needs no Cloudflare account or token. Every visitor reaches the app from the tunnel container's address, so all visitors share one search limit (10 per minute), and anyone with the URL can run searches that spend your AI key. Remove the service, or run `docker compose stop quick-tunnel`, when you do not want the app public. A named tunnel with a stable hostname needs a domain in your Cloudflare account and was not set up.
 
 Plain Docker works too:
 
