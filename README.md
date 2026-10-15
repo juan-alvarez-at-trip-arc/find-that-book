@@ -37,7 +37,9 @@ Docker Compose (UI and API on one port, http://localhost:8080):
    ```
    # AI provider: Gemini (default) or OpenAiCompatible
    AI_PROVIDER=Gemini
-# Model name for the selected provider. Blank uses its default (gemini-3.8-flash or openai/gpt-oss-20b).   AI_MODEL=
+
+   # Model name for the selected provider. Blank uses its default (gemini-3.8-flash or openai/gpt-oss-20b).
+   AI_MODEL=
 
    # Generation settings sent to either provider. Blank means temperature 0 and nothing else is sent.
    AI_TEMPERATURE=
