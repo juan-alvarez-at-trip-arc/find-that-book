@@ -20,6 +20,12 @@ public static class ServiceCollectionExtensions
     /// <summary>The most bytes any outgoing HTTP response may hold (2 MB). Open Library records and AI replies are a few kilobytes, so a larger body is a fault or an attack, and a request that meets one fails instead of filling memory.</summary>
     public const int MaxResponseBytes = 2 * 1024 * 1024;
 
+    /// <summary>The safety timeout of the AI HTTP client: a little longer than the total timeout of the resilience pipeline, so the pipeline always ends a call first.</summary>
+    /// <param name="sp">Service provider used to read <see cref="AiResilienceOptions"/>.</param>
+    /// <returns>The total timeout plus 5 seconds.</returns>
+    private static TimeSpan AiClientTimeout(IServiceProvider sp)
+        => TimeSpan.FromMilliseconds(Math.Max(1, sp.GetRequiredService<IOptions<AiResilienceOptions>>().Value.TotalTimeoutMs) + 5000);
+
     /// <summary>Registers the Open Library catalog, the selected AI client, the AI-first parsers and writers with their non-AI fallbacks, and the search service.</summary>
     /// <param name="services">The service collection to add registrations to.</param>
     /// <param name="config">Application configuration. <c>Ai:Provider</c> selects <c>Gemini</c> (default) or <c>OpenAiCompatible</c>. <c>Ai:Temperature</c>, <c>Ai:TopK</c> and <c>Ai:TopP</c> set the sampling parameters sent to either provider.</param>
@@ -29,27 +35,29 @@ public static class ServiceCollectionExtensions
     {
         services.ConfigureHttpClientDefaults(builder => builder.ConfigureHttpClient(client => client.MaxResponseContentBufferSize = MaxResponseBytes));
         services.Configure<AiGenerationOptions>(config.GetSection("Ai"));
-        services.Configure<GeminiOptions>(config.GetSection("Gemini"));
+        services.Configure<GeminiOptions>(config.GetSection("Ai:Gemini"));
         services.Configure<OpenLibraryOptions>(config.GetSection("OpenLibrary"));
+        services.Configure<AiResilienceOptions>(config.GetSection("Ai:Resilience"));
+        services.AddSingleton(sp => AiResiliencePipeline.Create(sp.GetRequiredService<IOptions<AiResilienceOptions>>().Value));
         services.AddMemoryCache(options => options.SizeLimit = 2000);
 
         services.AddHttpClient<IBookCatalog, OpenLibraryCatalog>((sp, client) =>
         {
             client.BaseAddress = new Uri(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.BaseUrl);
-            client.Timeout = TimeSpan.FromSeconds(10);
             client.DefaultRequestHeaders.UserAgent.ParseAdd(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.UserAgent);
         });
         services.AddSingleton(sp => new OpenLibraryGate(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.MaxConcurrentRequests));
+        services.AddSingleton(sp => OpenLibraryResiliencePipeline.Create(sp.GetRequiredService<IOptions<OpenLibraryOptions>>().Value.Resilience));
 
-        services.Configure<OpenAiCompatibleOptions>(config.GetSection("OpenAiCompatible"));
+        services.Configure<OpenAiCompatibleOptions>(config.GetSection("Ai:OpenAiCompatible"));
 
         var provider = (config["Ai:Provider"] ?? "").Trim();
         if (provider.Length == 0 || provider.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
         {
-            services.AddHttpClient<IAiClient, GeminiClient>(client =>
+            services.AddHttpClient<IAiClient, GeminiClient>((sp, client) =>
             {
                 client.BaseAddress = new Uri(GeminiOptions.ApiBaseUrl);
-                client.Timeout = TimeSpan.FromSeconds(30);
+                client.Timeout = AiClientTimeout(sp);
             });
             services.AddSingleton(new AiProviderSelection(AiProviderSelection.Gemini));
             services.AddSingleton<IHealthProbe, GeminiProbe>();
@@ -59,7 +67,7 @@ public static class ServiceCollectionExtensions
             services.AddHttpClient<IAiClient, OpenAiCompatibleClient>((sp, client) =>
             {
                 client.BaseAddress = sp.GetRequiredService<IOptions<OpenAiCompatibleOptions>>().Value.BaseUri;
-                client.Timeout = TimeSpan.FromSeconds(30);
+                client.Timeout = AiClientTimeout(sp);
             });
             services.AddSingleton(new AiProviderSelection(AiProviderSelection.OpenAiCompatible));
             services.AddSingleton<IHealthProbe, OpenAiCompatibleProbe>();

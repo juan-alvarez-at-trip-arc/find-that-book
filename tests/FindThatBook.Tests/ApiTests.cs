@@ -25,7 +25,7 @@ public class ApiTests
     {
         var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
-            builder.UseSetting("Gemini:ApiKey", "");
+            builder.UseSetting("Ai:Gemini:ApiKey", "");
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<IBookCatalog>();

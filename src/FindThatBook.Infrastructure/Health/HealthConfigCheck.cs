@@ -14,8 +14,9 @@ public static class HealthConfigCheck
     /// <param name="openAi">OpenAI-compatible settings.</param>
     /// <param name="openLibrary">Open Library settings.</param>
     /// <param name="generation">The generation settings (temperature, top-k, top-p, seed, reasoning effort). When null, nothing is checked.</param>
+    /// <param name="aiResilience">The retry, timeout and circuit settings of the AI calls. When null, nothing is checked.</param>
     /// <returns><see cref="HealthStatus.Down"/> for an invalid value, <see cref="HealthStatus.Degraded"/> for a missing optional value, otherwise <see cref="HealthStatus.Ok"/>.</returns>
-    public static ConfigHealth Validate(AiProviderSelection provider, GeminiOptions gemini, OpenAiCompatibleOptions openAi, OpenLibraryOptions openLibrary, AiGenerationOptions? generation = null)
+    public static ConfigHealth Validate(AiProviderSelection provider, GeminiOptions gemini, OpenAiCompatibleOptions openAi, OpenLibraryOptions openLibrary, AiGenerationOptions? generation = null, AiResilienceOptions? aiResilience = null)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -23,25 +24,29 @@ public static class HealthConfigCheck
         if (generation is not null)
             errors.AddRange(generation.Problems());
 
+        if (aiResilience is not null)
+            errors.AddRange(aiResilience.Problems());
+
         if (!IsHttpUrl(openLibrary.BaseUrl))
             errors.Add("OpenLibrary:BaseUrl must be an absolute http or https URL.");
         RequirePositive(errors, "OpenLibrary:MaxDetailLookups", openLibrary.MaxDetailLookups);
         RequirePositive(errors, "OpenLibrary:MaxAuthorsPerWork", openLibrary.MaxAuthorsPerWork);
         RequirePositive(errors, "OpenLibrary:MaxConcurrentRequests", openLibrary.MaxConcurrentRequests);
         RequirePositive(errors, "OpenLibrary:DefaultCooldownSeconds", openLibrary.DefaultCooldownSeconds);
+        errors.AddRange(openLibrary.Resilience.Problems());
 
         if (provider.Name == AiProviderSelection.Gemini)
         {
             if (string.IsNullOrWhiteSpace(gemini.ApiKey))
-                warnings.Add("Gemini:ApiKey is not set; the app uses the non-AI fallback.");
+                warnings.Add("Ai:Gemini:ApiKey is not set; the app uses the non-AI fallback.");
         }
         else if (!string.IsNullOrWhiteSpace(openAi.BaseUrl) && !IsHttpUrl(openAi.BaseUrl))
         {
-            errors.Add("OpenAiCompatible:BaseUrl must be an absolute http or https URL.");
+            errors.Add("Ai:OpenAiCompatible:BaseUrl must be an absolute http or https URL.");
         }
         else if (!string.IsNullOrWhiteSpace(openAi.ApiKey) && SendsKeyInClear(openAi.BaseUrl))
         {
-            warnings.Add("OpenAiCompatible:BaseUrl uses http to a non-loopback host, so the API key is sent unencrypted.");
+            warnings.Add("Ai:OpenAiCompatible:BaseUrl uses http to a non-loopback host, so the API key is sent unencrypted.");
         }
 
         var status = errors.Count > 0 ? HealthStatus.Down : warnings.Count > 0 ? HealthStatus.Degraded : HealthStatus.Ok;

@@ -12,7 +12,8 @@ namespace FindThatBook.Infrastructure.OpenAi;
 /// <param name="http">HTTP client whose base address points at the provider's API root.</param>
 /// <param name="options">Provider settings: API key, base URL and model name.</param>
 /// <param name="generationOptions">Temperature, top-k, top-p, seed and reasoning effort from the <c>Ai</c> configuration section. When null, the defaults apply: temperature 0 and nothing else.</param>
-public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompatibleOptions> options, IOptions<AiGenerationOptions>? generationOptions = null) : IAiClient
+/// <param name="resilience">Retry, circuit breaker and timeout pipeline shared by every call. When null, each call is sent once with no retry and no circuit.</param>
+public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompatibleOptions> options, IOptions<AiGenerationOptions>? generationOptions = null, AiResiliencePipeline? resilience = null) : IAiClient
 {
     /// <summary>Posts a <c>chat/completions</c> request with <c>response_format</c> set to <c>json_object</c>, the configured temperature and, when set, <c>top_p</c>, <c>top_k</c>, <c>seed</c> and <c>reasoning_effort</c>. Array-shaped schemas are wrapped in an object because JSON mode needs an object at the root.</summary>
     /// <param name="prompt">The instructions, sent in the system message with the schema, and the untrusted data, sent alone as the user message.</param>
@@ -38,7 +39,7 @@ public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompa
 
         var body = new JsonObject
         {
-            ["model"] = string.IsNullOrWhiteSpace(settings.Model) ? OpenAiCompatibleOptions.DefaultModel : settings.Model.Trim(),
+            ["model"] = gen.ModelOr(OpenAiCompatibleOptions.DefaultModel),
             ["messages"] = new JsonArray(
                 new JsonObject
                 {
@@ -57,13 +58,21 @@ public sealed class OpenAiCompatibleClient(HttpClient http, IOptions<OpenAiCompa
         if (gen.EffectiveSeed is { } seed) body["seed"] = seed;
         if (gen.EffectiveReasoningEffort is { } effort) body["reasoning_effort"] = effort;
 
-        using var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = JsonContent.Create(body) };
-        if (!string.IsNullOrWhiteSpace(settings.ApiKey))
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey.Trim());
+        HttpRequestMessage NewRequest()
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "chat/completions") { Content = JsonContent.Create(body) };
+            if (!string.IsNullOrWhiteSpace(settings.ApiKey))
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey.Trim());
+            return request;
+        }
 
         try
         {
-            using var response = await http.SendAsync(request, ct);
+            using var response = await (resilience ?? AiResiliencePipeline.None).SendAsync(async token =>
+            {
+                using var request = NewRequest();
+                return await http.SendAsync(request, token);
+            }, ct);
             if (!response.IsSuccessStatusCode)
                 throw new AiUnavailableException($"AI provider returned {(int)response.StatusCode}.");
 

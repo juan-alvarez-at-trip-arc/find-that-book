@@ -13,7 +13,7 @@ flowchart TB
     end
 
     subgraph compose["docker compose"]
-        env[".env (git-ignored)<br/>AI_PROVIDER, keys, models,<br/>AI_TEMPERATURE, AI_TOP_K, AI_TOP_P,<br/>AI_SEED, AI_REASONING_EFFORT,<br/>HEALTH_EXPOSE_CONFIG, RATE_LIMIT_*,<br/>OPENLIBRARY_*, TELEMETRY_*, OTEL_*"]
+        env[".env (git-ignored)<br/>AI_PROVIDER, AI_MODEL, AI_*_API_KEY,<br/>AI_TEMPERATURE, AI_TOP_K, AI_TOP_P,<br/>AI_SEED, AI_REASONING_EFFORT,<br/>AI_RESILIENCE_*,<br/>API_HEALTH_EXPOSE_CONFIG, API_RATE_LIMIT_*,<br/>OPEN_LIBRARY_*, API_TELEMETRY_*, OTEL_*"]
         ctr["container: find-that-book<br/>port 8080, restart unless-stopped"]
         jg["container: jaeger 1.76.0 (pinned by digest)<br/>UI on 127.0.0.1:16686 only"]
         qt["container: quick-tunnel<br/>cloudflared 2026.10.0 (pinned by digest)<br/>temporary trycloudflare.com URL"]

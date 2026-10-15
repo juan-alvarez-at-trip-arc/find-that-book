@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. Task 24 (security fixes) brought the .NET count to 430 and Task 25 (AI generation settings) to 487 (88 frontend tests).
+**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. Task 24 (security fixes) brought the .NET count to 430 and Task 25 (AI generation settings) to 487 (88 frontend tests) Task 27 (Polly resilience and its settings files) to 530 and Task 28 (provider settings under `Ai`) to 536 and Task 29 (API host settings under `Api`) to 544 Task 30 (one `Ai:Model` setting) to 555 and Task 31 (`.env` variable names follow the configuration) to 590.
 
 ## Global Constraints
 
@@ -134,7 +134,7 @@ Readiness and configuration endpoints were added later, see Task 18.
 
 **Files:** `Dockerfile` (node build, .NET publish, aspnet runtime on port 8080), `.dockerignore`, `docker-compose.yml`, `README.md`, `.gitignore` (adds `.env`).
 
-**Behavior:** Compose maps `.env` variables (`AI_PROVIDER`, `GEMINI_*`, `OPENAI_*`, `OPENLIBRARY_*`) to the app settings. **Not verified at the time:** the image was never built (the Docker daemon was not running; it was built and run by hand on 2026-10-10 and 2026-10-13); the equivalent layout was run by hand and `docker compose config -q` accepts the file.
+**Behavior:** Compose maps `.env` variables (`AI_PROVIDER`, `GEMINI_*`, `OPENAI_*`, `OPEN_LIBRARY_*`) to the app settings. **Not verified at the time:** the image was never built (the Docker daemon was not running; it was built and run by hand on 2026-10-10 and 2026-10-13); the equivalent layout was run by hand and `docker compose config -q` accepts the file.
 
 ### Task 10: Final review fix pass
 
@@ -152,7 +152,7 @@ Fixes from the whole-branch review, each with a test that failed first: apostrop
 - `IAiClient.GenerateJsonAsync(prompt, schema, ct)` is the single seam, where `prompt` is an `AiPrompt(Instructions, Data)` so instructions and untrusted data go in separate roles. Schemas are standard JSON Schema. `GeminiSchema.FromJsonSchema` converts them to Gemini's dialect (a test asserts the result equals the original Gemini schemas).
 - `Ai:Provider` selects the client at registration (blank or `Gemini` default, `OpenAiCompatible`, anything else throws a clear error).
 - The OpenAI-compatible client uses JSON mode, `stream: false` (some gateways stream by default), temperature 0, an optional Bearer key, and wraps non-object schemas as `{"result": ...}`.
-- Gemini default model `gemini-3.8-flash`, a blank model uses the default, timeouts 30 s.
+- Gemini default model `gemini-3.8-flash`, a blank model uses the default, timeouts 30 s. (The model name later became the single setting `Ai:Model`, see Task 30.)
 - The explanation prompt receives the publication year only when it matched the query, because a first attempt that merely sent a flag made the model state false year matches.
 
 **Verified live:** the OpenAI-compatible client against a local gateway (`aiUsed: true`, correct explanations). Gemini calls were limited by provider capacity during testing, so its full path was not confirmed end to end.
@@ -303,7 +303,7 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 - **F1 rate limit bypass:** `RateLimitingExtensions.IsSearch` ignores trailing slashes, because routing accepted `/api/search/` and the limiter did not. Found by a live check (13 of 13 requests passed). Tests in `RateLimitTests`.
 - **F2 error responses without security headers:** `SecurityHeadersExtensions` sets the headers in `OnStarting`, because the exception handler clears earlier ones. Tests in `SecurityHeadersTests` (500 and 502).
 - **F3 cancellation across callers:** `OpenLibraryCatalog.GetJsonAsync` waits with the caller's own token on a shared request that runs on its own lifetime (`FetchSharedAsync`), and the in-flight entry is removed when that request ends. Test in `OpenLibraryCatalogTests`.
-- **F4 config endpoint behind a proxy:** `/api/health/config` is off unless `Health:ExposeConfig` is true (appsettings `false`, compose `HEALTH_EXPOSE_CONFIG`), and then local-only as before. A blank value counts as off. Tests in `HealthConfigDumpTests`.
+- **F4 config endpoint behind a proxy:** `/api/health/config` is off unless `Api:Health:ExposeConfig` is true (appsettings `false`, compose `API_HEALTH_EXPOSE_CONFIG`), and then local-only as before. A blank value counts as off. Tests in `HealthConfigDumpTests`.
 - **F5 readiness detail:** `/api/health/ready` returns only `{ "status": ... }` (status codes unchanged) unless the caller passes the same gate (`HealthController.CanSeeDiagnostics`). Tests in `HealthReportTests`. `RemoteIpFilter` moved to `Support/Fakes.cs`.
 - **F6 compose:** Jaeger is pinned by digest and the unused Zipkin listener is removed. Tests in `ComposeFileTests`.
 - **F7 hardening:** a 2 MB cap on every outgoing response (`ServiceCollectionExtensions.MaxResponseBytes`, also in `HttpLoggingHandler.MaxBufferedBytes`), a readiness warning when an OpenAI-compatible key would go over http to a non-loopback host, a `Permissions-Policy` header, `npm ci --ignore-scripts` in the Dockerfile and CI, and the Dependabot `docker-compose` ecosystem. Tests in `HttpClientLimitsTests`, `HttpLoggingHandlerTests`, `HealthReportTests`, `SecurityHeadersTests` and `RepoHardeningTests`.
@@ -341,6 +341,66 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 **Documentation corrected:** the claim that Grok models reject `reasoning_effort` (README, decisions, `.env.sample`, Task 25) was replaced by what the real run showed. The README, `CLAUDE.md`, the architecture diagrams, the UI spec and the decision record carry the new settings, dates and test counts.
 
 ---
+
+### Task 27: Polly resilience for Open Library and the AI provider
+
+- [x] Not committed when this entry was written. Every behavior has a test that failed first (the tests did not compile until the new types existed). Decision in `docs/decisions.md`.
+
+**Files:** new `Infrastructure/OpenLibrary/OpenLibraryResiliencePipeline.cs`, `Infrastructure/OpenLibrary/OpenLibraryResilienceOptions.cs` (the `OpenLibrary:Resilience` section), `Infrastructure/Ai/AiResiliencePipeline.cs`, `Infrastructure/Ai/AiResilienceOptions.cs`, tests `OpenLibraryResilienceTests.cs` and `AiResilienceTests.cs`. Changed `OpenLibraryCatalog` (the manual retry loop is gone, one attempt is `SendOnceAsync`), `OpenLibraryOptions`, `GeminiClient`, `OpenAiCompatibleClient`, `ServiceCollectionExtensions` (shared singletons, the AI client timeout is the total timeout plus 5 s), `FindThatBookTelemetry`, `HealthConfigCheck`, `HealthReportService` and `TelemetryTests`. Packages: `Polly.Core` (Infrastructure) and `Microsoft.Extensions.TimeProvider.Testing` (tests).
+
+**Behavior:**
+- Open Library: retry (`OpenLibrary:Resilience:MaxRetries`, linear delay with jitter) on 5xx, network errors, timeouts and invalid JSON, a circuit breaker (ratio 0.5, at least 6 requests in 30 s, 20 s open) and a 10 s timeout per attempt. A 429 starts the cooldown and does not count towards the circuit. The gate and the cooldown check run inside each attempt.
+- AI: a 45 s total timeout, one retry on 5xx and network errors only, a circuit breaker (ratio 0.5, at least 4 calls in 30 s, 30 s open, a 429 counts as a failure) and a 30 s timeout per attempt. An open circuit or a timeout becomes `AiUnavailableException`, so the fallback answers at once.
+- Circuit changes are counted by `ftb.ai.circuit` and `ftb.openlibrary.circuit` (tag `state`). Out-of-range settings make `/api/health/ready` report `unready`.
+
+**Tests:** 43 new (530 total, 13 check the compose and `.env.sample` mappings and 6 check that `appsettings.json` lists every setting with its default): retries, no retry for timeouts, 429 and 4xx on the AI side, the total timeout, circuits opening, closing after the break with a fake clock, a 429 not tripping the Open Library circuit, shared circuit state through the container for both providers and the Open Library catalog, the counters and the settings checks.
+
+**Not verified:** a real outage of Open Library or an AI provider, and the tuning values (they are first guesses). Compose maps the `Ai:Resilience` settings (`AI_RESILIENCE_*`) and the Open Library timeout and circuit settings (`OPEN_LIBRARY_RESILIENCE_ATTEMPT_TIMEOUT_MS`, `OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_*`), but not `OpenLibrary:MaxRetries` and `RetryDelayMs`. `docker compose config` accepts the file, and the stack was not started with these values.
+
+
+### Task 28: Provider settings under the `Ai` section
+
+- [x] Not committed when this entry was written. Decision in `docs/decisions.md`. Task 27 also moved the Open Library resilience settings under `OpenLibrary:Resilience` (new `OpenLibraryResilienceOptions`).
+
+**Behavior:** `GeminiOptions` binds from `Ai:Gemini` and `OpenAiCompatibleOptions` from `Ai:OpenAiCompatible` (was `Gemini` and `OpenAiCompatible`). `appsettings.json`, `docker-compose.yml` (`Ai__Gemini__*`, `Ai__OpenAiCompatible__*`), the readiness messages (`Ai:Gemini:ApiKey`, `Ai:OpenAiCompatible:BaseUrl`), the README and `CLAUDE.md` use the new keys. The `.env` variable names did not change.
+
+**Tests:** 6 new (536 total): the compose mappings under `Ai` and a check that no top-level `Gemini` or `OpenAiCompatible` section remains, plus the existing tests moved to the new keys (the options sections in `AppSettingsTests` and the `UseSetting` keys).
+
+**Not verified:** the stack was not started with the new compose keys. An old env var, user secret or `Gemini__ApiKey` is ignored with no error.
+
+
+### Task 29: API host settings under the `Api` section
+
+- [x] Not committed when this entry was written. Decision in `docs/decisions.md`.
+
+**Behavior:** the `Telemetry`, `Health` and `RateLimit` sections moved to `Api:Telemetry` (`Enabled`, `LogHttpBodies`), `Api:Health` (`ExposeConfig`) and `Api:RateLimit` (`SearchPermitsPerMinute`, `MaxConcurrentSearches`). `TelemetryExtensions`, `HealthController`, `RateLimitingExtensions`, `appsettings.json` and `docker-compose.yml` (`Api__Telemetry__*`, `Api__Health__ExposeConfig`, `Api__RateLimit__*`) use the new keys. The `.env` variable names and the `OTEL_*` variables did not change. Earlier tasks in this document name the old keys, because that is what they were called when they were built.
+
+**Tests:** 8 new (544 total): the compose mappings under `Api` and a check that no top-level `Telemetry`, `Health` or `RateLimit` section remains, plus the existing tests moved to the new keys.
+
+**Not verified:** the stack was not started with the new compose keys. An old env var such as `Health__ExposeConfig` is ignored with no error.
+
+
+### Task 30: One `Ai:Model` setting
+
+- [x] Not committed when this entry was written. Decision in `docs/decisions.md`.
+
+**Behavior:** the `Model` setting of `Ai:Gemini` and `Ai:OpenAiCompatible` is replaced by `Ai:Model` (`AiGenerationOptions.Model`), which applies to whichever provider is selected. A blank value uses the default of that provider (`gemini-3.8-flash` or `openai/gpt-oss-20b`, `AiGenerationOptions.ModelOr`). `GeminiClient`, `OpenAiCompatibleClient` and `GeminiProbe` read it from the generation options. `GET /api/health/config` shows the model in use as `ai.model`, and the `gemini` and `openAiCompatible` sections no longer have a `model` field. Compose maps `AI_MODEL` to `Ai__Model`, and `GEMINI_MODEL` and `OPENAI_MODEL` are gone from compose and `.env.sample`.
+
+**Tests:** 11 new (555 total): `Ai:Model` or the provider default reaching the registered client for both providers, the model shown by the config dump, the compose and `.env.sample` mappings, plus the existing model tests moved to the generation options.
+
+**Not verified:** the stack was not started with `AI_MODEL`. A leftover `GEMINI_MODEL`, `OPENAI_MODEL`, `Ai__Gemini__Model` or `Ai__OpenAiCompatible__Model` is ignored with no error.
+
+
+### Task 31: `.env` variable names follow the configuration structure
+
+- [x] Not committed when this entry was written. Decision in `docs/decisions.md`.
+
+**Behavior:** every `.env` variable that `docker-compose.yml` maps is the configuration key in upper snake case with camelCase words split. Renamed: `GEMINI_API_KEY` to `AI_GEMINI_API_KEY`, `OPENAI_API_KEY` to `AI_OPEN_AI_COMPATIBLE_API_KEY`, `OPENAI_BASE_URL` to `AI_OPEN_AI_COMPATIBLE_BASE_URL`, `OPENLIBRARY_*` to `OPEN_LIBRARY_*` (the timeout and circuit ones to `OPEN_LIBRARY_RESILIENCE_*`), `RATE_LIMIT_SEARCHES_PER_MINUTE` to `API_RATE_LIMIT_SEARCH_PERMITS_PER_MINUTE`, `RATE_LIMIT_MAX_CONCURRENT_SEARCHES` to `API_RATE_LIMIT_MAX_CONCURRENT_SEARCHES`, `HEALTH_EXPOSE_CONFIG` to `API_HEALTH_EXPOSE_CONFIG`, `TELEMETRY_*` to `API_TELEMETRY_*`. Unchanged: `AI_PROVIDER`, `AI_MODEL`, `AI_TEMPERATURE`, `AI_TOP_K`, `AI_TOP_P`, `AI_SEED`, `AI_REASONING_EFFORT`, `AI_RESILIENCE_*` and the `OTEL_*` variables. The renames were applied to `docker-compose.yml`, `.env.sample`, `.env`, the README, the architecture diagram, the spec, the decision record and the by-hand UI test steps. Earlier tasks in this document still use the old names where they describe what was built then.
+
+**Tests:** 35 new (590 total, all driven by `docker-compose.yml`): one per compose mapping checks that the variable equals the upper snake case of its configuration key and that `.env.sample` lists it, plus a floor on the number of mappings found.
+
+**Not verified:** the stack was not started with the renamed variables. An old variable name is ignored with no error.
+
 
 ## Not done or deferred
 

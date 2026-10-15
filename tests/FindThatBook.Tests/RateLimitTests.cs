@@ -17,9 +17,9 @@ public class RateLimitTests
         int perMinute = 100, int concurrent = 100, Func<IReadOnlyList<ParsedQuery>, IReadOnlyList<CatalogCandidate>>? catalog = null)
         => new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
-            b.UseSetting("Gemini:ApiKey", "");
-            b.UseSetting("RateLimit:SearchPermitsPerMinute", perMinute.ToString());
-            b.UseSetting("RateLimit:MaxConcurrentSearches", concurrent.ToString());
+            b.UseSetting("Ai:Gemini:ApiKey", "");
+            b.UseSetting("Api:RateLimit:SearchPermitsPerMinute", perMinute.ToString());
+            b.UseSetting("Api:RateLimit:MaxConcurrentSearches", concurrent.ToString());
             b.ConfigureTestServices(s =>
             {
                 s.RemoveAll<IBookCatalog>();

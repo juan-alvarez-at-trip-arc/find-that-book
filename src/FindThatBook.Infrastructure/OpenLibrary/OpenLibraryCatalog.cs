@@ -11,6 +11,8 @@ using FindThatBook.Application.Text;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Polly.CircuitBreaker;
+using Polly.Timeout;
 
 namespace FindThatBook.Infrastructure.OpenLibrary;
 
@@ -22,18 +24,21 @@ namespace FindThatBook.Infrastructure.OpenLibrary;
 /// <param name="log">Logger for failed searches and detail lookups.</param>
 /// <param name="options">Limits for detail lookups, retries and cooldown.</param>
 /// <param name="limiter">Shared request gate with the concurrency cap and 429 cooldown. When null, a private gate is created from <paramref name="options"/>.</param>
+/// <param name="resilience">Shared retry, circuit breaker and timeout pipeline. When null, a private one is created from <paramref name="options"/>.</param>
 public sealed class OpenLibraryCatalog(
     HttpClient http,
     IMemoryCache cache,
     ILogger<OpenLibraryCatalog> log,
     IOptions<OpenLibraryOptions> options,
-    OpenLibraryGate? limiter = null) : IBookCatalog
+    OpenLibraryGate? limiter = null,
+    OpenLibraryResiliencePipeline? resilience = null) : IBookCatalog
 {
     private const string SearchFields = "key,title,author_name,author_key,first_publish_year,edition_count,cover_i,editions";
     private const int DocsPerSearch = 5;
     private const int MinFieldedHits = 3;
     private const int EnrichmentConcurrency = 4;
     private readonly OpenLibraryGate _limiter = limiter ?? new OpenLibraryGate(options.Value.MaxConcurrentRequests);
+    private readonly OpenLibraryResiliencePipeline _resilience = resilience ?? OpenLibraryResiliencePipeline.Create(options.Value.Resilience);
     private static readonly TimeSpan CacheLifetime = TimeSpan.FromHours(1);
     private readonly ConcurrentDictionary<string, Lazy<Task<JsonNode?>>> _inFlight = new();
     private static readonly Regex WorkKey = new(@"^/works/(OL\d+W)$", RegexOptions.Compiled);
@@ -305,57 +310,73 @@ public sealed class OpenLibraryCatalog(
         return json;
     }
 
+
     /// <summary>
-    /// Sends one GET through the shared request gate. Only 5xx responses, timeouts, network errors and invalid JSON are retried with a growing delay. A 429 starts the shared cooldown and fails immediately, and other 4xx responses fail immediately.
+    /// Sends one GET through the resilience pipeline. Only 5xx responses, timeouts, network errors and invalid JSON are retried with a growing delay, and repeated failures open a circuit that rejects requests for a while. A 429 starts the shared cooldown and fails immediately, and other 4xx responses fail immediately.
     /// </summary>
     /// <param name="relativeUrl">Path and query relative to the Open Library base address.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The parsed JSON, or null when Open Library answered 404.</returns>
-    /// <exception cref="CatalogUnavailableException">The gate is cooling down, Open Library returned 429 or another non-retryable error, or retries were exhausted.</exception>
+    /// <exception cref="CatalogUnavailableException">The gate is cooling down, the circuit is open, Open Library returned 429 or another non-retryable error, or retries were exhausted.</exception>
     private async Task<JsonNode?> FetchAsync(string relativeUrl, CancellationToken ct)
     {
-        var settings = options.Value;
-        for (var attempt = 0; ; attempt++)
+        try
         {
-            // While Open Library is asking us to slow down, do not send anything at all.
-            if (_limiter.IsCoolingDown(out var remaining))
-                throw new CatalogUnavailableException($"Open Library asked us to slow down; retry in {Math.Ceiling(remaining.TotalSeconds)}s.");
+            return await _resilience.Pipeline.ExecuteAsync(token => new ValueTask<JsonNode?>(SendOnceAsync(relativeUrl, token)), ct);
+        }
+        catch (BrokenCircuitException ex)
+        {
+            throw new CatalogUnavailableException("Open Library is temporarily unavailable after repeated failures.", ex);
+        }
+        catch (TimeoutRejectedException ex)
+        {
+            throw new CatalogUnavailableException("Open Library timed out.", ex);
+        }
+        catch (OpenLibraryTransientException ex)
+        {
+            throw new CatalogUnavailableException(ex.Message, ex);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new CatalogUnavailableException(ex.Message, ex);
+        }
+        catch (JsonException ex)
+        {
+            throw new CatalogUnavailableException("Open Library returned invalid JSON: " + ex.Message, ex);
+        }
+    }
 
-            string failure;
-            try
-            {
-                using var slot = await _limiter.WaitAsync(ct);
-                using var response = await http.GetAsync(relativeUrl, ct);
-                if (response.IsSuccessStatusCode) return await response.Content.ReadFromJsonAsync<JsonNode>(ct);
-                if (response.StatusCode == HttpStatusCode.NotFound) return null;
+    /// <summary>Makes one attempt: checks the cooldown, takes a request slot from the shared gate, sends the GET and reads the JSON.</summary>
+    /// <param name="relativeUrl">Path and query relative to the Open Library base address.</param>
+    /// <param name="ct">Cancellation token of this attempt, which the pipeline cancels when the attempt times out.</param>
+    /// <returns>The parsed JSON, or null when Open Library answered 404.</returns>
+    /// <exception cref="CatalogUnavailableException">The gate is cooling down, Open Library returned 429 or a 4xx other than 404.</exception>
+    /// <exception cref="OpenLibraryTransientException">Open Library returned 5xx or the HTTP client timed out.</exception>
+    private async Task<JsonNode?> SendOnceAsync(string relativeUrl, CancellationToken ct)
+    {
+        if (_limiter.IsCoolingDown(out var remaining))
+            throw new CatalogUnavailableException($"Open Library asked us to slow down; retry in {Math.Ceiling(remaining.TotalSeconds)}s.");
 
-                if (response.StatusCode == HttpStatusCode.TooManyRequests)
-                {
-                    // Retrying a 429 only adds load: pause every request for what Open Library asked, and fail this one.
-                    FindThatBookTelemetry.RecordOpenLibraryCooldown();
-                    _limiter.StartCooldown(response.Headers.RetryAfter, TimeSpan.FromSeconds(Math.Max(1, settings.DefaultCooldownSeconds)));
-                    throw new CatalogUnavailableException("Open Library is rate limiting requests.");
-                }
+        try
+        {
+            using var slot = await _limiter.WaitAsync(ct);
+            using var response = await http.GetAsync(relativeUrl, ct);
+            if (response.IsSuccessStatusCode) return await response.Content.ReadFromJsonAsync<JsonNode>(ct);
+            if (response.StatusCode == HttpStatusCode.NotFound) return null;
 
-                var retryable = (int)response.StatusCode >= 500;
-                if (!retryable) throw new CatalogUnavailableException($"Open Library returned {(int)response.StatusCode}.");
-                failure = $"Open Library returned {(int)response.StatusCode}.";
-            }
-            catch (HttpRequestException ex)
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
-                failure = ex.Message;
-            }
-            catch (TaskCanceledException) when (!ct.IsCancellationRequested)
-            {
-                failure = "Open Library timed out.";
-            }
-            catch (JsonException ex)
-            {
-                failure = "Open Library returned invalid JSON: " + ex.Message;
+                FindThatBookTelemetry.RecordOpenLibraryCooldown();
+                _limiter.StartCooldown(response.Headers.RetryAfter, TimeSpan.FromSeconds(Math.Max(1, options.Value.DefaultCooldownSeconds)));
+                throw new CatalogUnavailableException("Open Library is rate limiting requests.");
             }
 
-            if (attempt >= settings.MaxRetries) throw new CatalogUnavailableException(failure);
-            await Task.Delay(settings.RetryDelayMs * (attempt + 1), ct);
+            if ((int)response.StatusCode >= 500) throw new OpenLibraryTransientException($"Open Library returned {(int)response.StatusCode}.");
+            throw new CatalogUnavailableException($"Open Library returned {(int)response.StatusCode}.");
+        }
+        catch (TaskCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            throw new OpenLibraryTransientException("Open Library timed out: " + ex.Message);
         }
     }
 }

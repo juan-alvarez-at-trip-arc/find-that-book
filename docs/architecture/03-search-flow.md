@@ -18,8 +18,9 @@ sequenceDiagram
     W->>C: POST /api/search
     C->>S: SearchAsync(query)
     S->>P: ParseAsync
+    Note over P,A: AiResiliencePipeline: retry once, circuit breaker, timeouts (08)
     P->>A: extract title/author hypotheses
-    alt AiUnavailableException
+    alt AiUnavailableException (error, timeout or open circuit)
         P->>H: parse locally
         H-->>P: hypotheses, aiUsed=false
     else ok
@@ -27,14 +28,16 @@ sequenceDiagram
     end
     P-->>S: ParseOutcome
     S->>K: FindAsync(hypotheses)
+    Note over K,O: OpenLibraryResiliencePipeline: retry, circuit breaker, timeout per attempt (06)
     K->>O: search.json
     K->>O: works and authors (max 6 lookups, cached)
     K-->>S: candidates
     S->>M: Rank(hypotheses, candidates, 5)
     M-->>S: up to 5 matches by tier
     S->>E: WriteAsync(matches)
+    Note over E,A: same AiResiliencePipeline and circuit as the parse step
     E->>A: one sentence per match
-    alt AiUnavailableException
+    alt AiUnavailableException (error, timeout or open circuit)
         E-->>S: template sentences, aiUsed=false
     else ok
         A-->>E: sentences

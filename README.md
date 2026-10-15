@@ -11,7 +11,7 @@ Turns a messy text query ("tolkien hobbit illustrated deluxe 1937") into up to 5
 - AI extraction and explanations with automatic fallback to a heuristic parser and template explanations. The app works with no AI key.
 - Matches work titles, edition titles (a work titled in another language still matches its English edition), author aliases and transliteration variants ("Dostoevsky" and "Dostoievski").
 - Static files and API responses are gzip-compressed for clients that ask for it (the script goes from about 234 KB to 85 KB).
-- Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429.
+- Gentle with Open Library: capped lookups, a request limit and a cooldown after HTTP 429. Polly retries, timeouts and circuit breakers protect both Open Library and the AI provider (see [Reliability](#reliability)).
 - Health endpoints for liveness, readiness (configuration plus Open Library and AI provider probes) and a masked configuration dump. See [Health endpoints](#health-endpoints).
 - UI: the top match shown large with its reason (the headline is the matched edition title when the work is titled differently), covers standing on a wooden ledge on warm paper with serif titles, a logo that links home, the other matches as compact cards with match badges (Best match, Exact title, Author match, Close title) and a collapsible reason, a layout that works on phones, an illustrated progress stage while a search runs (one animated scene per step), dismissable toast messages for errors (with a Try again button), the AI fallback, weak matches and empty results (with an empty bookshelf picture), keyboard and screen reader support (Escape, focused results heading, announced toasts), light/dark/system theme, saved example chips that promote your successful searches and shareable `?q=` links. See [web/README.md](web/README.md).
 
@@ -24,9 +24,9 @@ Requirements: .NET 10 SDK, Node 22+.
    ```bash
    cd src/FindThatBook.Api
    dotnet user-secrets init
-   dotnet user-secrets set "Gemini:ApiKey" "<your key>"
+   dotnet user-secrets set "Ai:Gemini:ApiKey" "<your key>"
    ```
-   For an OpenAI-compatible provider, set `Ai__Provider=OpenAiCompatible` and the `OpenAiCompatible__*` variables in your shell (see [AI providers](#ai-providers)). `dotnet run` does not read `.env`.
+   For an OpenAI-compatible provider, set `Ai__Provider=OpenAiCompatible` and the `Ai__OpenAiCompatible__*` variables in your shell (see [AI providers](#ai-providers)). `dotnet run` does not read `.env`.
 3. API: `dotnet run --project src/FindThatBook.Api` (http://localhost:5080)
 4. UI: `cd web && npm install && npm run dev` (http://localhost:5173, proxies `/api`)
 5. Tests: `dotnet test` and `cd web && npm test`
@@ -37,6 +37,7 @@ Docker Compose (UI and API on one port, http://localhost:8080):
    ```
    # AI provider: Gemini (default) or OpenAiCompatible
    AI_PROVIDER=Gemini
+# Model name for the selected provider. Blank uses its default (gemini-3.8-flash or openai/gpt-oss-20b).   AI_MODEL=
 
    # Generation settings sent to either provider. Blank means temperature 0 and nothing else is sent.
    AI_TEMPERATURE=
@@ -45,47 +46,60 @@ Docker Compose (UI and API on one port, http://localhost:8080):
    AI_SEED=
    AI_REASONING_EFFORT=
 
+   # AI resilience (retry, timeouts and circuit breaker for AI calls). Blank uses the defaults.
+   AI_RESILIENCE_RETRY_COUNT=
+   AI_RESILIENCE_RETRY_DELAY_MS=
+   AI_RESILIENCE_ATTEMPT_TIMEOUT_MS=
+   AI_RESILIENCE_TOTAL_TIMEOUT_MS=
+   AI_RESILIENCE_BREAKER_FAILURE_RATIO=
+   AI_RESILIENCE_BREAKER_MINIMUM_THROUGHPUT=
+   AI_RESILIENCE_BREAKER_SAMPLING_SECONDS=
+   AI_RESILIENCE_BREAKER_BREAK_SECONDS=
+
    # Gemini
-   GEMINI_API_KEY=<your key>
-   GEMINI_MODEL=gemini-3.8-flash
+   AI_GEMINI_API_KEY=<your key>
 
    # OpenAI-compatible provider (here: Groq)
-   OPENAI_API_KEY=<your key>
-   OPENAI_BASE_URL=https://api.groq.com/openai/v1/
-   OPENAI_MODEL=openai/gpt-oss-20b
+   AI_OPEN_AI_COMPATIBLE_API_KEY=<your key>
+   AI_OPEN_AI_COMPATIBLE_BASE_URL=https://api.groq.com/openai/v1/
 
    # Open Library
-   OPENLIBRARY_BASE_URL=https://openlibrary.org/
-   OPENLIBRARY_MAX_DETAIL_LOOKUPS=6
-   OPENLIBRARY_MAX_AUTHORS_PER_WORK=3
-   OPENLIBRARY_MAX_CONCURRENT_REQUESTS=2
-   OPENLIBRARY_DEFAULT_COOLDOWN_SECONDS=30
-   OPENLIBRARY_CONTACT=<your email or URL>
+   OPEN_LIBRARY_BASE_URL=https://openlibrary.org/
+   OPEN_LIBRARY_MAX_DETAIL_LOOKUPS=6
+   OPEN_LIBRARY_MAX_AUTHORS_PER_WORK=3
+   OPEN_LIBRARY_MAX_CONCURRENT_REQUESTS=2
+   OPEN_LIBRARY_DEFAULT_COOLDOWN_SECONDS=30
+   OPEN_LIBRARY_RESILIENCE_ATTEMPT_TIMEOUT_MS=10000
+   OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_FAILURE_RATIO=0.5
+   OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_MINIMUM_THROUGHPUT=6
+   OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_SAMPLING_SECONDS=30
+   OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_BREAK_SECONDS=20
+   OPEN_LIBRARY_CONTACT=<your email or URL>
 
    # Search limits: per client address per minute, and at once across all clients
-   RATE_LIMIT_SEARCHES_PER_MINUTE=10
-   RATE_LIMIT_MAX_CONCURRENT_SEARCHES=8
+   API_RATE_LIMIT_SEARCH_PERMITS_PER_MINUTE=10
+   API_RATE_LIMIT_MAX_CONCURRENT_SEARCHES=8
 
    # Serve GET /api/health/config (and the full /api/health/ready breakdown) to callers on the same machine. Off by default.
-   HEALTH_EXPOSE_CONFIG=false
+   API_HEALTH_EXPOSE_CONFIG=false
    ```
-   Every variable is optional. Blank values use the defaults.
+   Every variable is optional. Blank values use the defaults. A variable is its configuration key in upper snake case: `Ai:Gemini:ApiKey` is `AI_GEMINI_API_KEY`, `OpenLibrary:Resilience:AttemptTimeoutMs` is `OPEN_LIBRARY_RESILIENCE_ATTEMPT_TIMEOUT_MS` and `Api:RateLimit:MaxConcurrentSearches` is `API_RATE_LIMIT_MAX_CONCURRENT_SEARCHES` (the standard `OTEL_*` variables keep their names). A test checks every mapping in `docker-compose.yml`.
 2. Start it: `docker compose up --build`
 3. Stop it: `docker compose down`
 
-The compose file also starts a Jaeger all-in-one container (pinned to 1.76.0 by digest, UI at http://localhost:16686, published on `127.0.0.1` only and with no other ports published) for viewing traces. The app only sends to it when telemetry is on and `OTEL_EXPORTER_OTLP_ENDPOINT` points at it, over the compose network. All three containers run with a read-only root file system, all capabilities dropped and `no-new-privileges`. Two optional `.env` values set the search limits: `RATE_LIMIT_SEARCHES_PER_MINUTE` (default 10) and `RATE_LIMIT_MAX_CONCURRENT_SEARCHES` (default 8). The static landing page is served at `/landing.html`.
+The compose file also starts a Jaeger all-in-one container (pinned to 1.76.0 by digest, UI at http://localhost:16686, published on `127.0.0.1` only and with no other ports published) for viewing traces. The app only sends to it when telemetry is on and `OTEL_EXPORTER_OTLP_ENDPOINT` points at it, over the compose network. All three containers run with a read-only root file system, all capabilities dropped and `no-new-privileges`. Two optional `.env` values set the search limits: `API_RATE_LIMIT_SEARCH_PERMITS_PER_MINUTE` (default 10) and `API_RATE_LIMIT_MAX_CONCURRENT_SEARCHES` (default 8). The static landing page is served at `/landing.html`.
 
 The compose file also starts a `quick-tunnel` service (`cloudflare/cloudflared` 2026.10.0, pinned by digest, same hardening flags) that publishes the app on a temporary `https://*.trycloudflare.com` URL. Read the URL with `docker compose logs quick-tunnel`. It changes on every start and needs no Cloudflare account or token. Every visitor reaches the app from the tunnel container's address, so all visitors share one search limit (10 per minute), and anyone with the URL can run searches that spend your AI key. Remove the service, or run `docker compose stop quick-tunnel`, when you do not want the app public. A named tunnel with a stable hostname needs a domain in your Cloudflare account and was not set up.
 
 Plain Docker works too:
 
     docker build -t find-that-book .
-    docker run --rm -p 8080:8080 -e Gemini__ApiKey=<your key> find-that-book
+    docker run --rm -p 8080:8080 -e Ai__Gemini__ApiKey=<your key> find-that-book
 
 Or pull the prebuilt image that CI publishes from `master` (tags `latest` and the commit SHA) and from `v*` tags (tags such as `1.2.3` and `1.2`):
 
     docker pull ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
-    docker run --rm -p 8080:8080 -e Gemini__ApiKey=<your key> ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
+    docker run --rm -p 8080:8080 -e Ai__Gemini__ApiKey=<your key> ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
 
 ## Project layout
 
@@ -108,7 +122,7 @@ docs/call-tree-analysis.md      call tree of one traced search (Jaeger spans, HT
 docs/ui-proposals/              three static UI mockups (a featured-result layout based on Bookshelf was implemented)
 docs/ui-tests/                  by-hand UI test results, screenshots and pending checks
 PRODUCT.md, DESIGN.md           product context and the recorded visual system, for design work
-docs/architecture/              Mermaid diagrams: system context, layers, search flow, matching and fallback, infrastructure, Open Library protection
+docs/architecture/              Mermaid diagrams: system context, layers, search flow, matching and fallback, infrastructure, Open Library protection, telemetry, AI resilience
 Dockerfile, docker-compose.yml  one image with UI and API
 ```
 
@@ -120,14 +134,14 @@ AI is used for two steps: extracting `{ title?, author?, keywords[] }` from the 
 
 | `Ai:Provider` | Client | Settings (env var form) |
 |---|---|---|
-| `Gemini` (default) | Gemini `generateContent` | `Gemini__ApiKey`, `Gemini__Model` (default `gemini-3.8-flash`) |
-| `OpenAiCompatible` | any `/chat/completions` endpoint | `OpenAiCompatible__ApiKey`, `OpenAiCompatible__BaseUrl` (default `https://api.groq.com/openai/v1/`), `OpenAiCompatible__Model` (default `openai/gpt-oss-20b`) |
+| `Gemini` (default) | Gemini `generateContent` | `Ai__Gemini__ApiKey`, `Ai__Model` (default `gemini-3.8-flash`) |
+| `OpenAiCompatible` | any `/chat/completions` endpoint | `Ai__OpenAiCompatible__ApiKey`, `Ai__OpenAiCompatible__BaseUrl` (default `https://api.groq.com/openai/v1/`), `Ai__Model` (default `openai/gpt-oss-20b`) |
 
-A blank model or base URL uses the default, and an unknown provider name stops the app at startup with a clear error. The OpenAI-compatible key is optional because local servers need none. Both AI HTTP calls time out after 30 seconds.
+The model is one setting, `Ai__Model`, for whichever provider is selected, so change it together with `Ai__Provider`. A blank model or base URL uses the default of the selected provider, and an unknown provider name stops the app at startup with a clear error. The OpenAI-compatible key is optional because local servers need none. Each AI attempt times out after 30 seconds and a whole call after 45 seconds (see [Reliability](#reliability)).
 
 Examples for `OpenAiCompatible`:
 
-| Provider | `BaseUrl` | Example `Model` | Key |
+| Provider | `BaseUrl` | Example `Ai__Model` | Key |
 |---|---|---|---|
 | Groq | `https://api.groq.com/openai/v1/` | `openai/gpt-oss-20b` | https://console.groq.com/keys |
 | Cerebras | `https://api.cerebras.ai/v1/` | see their model list | https://cloud.cerebras.ai |
@@ -168,32 +182,32 @@ The fallback keeps the app usable, but it hides the problem from users, so havin
 
 Observations from 2026-10-09 with one free routing gateway (they describe that gateway and day, not the models in general):
 
-- With `OpenAiCompatible__Model=auto` the gateway picks a different upstream model per call. A one-line extraction took 6.6 to 12.2 seconds over three runs, and the log showed `AI provider timed out` (the 30 second limit) on some searches, so searches fell back with `aiUsed: false` while `/api/health/ready` still said `ready`.
+- With `Ai__Model=auto` the gateway picks a different upstream model per call. A one-line extraction took 6.6 to 12.2 seconds over three runs, and the log showed `AI provider timed out` (the 30 second limit) on some searches, so searches fell back with `aiUsed: false` while `/api/health/ready` still said `ready`.
 - 20 models were timed once each on the explanation step (5 books, JSON mode). 11 returned the exact 5-item JSON the app needs, 6 returned output it cannot use (wrong shape or count), and 3 returned HTTP errors (429, 400, 502). The fastest valid ones took under 4 seconds (`command-a` 1.9 s, `nemotron-3-super-120b` 3.7 s, `gpt-oss-20b` 3.9 s). Some valid ones took 20 to 28 seconds, close to the timeout.
 - Each model ran once, so repeat the test before relying on the numbers. The project owner runs with `command-a`.
 
 ## API
 
 `POST /api/search` with `{ "query": "..." }` returns `{ aiUsed, message, results: [{ title, author, authors, first_publish_year, workId, url, coverUrl, explanation, matchTier, exactTitle, matchedTitle }] }`. `matchTier` is 1 (strongest) to 5, `exactTitle` is true when the title matched exactly and `matchedTitle` is the edition title that matched when the work is titled differently (otherwise null). The query is trimmed and truncated to 200 characters. `message` is also set next to non-empty results when even the best match is weak ("No confident match").
-Errors are RFC 7807 problem details: 400 for a blank query, 413 for a request body over 8 KB, 429 when the client or the server is over the search limit (with a `Retry-After` header, see [Security](#security)), 502 if Open Library cannot be searched, 500 for anything else.
+Errors are RFC 7807 problem details: 400 for a blank query, 413 for a request body over 8 KB, 429 when the client or the server is over the search limit (with a `Retry-After` header, see [Security](#security)), 502 if Open Library cannot be searched (including while its circuit is open), 500 for anything else.
 
 ### Health endpoints
 
 | Endpoint | Purpose | Response |
 | --- | --- | --- |
 | `GET /api/health` | Liveness for container and load balancer checks. No outside calls. | 200 `{ "status": "ok" }` |
-| `GET /api/health/ready` | Readiness. Validates the configuration and probes Open Library and the selected AI provider. | 200 with `ready` or `degraded`, 503 with `unready`. The body is only `{ "status": ... }`. The per-dependency breakdown shows only to a local caller when `Health:ExposeConfig` is true. |
-| `GET /api/health/config` | The effective configuration values, with masked API keys. Off (404) unless `Health:ExposeConfig` is true. The `ai` section shows the provider and the generation values that are sent (temperature, top-k, top-p, seed, reasoning effort). | 200 with `ai`, `gemini`, `openAiCompatible` and `openLibrary` sections |
+| `GET /api/health/ready` | Readiness. Validates the configuration and probes Open Library and the selected AI provider. | 200 with `ready` or `degraded`, 503 with `unready`. The body is only `{ "status": ... }`. The per-dependency breakdown shows only to a local caller when `Api:Health:ExposeConfig` is true. |
+| `GET /api/health/config` | The effective configuration values, with masked API keys. Off (404) unless `Api:Health:ExposeConfig` is true. The `ai` section shows the provider and the generation values that are sent (temperature, top-k, top-p, seed, reasoning effort). | 200 with `ai`, `gemini`, `openAiCompatible` and `openLibrary` sections |
 
 - **Probes:** Open Library runs a one-result search. Gemini reads the configured model's metadata and OpenAI-compatible calls `GET {baseUrl}/models`, so neither spends tokens. A server without a `/models` route still counts as reachable. Each probe times out after 5 seconds.
 - **Status:** `unready` means the configuration is invalid or Open Library is down. `degraded` means the AI provider is missing a key, rate limited or down, and searches use the non-AI fallback.
 - **Caching:** the readiness report is cached for 30 seconds, so polling does not use AI quota or trip Open Library throttling.
-- **Secrets:** `/api/health/config` masks API keys (only the last four characters stay visible, for example `****...****654c`, and keys shorter than 16 characters are fully masked), shows `not set` for a missing key and removes credentials from URLs. The endpoint is off unless `Health:ExposeConfig` is true (`Health__ExposeConfig`, or `HEALTH_EXPOSE_CONFIG` for Docker Compose), because a reverse proxy on the same machine that adds no forwarding header would make every outside caller look local. When it is on, it answers only callers on the same machine (loopback, or a remote address equal to the local one) and returns 404 to everyone else, including a caller whose address is unknown and any request that carries `X-Forwarded-For`, `Forwarded` or `X-Real-IP` (a proxy on the same machine would otherwise make every outside caller look local), because it shows internal URLs and the Open Library contact. Under Docker, requests through a published port come from the bridge gateway, so run `curl http://localhost:8080/api/health/config` inside the container instead.
+- **Secrets:** `/api/health/config` masks API keys (only the last four characters stay visible, for example `****...****654c`, and keys shorter than 16 characters are fully masked), shows `not set` for a missing key and removes credentials from URLs. The endpoint is off unless `Api:Health:ExposeConfig` is true (`Api__Health__ExposeConfig`, or `API_HEALTH_EXPOSE_CONFIG` for Docker Compose), because a reverse proxy on the same machine that adds no forwarding header would make every outside caller look local. When it is on, it answers only callers on the same machine (loopback, or a remote address equal to the local one) and returns 404 to everyone else, including a caller whose address is unknown and any request that carries `X-Forwarded-For`, `Forwarded` or `X-Real-IP` (a proxy on the same machine would otherwise make every outside caller look local), because it shows internal URLs and the Open Library contact. Under Docker, requests through a published port come from the bridge gateway, so run `curl http://localhost:8080/api/health/config` inside the container instead.
 - **Controller:** the three endpoints live in `HealthController`. Settings come from the app's configuration, not from `.env`, which only Docker Compose reads.
 
 ## Security
 
-- **Rate limit:** `POST /api/search` allows 10 searches per minute per client address and 8 searches at once across all clients (`RateLimit:SearchPermitsPerMinute`, `RateLimit:MaxConcurrentSearches`, env vars `RateLimit__*`). Each search can spend two AI calls and a dozen Open Library requests, and one client could otherwise start the shared Open Library cooldown for everyone. Other paths are not limited. Trailing slashes are ignored, so `/api/search/` counts against the same limits as `/api/search`. The client address is the connection's remote address, so behind a reverse proxy all readers share one limit until forwarded headers are configured with known proxies.
+- **Rate limit:** `POST /api/search` allows 10 searches per minute per client address and 8 searches at once across all clients (`Api:RateLimit:SearchPermitsPerMinute`, `Api:RateLimit:MaxConcurrentSearches`, env vars `RateLimit__*`). Each search can spend two AI calls and a dozen Open Library requests, and one client could otherwise start the shared Open Library cooldown for everyone. Other paths are not limited. Trailing slashes are ignored, so `/api/search/` counts against the same limits as `/api/search`. The client address is the connection's remote address, so behind a reverse proxy all readers share one limit until forwarded headers are configured with known proxies.
 - **Request size:** Kestrel rejects bodies over 8 KB with a 413.
 - **Browser headers:** every response, including the 500, 502 and 413 problem details (the headers are set when the response starts, because the exception handler clears earlier ones), carries `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, a `Permissions-Policy` that turns off camera, microphone, location, payment and USB, and a Content-Security-Policy that allows only the app's own scripts and styles, and images from `covers.openlibrary.org` and `archive.org` (cover redirects). The theme script is a file (`web/public/theme-init.js`) so no inline script is needed. The static landing page has its own policy that allows its inline script and styles. HSTS and HTTPS redirection are left to the proxy that terminates TLS.
 - **Prompt injection:** the model has no tools, no secrets in its prompt and no say in the ranking, so injected text can only change wording. Instructions and data travel in separate roles (`IAiClient` takes an `AiPrompt` with `Instructions` and `Data`): Gemini gets them as `systemInstruction` and user content, and OpenAI-compatible endpoints as the system and user messages. Two inputs are untrusted. The reader's text goes into the parser prompt with `<` and `>` removed so it cannot close the delimiter. The book facts (titles, authors and contributors, which come from Open Library where anyone can edit records) go into the explanation prompt after control characters, angle brackets and backticks are removed and each value is cut (titles 200 characters, names 100, at most 5 authors and 5 contributors). They sit in a block marked as untrusted data, with a delimiter that is random for each request.
@@ -203,13 +217,31 @@ Errors are RFC 7807 problem details: 400 for a blank query, 413 for a request bo
 - **Open Library ids:** only keys shaped like `/works/OL123W` and `/authors/OL123A` are followed, so a malformed upstream value cannot change the path of a later request.
 - **Supply chain:** Dockerfile base images are pinned by digest and the workflow actions by commit SHA (Dependabot updates both, and the compose images too). `npm ci --ignore-scripts` is used in the Dockerfile and CI, so dependency install scripts never run. CI fails on a known vulnerable NuGet package (`dotnet list package --vulnerable --include-transitive`) or an npm advisory of high severity or above (`npm audit --audit-level=high`). `.dockerignore` keeps `.env` and `.github` out of the build context.
 
+## Reliability
+
+Calls to Open Library and to the AI provider go through [Polly](https://www.pollydocs.org) pipelines (`Polly.Core`, shared by the whole process, so the circuit state is shared too). The pipelines are `OpenLibraryResiliencePipeline` and `AiResiliencePipeline`.
+
+| | Open Library | AI provider |
+|---|---|---|
+| Timeout per attempt | 10 s (`OpenLibrary:Resilience:AttemptTimeoutMs`) | 30 s (`Ai:Resilience:AttemptTimeoutMs`) |
+| Timeout for the whole call | none | 45 s (`Ai:Resilience:TotalTimeoutMs`) |
+| Retry | 2 retries (`OpenLibrary:Resilience:MaxRetries`), growing delay from `OpenLibrary:Resilience:RetryDelayMs`, on 5xx, network errors, timeouts and invalid JSON | 1 retry (`Ai:Resilience:RetryCount`) after `Ai:Resilience:RetryDelayMs`, on 5xx and network errors only |
+| Never retried | 429 (starts the cooldown) and other 4xx | timeouts, 429 and other 4xx, because a retry only adds waiting time or load |
+| Circuit breaker opens | when at least half of the requests in 30 s failed, with at least 6 requests (`OpenLibrary:Resilience:CircuitBreaker*`) | when at least half of the calls in 30 s failed, with at least 4 calls (`Ai:Resilience:Breaker*`) |
+| Counts as a failure | 5xx, network errors, timeouts, invalid JSON. A 429 does not count, the cooldown handles it | 5xx, network errors, timeouts and 429 |
+| While open (20 s, or 30 s for the AI) | searches fail at once with a 502 and send no request | the AI step falls back at once with `aiUsed: false`, with no waiting for a timeout |
+
+After the break time one request is let through. If it succeeds the circuit closes, otherwise it opens again. The Open Library gate (2 concurrent requests) and the 429 cooldown are unchanged and still run inside each attempt, so a retry takes a free slot and re-checks the cooldown. The health probes use their own client and are not retried.
+
+Circuit changes are counted by `ftb.ai.circuit` and `ftb.openlibrary.circuit` (tag `state`: `opened` or `closed`). `/api/health/ready` reports an out-of-range setting as invalid. The `Ai:Resilience` settings use the env var form `Ai__Resilience__RetryCount` and so on. Docker Compose maps them from `.env` as `AI_RESILIENCE_RETRY_COUNT`, `AI_RESILIENCE_RETRY_DELAY_MS`, `AI_RESILIENCE_ATTEMPT_TIMEOUT_MS`, `AI_RESILIENCE_TOTAL_TIMEOUT_MS`, `AI_RESILIENCE_BREAKER_FAILURE_RATIO`, `AI_RESILIENCE_BREAKER_MINIMUM_THROUGHPUT`, `AI_RESILIENCE_BREAKER_SAMPLING_SECONDS` and `AI_RESILIENCE_BREAKER_BREAK_SECONDS` (blank uses the default). The Open Library timeout and circuit settings are mapped as `OPEN_LIBRARY_RESILIENCE_ATTEMPT_TIMEOUT_MS`, `OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_FAILURE_RATIO`, `OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_MINIMUM_THROUGHPUT`, `OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_SAMPLING_SECONDS` and `OPEN_LIBRARY_RESILIENCE_CIRCUIT_BREAKER_BREAK_SECONDS`. `OpenLibrary:Resilience:MaxRetries` and `RetryDelayMs` are still not mapped.
+
 ## Telemetry
 
-The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry__Enabled=true` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set (`TELEMETRY_ENABLED` and `OTEL_*` for Docker Compose). `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME` are read by the OpenTelemetry SDK.
+The API exports traces, metrics and logs over OTLP. It is off unless `Api__Telemetry__Enabled=true` or `OTEL_EXPORTER_OTLP_ENDPOINT` is set (`API_TELEMETRY_ENABLED` and `OTEL_*` for Docker Compose). `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_EXPORTER_OTLP_PROTOCOL` and `OTEL_SERVICE_NAME` are read by the OpenTelemetry SDK.
 
 - Traces: ASP.NET Core, outgoing HTTP, and a `search` span with `parse`, `catalog`, `rank` and `explain` children.
-- Metrics: ASP.NET Core, HTTP client, runtime, plus `ftb.ai.fallback` (tag `step`), `ftb.openlibrary.cooldown` and `ftb.search.results`.
-- Logs: every `ILogger` entry, plus each outgoing HTTP request and response with headers and bodies (cut at 8 KB). Set `Telemetry__LogHttpBodies=false` to turn the HTTP bodies off.
+- Metrics: ASP.NET Core, HTTP client, runtime, plus `ftb.ai.fallback` (tag `step`), `ftb.openlibrary.cooldown`, `ftb.ai.circuit`, `ftb.openlibrary.circuit` (tag `state`) and `ftb.search.results`.
+- Logs: every `ILogger` entry, plus each outgoing HTTP request and response with headers and bodies (cut at 8 KB). Set `Api__Telemetry__LogHttpBodies=false` to turn the HTTP bodies off.
 - Masking: `Authorization`, `x-goog-api-key` and cookie headers, credential query parameters and JSON fields, bearer tokens, the configured API keys and the Open Library contact are replaced with `***`. The reader's search text is logged as typed.
 
 ## How it works
@@ -234,16 +266,16 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 - A guessed author split ranks below an exact title on its own, so "the little prince" finds the book before a "Little Pigs" book by an author named Prince.
 - Author-only queries use `/search.json?sort=editions` instead of `/authors/{id}/works.json`, which has no popularity order.
 - Open Library data quirks are handled in matching: a work can be titled in another language ("海辺のカフカ") while its English edition carries the title the reader typed, and authors can be stored in another script. Names are shown as Open Library stores them. When a title matched through an edition title, the UI shows that edition title as the headline and the stored work title beneath it ("Catalogued as ...").
-- Open Library calls are cached in memory for an hour, concurrent calls for the same URL share one request that no single caller's cancellation can cancel (a caller that disconnects stops waiting and the others still get the answer), and calls are retried twice on 5xx and timeouts. A failed detail lookup lowers a candidate's rank instead of failing the request.
-- The app is gentle with Open Library, which rate-limits (HTTP 429) heavy use. Each search looks up details for at most 6 works and 3 authors per work (`OpenLibrary:MaxDetailLookups`, `MaxAuthorsPerWork`), and at most 2 requests run at the same time (`MaxConcurrentRequests`). A 429 is never retried: it pauses all Open Library requests for the `Retry-After` time, or 30 s (`DefaultCooldownSeconds`), and during that pause searches fail fast with a 502 while cached lookups still work.
-- Open Library asks API users to identify themselves. Set `OpenLibrary__Contact` (an email or URL, or `OPENLIBRARY_CONTACT` for Docker Compose) and it is added to the `User-Agent`. It is empty by default and never filled in automatically.
+- Open Library calls are cached in memory for an hour, concurrent calls for the same URL share one request that no single caller's cancellation can cancel (a caller that disconnects stops waiting and the others still get the answer), and every call runs through a retry, circuit breaker and timeout pipeline (see [Reliability](#reliability)). A failed detail lookup lowers a candidate's rank instead of failing the request.
+- The app is gentle with Open Library, which rate-limits (HTTP 429) heavy use. Retries, timeouts and a circuit breaker (see Reliability) stop a failing Open Library from being hammered. Each search looks up details for at most 6 works and 3 authors per work (`OpenLibrary:MaxDetailLookups`, `MaxAuthorsPerWork`), and at most 2 requests run at the same time (`MaxConcurrentRequests`). A 429 is never retried: it pauses all Open Library requests for the `Retry-After` time, or 30 s (`DefaultCooldownSeconds`), and during that pause searches fail fast with a 502 while cached lookups still work.
+- Open Library asks API users to identify themselves. Set `OpenLibrary__Contact` (an email or URL, or `OPEN_LIBRARY_CONTACT` for Docker Compose) and it is added to the `User-Agent`. It is empty by default and never filled in automatically.
 - User text goes to the AI provider as delimited data, and only the structured fields it returns are used.
 
 ## Known limitations
 
 - Authors stored in another script show in that script (for example 村上春樹), even when the title headline is the English edition title.
 - Pressing Enter while a search is running does nothing, because the search box, the example chips and the Search button are disabled during a search.
-- When the AI provider hangs, a search can wait up to about 40 seconds before falling back (two AI steps at 30 seconds each).
+- When the AI provider hangs, a search can wait up to about 60 seconds before falling back (two AI steps at 30 seconds each). Once repeated failures open the circuit, later searches fall back at once until the circuit closes. The circuit lives in memory, so it is per instance and resets on restart.
 - In fallback mode the guessed hypotheses can still produce odd results. Summaries and study guides are filtered by title phrase (summary, study guide, SparkNotes, CliffsNotes), so ones with other wording can still appear.
 - Different first-name spellings (for example Fyodor and Fedor) only match when the surname also matches.
 - The mobile layout was checked by hand in a narrow desktop Chrome window, not on real phones, and there are no automated layout tests.
@@ -260,7 +292,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Telemetry_
 
 ## Testing
 
-- 487 .NET tests (generation-setting tests cover the defaults, range and shape checks, both providers' request bodies, configuration binding through the real container, the readiness check and the config dump; security tests cover prompt injection, role separation, the rate limit (including path variants), the opt-in and proxy-aware config endpoint, the minimal readiness body, the 413 response, the headers (including on error responses), the response size cap, shared requests and cancellation, id validation, key masking, AI output limits and the pinned compose, Dockerfile and workflow files). `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 590 .NET tests (a test checks that `appsettings.json` lists every option setting with its default, resilience tests cover the retries, the timeouts, the circuits opening and closing with a fake clock, 429 handling and the shared circuit state through the container, and the counters and settings checks; generation-setting tests cover the defaults, range and shape checks, both providers' request bodies, configuration binding through the real container, the readiness check and the config dump; security tests cover prompt injection, role separation, the rate limit (including path variants), the opt-in and proxy-aware config endpoint, the minimal readiness body, the 413 response, the headers (including on error responses), the response size cap, shared requests and cancellation, id validation, key masking, AI output limits and the pinned compose, Dockerfile and workflow files). `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, shared lookups for an author used by several works, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.

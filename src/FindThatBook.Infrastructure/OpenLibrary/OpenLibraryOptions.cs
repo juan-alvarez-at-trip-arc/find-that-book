@@ -1,14 +1,12 @@
 namespace FindThatBook.Infrastructure.OpenLibrary;
 
-/// <summary>Settings for the Open Library client: address, retry policy, request volume limits and the User-Agent contact.</summary>
+/// <summary>Settings for the Open Library client: address, resilience (retry, timeout, circuit breaker), request volume limits and the User-Agent contact.</summary>
 public sealed class OpenLibraryOptions
 {
     /// <summary>Base address of the Open Library API.</summary>
     public string BaseUrl { get; set; } = "https://openlibrary.org/";
-    /// <summary>Retries after a 5xx response, timeout or network error. 429 and other 4xx responses are never retried.</summary>
-    public int MaxRetries { get; set; } = 2;
-    /// <summary>Base delay in milliseconds before a retry; it is multiplied by the attempt number.</summary>
-    public int RetryDelayMs { get; set; } = 300;
+    /// <summary>Retry, timeout and circuit breaker settings, bound from the <c>OpenLibrary:Resilience</c> section.</summary>
+    public OpenLibraryResilienceOptions Resilience { get; set; } = new();
 
     /// <summary>How many works per search get a detail lookup (works plus authors). Each one costs several requests.</summary>
     public int MaxDetailLookups { get; set; } = 6;

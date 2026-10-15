@@ -339,7 +339,7 @@ public class AiGenerationTests
         });
         var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
         {
-            ["Ai:Provider"] = provider, ["Gemini:ApiKey"] = "k", ["Ai:Temperature"] = "0.25", ["Ai:TopK"] = "12", ["Ai:TopP"] = "0.6",
+            ["Ai:Provider"] = provider, ["Ai:Gemini:ApiKey"] = "k", ["Ai:Temperature"] = "0.25", ["Ai:TopK"] = "12", ["Ai:TopP"] = "0.6",
             ["Ai:Seed"] = "123", ["Ai:ReasoningEffort"] = "low",
         }).Build();
         var services = new ServiceCollection();
@@ -426,5 +426,32 @@ public class AiGenerationTests
         Assert.Contains("AI_TEMPERATURE=", sample);
         Assert.Contains("AI_TOP_K=", sample);
         Assert.Contains("AI_TOP_P=", sample);
+    }
+
+    [Theory]
+    [InlineData("Gemini", "my-model", "/v1beta/models/my-model:generateContent")]
+    [InlineData("Gemini", "", "/v1beta/models/" + GeminiOptions.DefaultModel + ":generateContent")]
+    [InlineData("OpenAiCompatible", "my-model", "my-model")]
+    [InlineData("OpenAiCompatible", "", OpenAiCompatibleOptions.DefaultModel)]
+    public async Task The_registered_client_uses_ai_model_or_the_default_of_its_provider(string provider, string model, string expected)
+    {
+        string? seen = null;
+        var handler = new StubHandler(req =>
+        {
+            seen = provider == "Gemini" ? req.RequestUri!.AbsolutePath : JsonNode.Parse(req.Content!.ReadAsStringAsync().Result)!["model"]!.GetValue<string>();
+            return StubHandler.Json(provider == "Gemini" ? GeminiReply : OpenAiReply);
+        });
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Ai:Provider"] = provider, ["Ai:Gemini:ApiKey"] = "k", ["Ai:Model"] = model,
+        }).Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddFindThatBook(config);
+        services.Configure<HttpClientFactoryOptions>(nameof(IAiClient), o => o.HttpMessageHandlerBuilderActions.Add(b => b.PrimaryHandler = handler));
+
+        await services.BuildServiceProvider().GetRequiredService<IAiClient>().GenerateJsonAsync(new AiPrompt("Reply in JSON.", "hi"), Schema, default);
+
+        Assert.Equal(expected, seen);
     }
 }

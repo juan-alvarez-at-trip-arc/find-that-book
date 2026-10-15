@@ -13,7 +13,7 @@ flowchart LR
 
     user --> ui
     ui -- "fetch /api" --> api
-    api -- "HTTP, 2 concurrent, cached" --> ol
-    api -- "HTTP, structured JSON" --> ai
+    api -- "HTTP, 2 concurrent, cached,<br/>retry, circuit breaker" --> ol
+    api -- "HTTP, structured JSON,<br/>retry, circuit breaker" --> ai
     user -. "cover images" .-> covers
 ```

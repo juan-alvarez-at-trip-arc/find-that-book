@@ -21,7 +21,7 @@ public class OpenLibraryCatalogTests
             new HttpClient(handler) { BaseAddress = new Uri("https://openlibrary.org/") },
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<OpenLibraryCatalog>.Instance,
-            Options.Create(new OpenLibraryOptions { RetryDelayMs = 0 }));
+            Options.Create(new OpenLibraryOptions { Resilience = { RetryDelayMs = 0 } }));
 
     private static HttpResponseMessage Route(HttpRequestMessage req, Func<HttpRequestMessage, HttpResponseMessage>? search = null)
         => req.RequestUri!.AbsolutePath switch
@@ -181,7 +181,7 @@ public class OpenLibraryCatalogTests
         var catalog = new OpenLibraryCatalog(
             new HttpClient(new StubHandler(req => Route(req))) { BaseAddress = new Uri("https://openlibrary.org/") },
             cache, NullLogger<OpenLibraryCatalog>.Instance,
-            Options.Create(new OpenLibraryOptions { RetryDelayMs = 0 }));
+            Options.Create(new OpenLibraryOptions { Resilience = { RetryDelayMs = 0 } }));
 
         var found = await catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default);
 
@@ -399,7 +399,7 @@ public class OpenLibraryCatalogTests
             new HttpClient(handler) { BaseAddress = new Uri("https://openlibrary.org/") },
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<OpenLibraryCatalog>.Instance,
-            Options.Create(new OpenLibraryOptions { RetryDelayMs = 0 }));
+            Options.Create(new OpenLibraryOptions { Resilience = { RetryDelayMs = 0 } }));
         using var firstCaller = new CancellationTokenSource();
 
         var first = catalog.FindAsync([Q.Make("the hobbit", "tolkien")], firstCaller.Token);

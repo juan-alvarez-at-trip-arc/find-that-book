@@ -7,6 +7,7 @@ using FindThatBook.Application.Parsing;
 using FindThatBook.Application.Search;
 using FindThatBook.Application.Telemetry;
 using FindThatBook.Infrastructure.Ai;
+using FindThatBook.Infrastructure.OpenAi;
 using FindThatBook.Infrastructure.OpenLibrary;
 using FindThatBook.Tests.Support;
 using Microsoft.Extensions.Caching.Memory;
@@ -115,10 +116,54 @@ public class TelemetryTests
             new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.TooManyRequests))) { BaseAddress = new Uri("https://openlibrary.org/") },
             new MemoryCache(new MemoryCacheOptions()),
             NullLogger<OpenLibraryCatalog>.Instance,
-            Options.Create(new OpenLibraryOptions { RetryDelayMs = 0 }));
+            Options.Create(new OpenLibraryOptions { Resilience = { RetryDelayMs = 0 } }));
 
         await Assert.ThrowsAsync<CatalogUnavailableException>(() => catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default));
 
         Assert.True(measurements.Count("ftb.openlibrary.cooldown") >= 1);
+    }
+
+    [Fact]
+    public async Task The_ai_circuit_opening_and_closing_are_counted()
+    {
+        using var measurements = new Measurements();
+        var clock = new Microsoft.Extensions.Time.Testing.FakeTimeProvider();
+        var healthy = false;
+        var handler = new StubHandler(_ => healthy
+            ? StubHandler.Json("""{"choices":[{"message":{"role":"assistant","content":"{}"}}]}""")
+            : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
+        var options = new OpenAiCompatibleOptions { ApiKey = "k" };
+        var client = new OpenAiCompatibleClient(
+            new HttpClient(handler) { BaseAddress = options.BaseUri }, Options.Create(options), null,
+            AiResiliencePipeline.Create(new AiResilienceOptions { RetryCount = 0, BreakerMinimumThroughput = 2, BreakerBreakSeconds = 30 }, clock));
+        var prompt = new AiPrompt("Reply in JSON.", "hi");
+        var schema = System.Text.Json.Nodes.JsonNode.Parse("""{"type":"object"}""")!;
+        await Assert.ThrowsAsync<AiUnavailableException>(() => client.GenerateJsonAsync(prompt, schema, default));
+        await Assert.ThrowsAsync<AiUnavailableException>(() => client.GenerateJsonAsync(prompt, schema, default));
+        healthy = true;
+        clock.Advance(TimeSpan.FromSeconds(31));
+
+        await client.GenerateJsonAsync(prompt, schema, default);
+
+        Assert.True(measurements.Count("ftb.ai.circuit", "state", "opened") >= 1);
+        Assert.True(measurements.Count("ftb.ai.circuit", "state", "closed") >= 1);
+    }
+
+    [Fact]
+    public async Task The_open_library_circuit_opening_is_counted()
+    {
+        using var measurements = new Measurements();
+        var settings = new OpenLibraryOptions { Resilience = { RetryDelayMs = 0, MaxRetries = 0, CircuitBreakerMinimumThroughput = 2 } };
+        var catalog = new OpenLibraryCatalog(
+            new HttpClient(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable))) { BaseAddress = new Uri("https://openlibrary.org/") },
+            new MemoryCache(new MemoryCacheOptions()),
+            NullLogger<OpenLibraryCatalog>.Instance,
+            Options.Create(settings),
+            null,
+            OpenLibraryResiliencePipeline.Create(settings.Resilience));
+        await Assert.ThrowsAsync<CatalogUnavailableException>(() => catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default));
+        await Assert.ThrowsAsync<CatalogUnavailableException>(() => catalog.FindAsync([Q.Make("the hobbit", "tolkien")], default));
+
+        Assert.True(measurements.Count("ftb.openlibrary.circuit", "state", "opened") >= 1);
     }
 }
