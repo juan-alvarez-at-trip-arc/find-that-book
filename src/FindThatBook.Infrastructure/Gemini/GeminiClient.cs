@@ -11,7 +11,8 @@ namespace FindThatBook.Infrastructure.Gemini;
 /// <param name="http">HTTP client whose base address points at the Gemini API.</param>
 /// <param name="options">Gemini settings: API key and model name.</param>
 /// <param name="generationOptions">Temperature, top-k, top-p, seed and reasoning effort from the <c>Ai</c> configuration section. When null, the defaults apply: temperature 0 and nothing else.</param>
-public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> options, IOptions<AiGenerationOptions>? generationOptions = null) : IAiClient
+/// <param name="resilience">Retry, circuit breaker and timeout pipeline shared by every call. When null, each call is sent once with no retry and no circuit.</param>
+public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> options, IOptions<AiGenerationOptions>? generationOptions = null, AiResiliencePipeline? resilience = null) : IAiClient
 {
     /// <summary>Gets the first element of a JSON array node.</summary>
     /// <param name="node">The node to inspect, expected to be a JSON array.</param>
@@ -56,15 +57,23 @@ public sealed class GeminiClient(HttpClient http, IOptions<GeminiOptions> option
         };
 
         var model = string.IsNullOrWhiteSpace(settings.Model) ? GeminiOptions.DefaultModel : settings.Model.Trim();
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"v1beta/models/{model}:generateContent")
+        HttpRequestMessage NewRequest()
         {
-            Content = JsonContent.Create(body),
-        };
-        request.Headers.Add("x-goog-api-key", settings.ApiKey);
+            var request = new HttpRequestMessage(HttpMethod.Post, $"v1beta/models/{model}:generateContent")
+            {
+                Content = JsonContent.Create(body),
+            };
+            request.Headers.Add("x-goog-api-key", settings.ApiKey);
+            return request;
+        }
 
         try
         {
-            using var response = await http.SendAsync(request, ct);
+            using var response = await (resilience ?? AiResiliencePipeline.None).SendAsync(async token =>
+            {
+                using var request = NewRequest();
+                return await http.SendAsync(request, token);
+            }, ct);
             if (!response.IsSuccessStatusCode)
                 throw new AiUnavailableException($"Gemini returned {(int)response.StatusCode}.");
 

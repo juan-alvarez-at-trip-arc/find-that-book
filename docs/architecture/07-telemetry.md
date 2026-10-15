@@ -20,12 +20,14 @@ flowchart LR
         HL["HttpLoggingHandler"]
         M["SensitiveDataMasker"]
         OC["OpenLibraryCatalog<br/>ftb.openlibrary.cooldown"]
+        RP["OpenLibraryResiliencePipeline, AiResiliencePipeline<br/>ftb.openlibrary.circuit, ftb.ai.circuit<br/>(breaker opened and closed callbacks)"]
     end
 
     SS --> FT
     FB --> FT
     SS --> SR --> FT
     OC --> FT
+    RP --> FT
     TE --> OTel
     FT -- "source and meter" --> OTel
     HL --> M
@@ -36,3 +38,5 @@ flowchart LR
 ```
 
 `HttpLoggingHandler` masks first and truncates second (8 KB), so a secret cut in half is never logged.
+
+The circuit counters (`ftb.ai.circuit` and `ftb.openlibrary.circuit`, tag `state` with `opened` or `closed`) are recorded from the circuit breaker callbacks of the two Polly pipelines, through `FindThatBookTelemetry`. The Polly meter itself is not subscribed.

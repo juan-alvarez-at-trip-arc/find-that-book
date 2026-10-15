@@ -24,6 +24,9 @@ flowchart TB
     subgraph Infra["FindThatBook.Infrastructure"]
         OpenLibraryCatalog
         OpenLibraryGate
+        OLPipe["OpenLibraryResiliencePipeline<br/>(Polly: retry, circuit breaker, timeout)"]
+        AiPipe["AiResiliencePipeline<br/>(Polly: total timeout, retry,<br/>circuit breaker, attempt timeout)"]
+        ResOptions["AiResilienceOptions<br/>(Ai:Resilience section)"]
         AiQueryParser
         AiExplanationWriter
         IAiClient{{IAiClient}}
@@ -68,4 +71,11 @@ flowchart TB
     OpenAiCompatibleClient --> GenOptions
     Health --> GenOptions
     OpenLibraryCatalog --> OpenLibraryGate
+    OpenLibraryCatalog --> OLPipe
+    GeminiClient --> AiPipe
+    OpenAiCompatibleClient --> AiPipe
+    AiPipe --> ResOptions
+    AiPipe --> FindThatBookTelemetry
+    OLPipe --> FindThatBookTelemetry
+    Health --> ResOptions
 ```

@@ -14,8 +14,9 @@ public static class HealthConfigCheck
     /// <param name="openAi">OpenAI-compatible settings.</param>
     /// <param name="openLibrary">Open Library settings.</param>
     /// <param name="generation">The generation settings (temperature, top-k, top-p, seed, reasoning effort). When null, nothing is checked.</param>
+    /// <param name="aiResilience">The retry, timeout and circuit settings of the AI calls. When null, nothing is checked.</param>
     /// <returns><see cref="HealthStatus.Down"/> for an invalid value, <see cref="HealthStatus.Degraded"/> for a missing optional value, otherwise <see cref="HealthStatus.Ok"/>.</returns>
-    public static ConfigHealth Validate(AiProviderSelection provider, GeminiOptions gemini, OpenAiCompatibleOptions openAi, OpenLibraryOptions openLibrary, AiGenerationOptions? generation = null)
+    public static ConfigHealth Validate(AiProviderSelection provider, GeminiOptions gemini, OpenAiCompatibleOptions openAi, OpenLibraryOptions openLibrary, AiGenerationOptions? generation = null, AiResilienceOptions? aiResilience = null)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -23,12 +24,22 @@ public static class HealthConfigCheck
         if (generation is not null)
             errors.AddRange(generation.Problems());
 
+        if (aiResilience is not null)
+            errors.AddRange(aiResilience.Problems());
+
         if (!IsHttpUrl(openLibrary.BaseUrl))
             errors.Add("OpenLibrary:BaseUrl must be an absolute http or https URL.");
         RequirePositive(errors, "OpenLibrary:MaxDetailLookups", openLibrary.MaxDetailLookups);
         RequirePositive(errors, "OpenLibrary:MaxAuthorsPerWork", openLibrary.MaxAuthorsPerWork);
         RequirePositive(errors, "OpenLibrary:MaxConcurrentRequests", openLibrary.MaxConcurrentRequests);
         RequirePositive(errors, "OpenLibrary:DefaultCooldownSeconds", openLibrary.DefaultCooldownSeconds);
+        RequirePositive(errors, "OpenLibrary:AttemptTimeoutMs", openLibrary.AttemptTimeoutMs);
+        RequirePositive(errors, "OpenLibrary:CircuitBreakerSamplingSeconds", openLibrary.CircuitBreakerSamplingSeconds);
+        RequirePositive(errors, "OpenLibrary:CircuitBreakerBreakSeconds", openLibrary.CircuitBreakerBreakSeconds);
+        if (openLibrary.CircuitBreakerFailureRatio is <= 0 or > 1)
+            errors.Add("OpenLibrary:CircuitBreakerFailureRatio must be above 0 and at most 1.");
+        if (openLibrary.CircuitBreakerMinimumThroughput < 2)
+            errors.Add("OpenLibrary:CircuitBreakerMinimumThroughput must be at least 2.");
 
         if (provider.Name == AiProviderSelection.Gemini)
         {

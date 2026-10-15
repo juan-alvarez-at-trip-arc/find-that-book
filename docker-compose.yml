@@ -28,6 +28,14 @@ services:
       Ai__TopP: ${AI_TOP_P:-}
       Ai__Seed: ${AI_SEED:-}
       Ai__ReasoningEffort: ${AI_REASONING_EFFORT:-}
+      Ai__Resilience__RetryCount: ${AI_RESILIENCE_RETRY_COUNT:-1}
+      Ai__Resilience__RetryDelayMs: ${AI_RESILIENCE_RETRY_DELAY_MS:-300}
+      Ai__Resilience__AttemptTimeoutMs: ${AI_RESILIENCE_ATTEMPT_TIMEOUT_MS:-30000}
+      Ai__Resilience__TotalTimeoutMs: ${AI_RESILIENCE_TOTAL_TIMEOUT_MS:-45000}
+      Ai__Resilience__BreakerFailureRatio: ${AI_RESILIENCE_BREAKER_FAILURE_RATIO:-0.5}
+      Ai__Resilience__BreakerMinimumThroughput: ${AI_RESILIENCE_BREAKER_MINIMUM_THROUGHPUT:-4}
+      Ai__Resilience__BreakerSamplingSeconds: ${AI_RESILIENCE_BREAKER_SAMPLING_SECONDS:-30}
+      Ai__Resilience__BreakerBreakSeconds: ${AI_RESILIENCE_BREAKER_BREAK_SECONDS:-30}
       Gemini__ApiKey: ${GEMINI_API_KEY:-}
       Gemini__Model: ${GEMINI_MODEL:-gemini-3.8-flash}
       OpenAiCompatible__ApiKey: ${OPENAI_API_KEY:-}
@@ -38,6 +46,11 @@ services:
       OpenLibrary__MaxAuthorsPerWork: ${OPENLIBRARY_MAX_AUTHORS_PER_WORK:-3}
       OpenLibrary__MaxConcurrentRequests: ${OPENLIBRARY_MAX_CONCURRENT_REQUESTS:-2}
       OpenLibrary__DefaultCooldownSeconds: ${OPENLIBRARY_DEFAULT_COOLDOWN_SECONDS:-30}
+      OpenLibrary__AttemptTimeoutMs: ${OPENLIBRARY_ATTEMPT_TIMEOUT_MS:-10000}
+      OpenLibrary__CircuitBreakerFailureRatio: ${OPENLIBRARY_CIRCUIT_FAILURE_RATIO:-0.5}
+      OpenLibrary__CircuitBreakerMinimumThroughput: ${OPENLIBRARY_CIRCUIT_MINIMUM_THROUGHPUT:-6}
+      OpenLibrary__CircuitBreakerSamplingSeconds: ${OPENLIBRARY_CIRCUIT_SAMPLING_SECONDS:-30}
+      OpenLibrary__CircuitBreakerBreakSeconds: ${OPENLIBRARY_CIRCUIT_BREAK_SECONDS:-20}
       OpenLibrary__Contact: ${OPENLIBRARY_CONTACT:-}
       Telemetry__Enabled: ${TELEMETRY_ENABLED:-false}
       Telemetry__LogHttpBodies: ${TELEMETRY_LOG_HTTP_BODIES:-true}

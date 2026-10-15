@@ -10,6 +10,21 @@ public sealed class OpenLibraryOptions
     /// <summary>Base delay in milliseconds before a retry; it is multiplied by the attempt number.</summary>
     public int RetryDelayMs { get; set; } = 300;
 
+    /// <summary>Time in milliseconds one attempt may take before it is cancelled and counted as a failure.</summary>
+    public int AttemptTimeoutMs { get; set; } = 10_000;
+
+    /// <summary>Share of failed requests, from 0 to 1, within <see cref="CircuitBreakerSamplingSeconds"/> that opens the circuit. 429 responses do not count, the cooldown handles them.</summary>
+    public double CircuitBreakerFailureRatio { get; set; } = 0.5;
+
+    /// <summary>Fewest requests in the sampling window before the circuit may open. Must be at least 2.</summary>
+    public int CircuitBreakerMinimumThroughput { get; set; } = 6;
+
+    /// <summary>Length in seconds of the window in which failures are counted.</summary>
+    public int CircuitBreakerSamplingSeconds { get; set; } = 30;
+
+    /// <summary>Seconds an open circuit rejects requests before it lets one through to test Open Library again.</summary>
+    public int CircuitBreakerBreakSeconds { get; set; } = 20;
+
     /// <summary>How many works per search get a detail lookup (works plus authors). Each one costs several requests.</summary>
     public int MaxDetailLookups { get; set; } = 6;
 

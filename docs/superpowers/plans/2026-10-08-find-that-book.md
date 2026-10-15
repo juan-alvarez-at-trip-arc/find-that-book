@@ -10,7 +10,7 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-08-find-that-book-design.md` (brief: `docs/2025_Developer_Project.md`)
 
-**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. Task 24 (security fixes) brought the .NET count to 430 and Task 25 (AI generation settings) to 487 (88 frontend tests).
+**Branch:** merged into `master`, last commit `659cc63` (feature branches `feature/find-that-book` and `feature/ui-design-improvements`). Test counts at commit `5adc586`: 202 .NET tests, 32 frontend tests, all passing. Task 18 (health endpoints, commit `2344f97`) brought the .NET count to 264, Task 19 to 287 .NET and 45 frontend tests, Task 20 to 53 frontend tests, Task 21 to 55, Task 22 to 58 and Task 23 (toast messages) to 67. Task 24 (security fixes) brought the .NET count to 430 and Task 25 (AI generation settings) to 487 (88 frontend tests) and Task 27 (Polly resilience and its settings files) to 529.
 
 ## Global Constraints
 
@@ -341,6 +341,22 @@ All classes, records, interfaces, enums (with members), methods, constructors an
 **Documentation corrected:** the claim that Grok models reject `reasoning_effort` (README, decisions, `.env.sample`, Task 25) was replaced by what the real run showed. The README, `CLAUDE.md`, the architecture diagrams, the UI spec and the decision record carry the new settings, dates and test counts.
 
 ---
+
+### Task 27: Polly resilience for Open Library and the AI provider
+
+- [x] Not committed when this entry was written. Every behavior has a test that failed first (the tests did not compile until the new types existed). Decision in `docs/decisions.md`.
+
+**Files:** new `Infrastructure/OpenLibrary/OpenLibraryResiliencePipeline.cs`, `Infrastructure/Ai/AiResiliencePipeline.cs`, `Infrastructure/Ai/AiResilienceOptions.cs`, tests `OpenLibraryResilienceTests.cs` and `AiResilienceTests.cs`. Changed `OpenLibraryCatalog` (the manual retry loop is gone, one attempt is `SendOnceAsync`), `OpenLibraryOptions`, `GeminiClient`, `OpenAiCompatibleClient`, `ServiceCollectionExtensions` (shared singletons, the AI client timeout is the total timeout plus 5 s), `FindThatBookTelemetry`, `HealthConfigCheck`, `HealthReportService` and `TelemetryTests`. Packages: `Polly.Core` (Infrastructure) and `Microsoft.Extensions.TimeProvider.Testing` (tests).
+
+**Behavior:**
+- Open Library: retry (`MaxRetries`, linear delay with jitter) on 5xx, network errors, timeouts and invalid JSON, a circuit breaker (ratio 0.5, at least 6 requests in 30 s, 20 s open) and a 10 s timeout per attempt. A 429 starts the cooldown and does not count towards the circuit. The gate and the cooldown check run inside each attempt.
+- AI: a 45 s total timeout, one retry on 5xx and network errors only, a circuit breaker (ratio 0.5, at least 4 calls in 30 s, 30 s open, a 429 counts as a failure) and a 30 s timeout per attempt. An open circuit or a timeout becomes `AiUnavailableException`, so the fallback answers at once.
+- Circuit changes are counted by `ftb.ai.circuit` and `ftb.openlibrary.circuit` (tag `state`). Out-of-range settings make `/api/health/ready` report `unready`.
+
+**Tests:** 42 new (529 total, 13 check the compose and `.env.sample` mappings and 6 check that `appsettings.json` lists every setting with its default): retries, no retry for timeouts, 429 and 4xx on the AI side, the total timeout, circuits opening, closing after the break with a fake clock, a 429 not tripping the Open Library circuit, shared circuit state through the container for both providers and the Open Library catalog, the counters and the settings checks.
+
+**Not verified:** a real outage of Open Library or an AI provider, and the tuning values (they are first guesses). Compose maps the `Ai:Resilience` settings (`AI_RESILIENCE_*`) and the Open Library timeout and circuit settings (`OPENLIBRARY_ATTEMPT_TIMEOUT_MS`, `OPENLIBRARY_CIRCUIT_*`), but not `OpenLibrary:MaxRetries` and `RetryDelayMs`. `docker compose config` accepts the file, and the stack was not started with these values.
+
 
 ## Not done or deferred
 
