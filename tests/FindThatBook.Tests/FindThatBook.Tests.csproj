@@ -26,6 +26,7 @@
     <ProjectReference Include="..\..\src\FindThatBook.Application\FindThatBook.Application.csproj" />
     <ProjectReference Include="..\..\src\FindThatBook.Infrastructure\FindThatBook.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\FindThatBook.Api\FindThatBook.Api.csproj" />
+    <ProjectReference Include="..\..\src\FindThatBook.Mcp\FindThatBook.Mcp.csproj" />
   </ItemGroup>
 
 </Project>

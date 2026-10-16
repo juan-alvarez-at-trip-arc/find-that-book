@@ -1,6 +1,6 @@
 # MCP server design
 
-Date: 2026-10-16. Status: draft for review.
+Date: 2026-10-16. Status: implemented. See "As built" at the end for what changed during implementation.
 
 ## Goal
 
@@ -73,6 +73,15 @@ Added to `tests/FindThatBook.Tests`, which gains a project reference to `FindTha
 - R3: the SDK is at 2.x and changes quickly. The package version is pinned, and T6 to T8 fail on a breaking change.
 - R4: T8 needs the built Mcp dll next to the test binaries. A project reference from the test project copies it. If it does not copy the runtime config, the plan switches T8 to the `dotnet <dll>` path under `src/FindThatBook.Mcp/bin`.
 - R5: a client that parses the JSON text in the content block depends on the field names above. They match the API, so a rename in `BookResult` breaks both, and T1 and T7 catch it.
+
+## As built
+
+- The host builds with `ContentRootPath = AppContext.BaseDirectory`. `Host.CreateApplicationBuilder(args)` otherwise reads `appsettings.json` from the working directory, which contradicts "no settings file". T9 below covers it.
+- R4 happened: the dll next to the test binaries crashes (it lacks `Microsoft.Extensions.Hosting`), so T8 runs the dll from `src/FindThatBook.Mcp/bin/<configuration>/net10.0`. The configuration is the folder name of the test output, and `dotnet test` builds the Mcp project through the project reference.
+- T8 sends `initialize`, waits for its reply, then sends `notifications/initialized` and `tools/list`. Sending all three at once made the reply order depend on timing.
+- T9: a server started in a folder with an `appsettings.json` that names an invalid AI provider still answers `initialize` and `tools/list`.
+- T10: an unexpected exception is logged (the SDK does it) while the client gets only the generic error. `McpHarness.StartAsync` takes an optional `ILoggerProvider` for this.
+- Not run: a real MCP client, a live Open Library search and a live AI provider.
 
 ## Out of scope
 

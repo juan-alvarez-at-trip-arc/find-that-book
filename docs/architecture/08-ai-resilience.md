@@ -22,3 +22,5 @@ flowchart LR
 ```
 
 The circuit opens when at least half of the calls in 30 seconds failed, with at least 4 calls. A 5xx, a network error, a timeout and a 429 count as failures. It stays open for 30 seconds, then lets one call through. While it is open, a search skips the AI at once instead of waiting for a timeout. Opening and closing are counted by `ftb.ai.circuit`.
+
+The MCP server (`FindThatBook.Mcp`) uses the same pipeline in its own process, so its circuit state is separate from the API's. A failing AI provider still gives results with `aiUsed: false`.
