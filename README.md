@@ -103,6 +103,19 @@ Or pull the prebuilt image that CI publishes from `master` (tags `latest` and th
     docker pull ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
     docker run --rm -p 8080:8080 -e Ai__Gemini__ApiKey=<your key> ghcr.io/juan-carlos-alvarez-ruiz/find-that-book:latest
 
+## MCP server
+
+`src/FindThatBook.Mcp` serves the search as an MCP tool over stdio, so an MCP client such as Claude Code or Claude Desktop can find a book from a messy description. It runs the same pipeline as the API (parse, Open Library search, deterministic ranking, explanations, AI fallback). It has no auth, no rate limit and no HTTP transport, so run it only as a local process of your own client.
+
+Tool: `search_books(query)`. It returns the same shape as `POST /api/search` (`aiUsed`, `message` and up to 5 `results`, with `first_publish_year` in snake_case). Only the first 200 characters of the query are used. A blank query and an unavailable Open Library come back as tool errors, and the Open Library limits, cooldown and circuit breaker apply as in the API.
+
+Settings are environment variables in the client's MCP configuration (`Ai__Provider`, `Ai__Gemini__ApiKey`, `Ai__Model`, `OpenLibrary__Contact` and the rest, see [AI providers](#ai-providers)). `dotnet user-secrets`, `.env` and any `appsettings.json` are not read (the host's content root is its own folder, so a file in the client's working directory has no effect). Without a key it runs in fallback mode.
+
+    dotnet build src/FindThatBook.Mcp -c Release
+    claude mcp add find-that-book --env Ai__Gemini__ApiKey=<your key> --env OpenLibrary__Contact=<your email> -- dotnet src/FindThatBook.Mcp/bin/Release/net10.0/FindThatBook.Mcp.dll
+
+Run the built dll, not `dotnet run`: a build step before the server starts is slow and was not checked for stray stdout output. Use the absolute path to the dll when the client does not start the server from the repository root, as Claude Desktop does. Logs go to stderr, because stdout carries only protocol messages.
+
 ## Project layout
 
 ```
@@ -116,6 +129,7 @@ src/
                                 Gemini and OpenAI-compatible clients, health probes and
                                 config check (Health/), HTTP logging and masking (Telemetry/),
                                 DI registration
+  FindThatBook.Mcp/             stdio MCP server with one tool, search_books, on the same search pipeline
 tests/FindThatBook.Tests/       xUnit tests (stub HTTP handlers, fake AI client and catalog)
 web/                            React + Vite + TypeScript UI (see web/README.md), plus the
                                 static landing page (public/landing.html)
@@ -289,12 +303,13 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Api__Telem
 - The security headers were checked by hand against the Docker image started with `docker compose up` (so with the compose hardening flags): on 2026-10-13 in headless Chrome and on 2026-10-14 in headed Chrome (T30 in `docs/ui-tests/README.md`). The page, a search and the covers load with no policy violation logged, and a browser refuses to show the app in a frame (`X-Frame-Options: DENY` and `frame-ancestors 'none'` are enforced). No automated browser test covers the Content-Security-Policy.
 - `AllowedHosts` is `*`, so the app answers any `Host` header. Set it to your hostnames when you deploy. The Content-Security-Policy keeps `style-src-attr 'unsafe-inline'` (the progress scenes use inline style attributes) and allows `https://*.archive.org` (cover redirects).
 - A shared Open Library request still runs to the end when every caller has cancelled. It is bounded by the 10 second timeout and the retry limit, and its result lands in the cache.
+- The MCP server was tested through an in-memory client and as a started process that only lists its tools. It was not run against a real MCP client, a live Open Library or an AI provider. Its cache, Open Library cooldown and circuit state live in its own process, so they are separate from the API's and reset on restart.
 - The image has no `HEALTHCHECK` (the base image has no `curl` or `wget`) and CI does not scan the built image for vulnerabilities.
 - The Docker image builds and serves the UI and API (checked by hand on 2026-10-10, 2026-10-13 and 2026-10-14, see `docs/ui-tests/README.md`), AI mode was checked once with a real gateway (T32: `aiUsed: true`, no fallback toast), and the CI publish job builds the image and smoke-tests it (`/api/health` and the UI root) before pushing, but no test in the repo exercises searches against the running image.
 
 ## Testing
 
-- 590 .NET tests (a test checks that `appsettings.json` lists every option setting with its default, resilience tests cover the retries, the timeouts, the circuits opening and closing with a fake clock, 429 handling and the shared circuit state through the container, and the counters and settings checks; generation-setting tests cover the defaults, range and shape checks, both providers' request bodies, configuration binding through the real container, the readiness check and the config dump; security tests cover prompt injection, role separation, the rate limit (including path variants), the opt-in and proxy-aware config endpoint, the minimal readiness body, the 413 response, the headers (including on error responses), the response size cap, shared requests and cancellation, id validation, key masking, AI output limits and the pinned compose, Dockerfile and workflow files). `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
+- 606 .NET tests (MCP tests go through an in-memory MCP client and server pair and cover the tool contract, the empty query, an unavailable catalog, the AI fallback, hidden and logged unexpected errors, a very long and a non-Latin query, and two searches at once; `McpProcessTests` starts the built server as a process and checks that stdout holds only JSON-RPC and that an `appsettings.json` in the working directory is ignored; a test checks that `appsettings.json` lists every option setting with its default, resilience tests cover the retries, the timeouts, the circuits opening and closing with a fake clock, 429 handling and the shared circuit state through the container, and the counters and settings checks; generation-setting tests cover the defaults, range and shape checks, both providers' request bodies, configuration binding through the real container, the readiness check and the config dump; security tests cover prompt injection, role separation, the rate limit (including path variants), the opt-in and proxy-aware config endpoint, the minimal readiness body, the 413 response, the headers (including on error responses), the response size cap, shared requests and cancellation, id validation, key masking, AI output limits and the pinned compose, Dockerfile and workflow files). `Normalizer` and `Matcher` carry most coverage (every tier, contributors, subtitles, diacritics, apostrophes, initials, transliteration, dedupe, ties, guessed versus extracted authors, edition titles, aliases).
 - Parser, writer and client tests use a fake AI client and stub `HttpMessageHandler`s, including malformed JSON, HTTP errors, schema conversion and provider selection.
 - Open Library catalog tests cover parsing, retries, enrichment failures, lookup caps, shared lookups for an author used by several works, the concurrency limit and the 429 cooldown.
 - Integration tests use `WebApplicationFactory` with a fake catalog, covering fallback mode, AI mode, 400, 502 and empty queries.
@@ -307,6 +322,7 @@ The API exports traces, metrics and logs over OTLP. It is off unless `Api__Telem
 
 - Design: [docs/superpowers/specs/2026-10-08-find-that-book-design.md](docs/superpowers/specs/2026-10-08-find-that-book-design.md)
 - Implementation plan (as built): [docs/superpowers/plans/2026-10-08-find-that-book.md](docs/superpowers/plans/2026-10-08-find-that-book.md)
+- MCP server design: [docs/superpowers/specs/2026-10-16-mcp-server-design.md](docs/superpowers/specs/2026-10-16-mcp-server-design.md). Plan: [docs/superpowers/plans/2026-10-16-mcp-server.md](docs/superpowers/plans/2026-10-16-mcp-server.md)
 - Decision record (ideas set aside, changes from the first draft): [docs/decisions.md](docs/decisions.md)
 - Architecture diagrams (one file per diagram): [docs/architecture/](docs/architecture/)
 - Call tree of one traced search: [docs/call-tree-analysis.md](docs/call-tree-analysis.md)

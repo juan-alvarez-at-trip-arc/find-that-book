@@ -28,3 +28,5 @@ flowchart LR
 ```
 
 The circuit opens when at least half of the requests in 30 seconds failed, with at least 6 requests (`OpenLibrary:Resilience:CircuitBreaker*`). It stays open for 20 seconds, then lets one request through. While it is open, searches fail with a 502 and send no request. Opening and closing are counted by `ftb.openlibrary.circuit`.
+
+The MCP server (`FindThatBook.Mcp`) uses the same pipeline, gate, cache and cooldown, but in its own process. Its cache, cooldown and circuit state are not shared with the API, and the API's per-client rate limit does not apply to it. A `CatalogUnavailableException` becomes a tool error with a retry hint instead of a 502.

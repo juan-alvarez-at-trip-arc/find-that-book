@@ -47,3 +47,33 @@ sequenceDiagram
     C-->>W: JSON (aiUsed, message, results)
     W-->>U: ranked result cards
 ```
+
+## Search through the MCP server
+
+The MCP tool enters the same pipeline at `SearchService`. Everything after `SearchAsync` in the diagram above is unchanged.
+
+```mermaid
+sequenceDiagram
+    actor C as MCP client
+    participant T as BookSearchTools
+    participant S as SearchService
+
+    C->>T: tools/call search_books(query) over stdio
+    alt blank query
+        T-->>C: error result, empty-query message (search never called)
+    else
+        T->>S: SearchAsync(query)
+        alt CatalogUnavailableException
+            S-->>T: exception
+            T-->>C: error result, "Open Library is unavailable or cooling down"
+        else unexpected exception
+            S-->>T: exception
+            T-->>C: generic tool error, detail logged to stderr
+        else ok
+            S-->>T: SearchResponse (aiUsed, message, results)
+            T-->>C: the response as JSON text (first_publish_year in snake_case)
+        end
+    end
+```
+
+`AiUnavailableException` never reaches the tool. The fallback decorators handle it and the response carries `aiUsed: false`.

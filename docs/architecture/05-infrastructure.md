@@ -41,4 +41,16 @@ flowchart LR
     api --> ext[(Open Library, AI provider)]
 ```
 
+## MCP server
+
+```mermaid
+flowchart LR
+    cl(["MCP client<br/>Claude Code, Claude Desktop"]) -- "starts the process,<br/>JSON-RPC on stdin and stdout" --> mcp["dotnet FindThatBook.Mcp.dll<br/>(built with dotnet build -c Release)"]
+    cfg["env vars in the client's MCP config<br/>Ai__*, OpenLibrary__Contact, ..."] --> mcp
+    mcp -- "logs on stderr only" --> cl
+    mcp --> ext[(Open Library, AI provider)]
+```
+
+The MCP server is not in the Docker image or `docker-compose.yml`, which publish only the API. It reads environment variables, not `.env`, user secrets or an `appsettings.json` (the host's content root is its own folder). Start it from a built dll, not `dotnet run`, and use an absolute path when the client does not start it from the repository root.
+
 `dotnet run` reads env vars, not `.env`. See [07-telemetry.md](07-telemetry.md) for what is exported. Only `docker compose` reads `.env`.

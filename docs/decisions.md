@@ -18,6 +18,11 @@ Ideas that were tried or considered and not shipped, so they are not retried bli
 | Persistent cache | The one-hour in-memory cache is enough for one instance. |
 | ISBN matching | Not in the brief. |
 | Hosted live demo | Needs a hosting account. |
+| Remote (HTTP) transport for the MCP server, with auth and rate limits | The MCP server is a local stdio process of the user's own client, so it needs none of them. A remote transport would need auth, the rate limit and the security headers the API has. Revisit when someone needs to reach it over a network. |
+| A readiness tool, resources and prompts in the MCP server | One tool, `search_books`, is all the use case needs. |
+| Telemetry and a Docker image for the MCP server | Telemetry is wired by the API, not by `AddFindThatBook`, and a client starts the MCP server as a local process. Revisit with a remote transport. |
+| A stdio mode in `FindThatBook.Api`, or an MCP server that calls the HTTP API | A separate project on `ISearchService` keeps the API unchanged and needs no running API. |
+| `dotnet run` as the MCP server command | A build step before the server starts is slow and was not checked for stray stdout output. Clients run the built dll. |
 | Masking the reader's search text in telemetry | The text is the app's core input, not a credential, and it is needed to debug results. Reconsider if logs leave the operator's own collector. |
 | A telemetry backend in `docker-compose.yml` | The app only exports OTLP. Point `OTEL_EXPORTER_OTLP_ENDPOINT` at an existing collector. |
 | Docker image build check | Done by hand on 2026-10-10, 2026-10-13 and 2026-10-14: the image builds and serves the UI and API, and the CI publish job builds it and smoke-tests it. No automated test in the repo runs searches against the image. |

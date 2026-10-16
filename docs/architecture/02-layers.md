@@ -21,6 +21,12 @@ flowchart TB
         TelemetryExt["TelemetryExtensions (OpenTelemetry)"]
     end
 
+    subgraph Mcp["FindThatBook.Mcp (stdio, one tool)"]
+        BookSearchTools["BookSearchTools<br/>search_books"]
+        McpExt["McpServiceCollectionExtensions<br/>AddFindThatBookMcp"]
+        McpProgram["Program.cs (stderr logging, stdio transport)"]
+    end
+
     subgraph Infra["FindThatBook.Infrastructure"]
         OpenLibraryCatalog
         OpenLibraryGate
@@ -53,6 +59,12 @@ flowchart TB
     lib_api -- "HTTP" --> SearchController
     SearchController --> SearchService
     HealthController --> Health
+    BookSearchTools --> SearchService
+    McpProgram --> McpExt
+    McpProgram --> DI
+    McpExt --> BookSearchTools
+    Mcp --> Infra
+    Mcp --> App_
     Program --> DI
     Program --> TelemetryExt
     TelemetryExt --> HttpLog
@@ -79,3 +91,5 @@ flowchart TB
     OLPipe --> FindThatBookTelemetry
     Health --> ResOptions
 ```
+
+`FindThatBook.Mcp` uses `FindThatBook.Application` for `ISearchService` and the response types. It uses `FindThatBook.Infrastructure` only to call `AddFindThatBook`, which wires the same catalog, AI clients and decorators as the API. It has no ASP.NET dependency and no settings file.
