@@ -12,6 +12,7 @@ Expose "find that book" as an MCP tool, so an MCP client such as Claude Code or 
 - D2: One tool, `search_books(query)`. No readiness tool, resources or prompts.
 - D3: A new project, `src/FindThatBook.Mcp`. It consumes `ISearchService` from `FindThatBook.Application`. Application and Infrastructure do not change.
 - D4: The existing `FindThatBook.Api` does not gain a stdio mode, and the MCP server does not call the HTTP API.
+- D5: No MCP sampling. The server declares no use of it and sends no `sampling/createMessage` request. Sampling is deprecated in the 2026-07-28 spec (SEP-2577), most clients do not support it (Claude Code and Claude.ai do not), and the parse and explanation steps already run through `IAiClient` with validation, `ExplanationGuard` and a non-AI fallback. See `docs/decisions.md`.
 
 ## Assumption corrected during design
 
@@ -85,4 +86,4 @@ Added to `tests/FindThatBook.Tests`, which gains a project reference to `FindTha
 
 ## Out of scope
 
-Remote HTTP transport and auth, a readiness tool, resources and prompts, telemetry in the MCP host, a Docker image for it, structured output schemas and any change to ranking or the AI steps.
+Remote HTTP transport and auth, MCP sampling (D5), a readiness tool, resources and prompts, telemetry in the MCP host, a Docker image for it, structured output schemas and any change to ranking or the AI steps.
