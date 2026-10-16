@@ -111,6 +111,8 @@ Tool: `search_books(query)`. It returns the same shape as `POST /api/search` (`a
 
 Settings are environment variables in the client's MCP configuration (`Ai__Provider`, `Ai__Gemini__ApiKey`, `Ai__Model`, `OpenLibrary__Contact` and the rest, see [AI providers](#ai-providers)). `dotnet user-secrets`, `.env` and any `appsettings.json` are not read (the host's content root is its own folder, so a file in the client's working directory has no effect). Without a key it runs in fallback mode.
 
+It does not use MCP sampling (asking the client's model to do the AI steps). Sampling is deprecated in the 2026-07-28 spec (SEP-2577), most clients do not support it (Claude Code and Claude.ai do not), and the server already runs the AI steps through its own provider with validation and a non-AI fallback. The AI therefore needs its own key, as in the API. See [docs/decisions.md](docs/decisions.md).
+
     dotnet build src/FindThatBook.Mcp -c Release
     claude mcp add find-that-book --env Ai__Gemini__ApiKey=<your key> --env OpenLibrary__Contact=<your email> -- dotnet src/FindThatBook.Mcp/bin/Release/net10.0/FindThatBook.Mcp.dll
 
